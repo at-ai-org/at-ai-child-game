@@ -203,7 +203,7 @@
   <div class="sub">看对手赛车顶上的大数字，输入它就能超车！</div>
   <input id="numberInput" type="text" inputmode="numeric" autocomplete="off" maxlength="1" placeholder="?">
   <div id="keypad"></div>
-  <div class="tip" id="challengeTip">输入 0 - 9 中的一个数字，然后按回车</div>
+  <div class="tip" id="challengeTip">输入 0 - 9 中的一个数字</div>
 </div>
 
 <!-- 结果反馈 -->
@@ -223,7 +223,7 @@
   <h1>数字赛车</h1>
   <p class="rules">
     你的赛车正在赛道上飞驰！遇到并排的对手时会弹出数字挑战 ——<br>
-    看对手车顶的号码，输入 <b>0-9</b> 中的一个数字并按 <b>回车</b>：<br>
+    看对手车顶的号码，输入 <b>0-9</b> 中的一个数字：<br>
     ✅ 答对 → 立刻加速超越对手　　❌ 答错 → 播报正确数字，再来一次<br>
     一辆接一辆地超越，直到跑完全程 1000 米！
   </p>
@@ -1137,7 +1137,7 @@ function startChallenge(r) {
   r.z = PLAYER_Z;                         // 与玩家同 z = 画面上并排
   answer = r.number;
   challengeBox.classList.add('show');
-  challengeTip.textContent = '输入 0 - 9 中的一个数字，然后按回车';
+  challengeTip.textContent = '输入 0 - 9 中的一个数字';
   challengeTip.style.color = '';
   numberInput.value = '';
   if (!isTouch) {
@@ -1182,6 +1182,7 @@ function submitAnswer() {
     /* ❌ 错误 → 播报正确数字，继续输入 */
     wrongTotal++;
     streak = 0;
+    numberInput.value = '';
     challengeTip.style.color = '#ff9d9d';
     challengeTip.textContent = `正确的数字是 ${answer}，再输入一次！`;
     toast(`❌ 正确数字是 ${answer}`);
@@ -1201,9 +1202,12 @@ numberInput.addEventListener('keydown', (e) => {
     submitAnswer();
   }
 });
-/* 只允许一位数字 */
+/* 只允许一位数字；输满一位自动提交（回车作为备用） */
 numberInput.addEventListener('input', () => {
   numberInput.value = numberInput.value.replace(/[^0-9]/g, '').slice(-1);
+  if (numberInput.value !== '') {
+    submitAnswer();
+  }
 });
 
 /* 触屏/鼠标数字键盘 */
@@ -1217,7 +1221,10 @@ for (const k of KEYS) {
     if (state !== STATE.CHALLENGE) return;
     if (k === '⌫') numberInput.value = '';
     else if (k === '⏎') submitAnswer();
-    else numberInput.value = k;
+    else {
+      numberInput.value = k;
+      submitAnswer();                     // 输入数字即自动提交，无需回车
+    }
     if (!isTouch && k !== '⏎') numberInput.focus();
   });
   keypadEl.appendChild(b);
@@ -1227,8 +1234,13 @@ for (const k of KEYS) {
 window.addEventListener('keydown', (e) => {
   if (state !== STATE.CHALLENGE) return;
   if (e.target === numberInput) return;
-  if (/^[0-9]$/.test(e.key)) numberInput.value = e.key;
-  else if (e.key === 'Enter') { e.preventDefault(); submitAnswer(); }
+  if (/^[0-9]$/.test(e.key)) {
+    numberInput.value = e.key;
+    submitAnswer();                       // 自动提交
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    submitAnswer();
+  }
 });
 
 /* ---------------- 主循环 ---------------- */

@@ -203,7 +203,7 @@
   <div class="sub">看被瞄准敌机身上的大数字，输入它就能发射导弹！</div>
   <input id="numberInput" type="text" inputmode="numeric" autocomplete="off" maxlength="1" placeholder="?">
   <div id="keypad"></div>
-  <div class="tip" id="challengeTip">输入 0 - 9 中的一个数字，然后按回车</div>
+  <div class="tip" id="challengeTip">输入 0 - 9 中的一个数字</div>
 </div>
 
 <!-- 结果反馈 -->
@@ -222,7 +222,7 @@
 <div id="start">
   <h1>数字飞机</h1>
   <p class="rules">
-    你的战机正在高空巡航！敌机会迎面飞来，锁定目标后输入它机身上的 <b>0-9</b> 数字并按 <b>回车</b>：<br>
+    你的战机正在高空巡航！敌机会迎面飞来，锁定目标后输入它机身上的 <b>0-9</b> 数字：<br>
     ✅ 答对 → 发射导弹击毁敌机，你的战机会 <b>变大变强</b>　　❌ 答错 → 播报正确数字，再来一次<br>
     击毁 15 架敌机，完成任务！
   </p>
@@ -365,7 +365,10 @@ KEYS.forEach(k => {
   btn.addEventListener('click', () => {
     if (k === '⏎') submitAnswer();
     else if (k === '⌫') numberInput.value = '';
-    else numberInput.value = k;
+    else {
+      numberInput.value = k;
+      submitAnswer();                     // 输入数字即自动提交，无需回车
+    }
     if (!isTouch) { numberInput.focus(); numberInput.select(); }
   });
   $('keypad').appendChild(btn);
@@ -377,6 +380,25 @@ numberInput.addEventListener('keydown', e => {
     submitAnswer();
   } else if (e.key === 'Escape') {
     e.preventDefault();
+  }
+});
+/* 输入满一位数字 → 自动提交（回车作为备用） */
+numberInput.addEventListener('input', () => {
+  numberInput.value = numberInput.value.replace(/[^0-9]/g, '').slice(-1);
+  if (numberInput.value !== '') {
+    submitAnswer();
+  }
+});
+/* 焦点丢失时的键盘兜底：直接按键也能自动提交 */
+window.addEventListener('keydown', e => {
+  if (state !== STATE.CHALLENGE) return;
+  if (e.target === numberInput) return;
+  if (/^[0-9]$/.test(e.key)) {
+    numberInput.value = e.key;
+    submitAnswer();
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    submitAnswer();
   }
 });
 
@@ -478,7 +500,7 @@ const PRAISES = ['击中了！', '太棒了', '好厉害', '打中了', '真不�
 function openChallenge() {
   answer = lockedEnemy.num;
   challengeBox.classList.add('show');
-  challengeTip.textContent = '输入被瞄准敌机身上的数字，然后按回车';
+  challengeTip.textContent = '输入被瞄准敌机身上的数字';
   challengeTip.style.color = '';
   numberInput.value = '';
   if (!isTouch) {
@@ -502,6 +524,7 @@ function submitAnswer() {
   if (v === answer) {
     sfxRight();
     closeChallenge();
+    numberInput.value = '';
     state = STATE.FIRING;
     missile = { t: 0, trail: [] };
     sfxMissile();
