@@ -1,37 +1,44 @@
 # at-ai-child-game
 
-#### 介绍
-用AI编写少儿教育类游戏
+用 AI 编写的少儿教育类小游戏合集。每个游戏都是**零依赖的单 HTML 文件**，下载后双击即可在浏览器中离线游玩。
 
-#### 软件架构
-软件架构说明
+## 游戏
 
+### 🏎️ 数字赛车（number-car）
 
-#### 安装教程
+开着赛车在伪 3D 赛道上飞驰！前方会出现携带数字号码牌的对手车（跑车 / 卡车 / 挖掘机 / 装载机），当对手与你并排时弹出数字输入挑战：
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+- **答对** → 加速超越对手，获得表扬
+- **答错** → 语音播报正确数字并提示重试，直到答对为止（无惩罚，鼓励学习）
 
-#### 使用说明
+**教育目标**：0-9 数字认知、键盘数字键 / 触屏数字键盘练习
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+**玩法**：
+1. 打开 `number-car/index.html`（双击即可，无需服务器）
+2. 点击「开始比赛」
+3. 对手车接近并排时，在输入框输入车尾号码牌上的数字，按回车（触屏设备自动显示数字键盘）
+4. 答对超车继续前进，答错会告诉你正确数字，再输一次就行
+5. 全程 1000 米，抵达终点获得奖牌（金 18 连对 / 银 12 / 铜 6）
 
-#### 参与贡献
+**特性**：
+- 伪 3D 透视赛道（OutRun 式投影）：S 形弯道、距离雾化、地平线辉光——速度感强且不刺眼
+- 四种尾视图车型：跑车、卡车、挖掘机、装载机，车尾都有醒目的圆形号码牌
+- 路边景深装饰：透视分布的松树、护栏柱、带悬垂电线的电线杆
+- Web Speech API 中文语音播报（答错时朗读正确数字）
+- Web Audio 引擎音效与提示音（可静音）
+- 答题连击与奖牌结算
 
-1.  Fork 本仓库
-2.  新建 Feat_xxx 分支
-3.  提交代码
-4.  新建 Pull Request
+## 环境要求
 
+- 任何现代浏览器（Chrome / Edge / Safari / Firefox），无需安装任何东西
 
-#### 特技
+## 参与贡献
 
-1.  使用 Readme\_XXX.md 来支持不同的语言，例如 Readme\_en.md, Readme\_zh.md
-2.  Gitee 官方博客 [blog.gitee.com](https://blog.gitee.com)
-3.  你可以 [https://gitee.com/explore](https://gitee.com/explore) 这个地址来了解 Gitee 上的优秀开源项目
-4.  [GVP](https://gitee.com/gvp) 全称是 Gitee 最有价值开源项目，是综合评定出的优秀开源项目
-5.  Gitee 官方提供的使用手册 [https://gitee.com/help](https://gitee.com/help)
-6.  Gitee 封面人物是一档用来展示 Gitee 会员风采的栏目 [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)
+1. Fork 本仓库
+2. 新建 `feat_xxx` 分支
+3. 提交代码
+4. 新建 Pull Request
+
+## License
+
+MIT
