@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>少儿 AI 游戏乐园</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    min-height: 100vh;
+    background: #0b1026;
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    color: #e8eeff;
+    overflow-x: hidden;
+  }
+  /* 星空背景 */
+  .stars, .stars2 { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+  .stars { animation: twinkle 4s ease-in-out infinite; }
+  .stars2 { animation: twinkle 4s ease-in-out infinite 2s; }
+  @keyframes twinkle { 0%,100% { opacity: .5; } 50% { opacity: 1; } }
+
+  .wrap {
+    position: relative; z-index: 1;
+    max-width: 900px; margin: 0 auto;
+    padding: 48px 24px 64px;
+    text-align: center;
+  }
+  h1 {
+    font-size: clamp(28px, 5vw, 42px);
+    letter-spacing: 2px;
+    background: linear-gradient(90deg, #7db4ff, #ffd35c, #ff8fab, #7db4ff);
+    background-size: 300% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: flow 8s linear infinite;
+  }
+  @keyframes flow { to { background-position: 300% 0; } }
+  .sub {
+    margin: 12px 0 40px;
+    color: #9fb0d8; font-size: 15px; letter-spacing: 1px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 22px;
+  }
+  .card {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    border-radius: 18px;
+    padding: 26px 22px 22px;
+    background: linear-gradient(160deg, rgba(40,52,96,.45), rgba(16,22,52,.75));
+    border: 1px solid rgba(125,180,255,.16);
+    transition: transform .25s ease, box-shadow .25s ease, border-color .25s;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::after {
+    content: "";
+    position: absolute; inset: 0;
+    background: radial-gradient(320px 140px at 50% -30%, rgba(125,180,255,.22), transparent 70%);
+    pointer-events: none;
+  }
+  .card:hover, .card:focus-visible {
+    transform: translateY(-6px);
+    border-color: rgba(125,180,255,.5);
+    box-shadow: 0 14px 34px rgba(4,8,28,.6);
+    outline: none;
+  }
+  .icon {
+    font-size: 54px;
+    line-height: 1;
+    margin-bottom: 14px;
+    filter: drop-shadow(0 4px 10px rgba(125,180,255,.35));
+  }
+  .name { font-size: 21px; font-weight: 700; letter-spacing: 1px; }
+  .desc {
+    margin-top: 8px;
+    color: #9fb0d8; font-size: 13.5px; line-height: 1.65;
+  }
+  .tags { margin-top: 14px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .tag {
+    font-size: 12px; padding: 3px 10px;
+    border-radius: 999px;
+    background: rgba(125,180,255,.14);
+    color: #a8c4ff;
+    border: 1px solid rgba(125,180,255,.22);
+  }
+  .play {
+    margin-top: 18px;
+    display: inline-block;
+    font-size: 14px; font-weight: 600; letter-spacing: 2px;
+    color: #0b1026;
+    background: linear-gradient(90deg, #7db4ff, #ffd35c);
+    padding: 9px 26px;
+    border-radius: 999px;
+    transition: filter .2s;
+  }
+  .card:hover .play { filter: brightness(1.12); }
+
+  .more {
+    margin-top: 34px;
+    color: #6c7ca6; font-size: 13px; letter-spacing: 1px;
+  }
+
+  footer {
+    position: relative; z-index: 1;
+    text-align: center;
+    padding: 0 24px 36px;
+    color: #55628c; font-size: 12px;
+  }
+  @media (max-width: 480px) {
+    .wrap { padding-top: 36px; }
+    .icon { font-size: 46px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .stars, .stars2, h1 { animation: none; }
+    .card { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div class="stars" aria-hidden="true"></div>
+<div class="stars2" aria-hidden="true"></div>
+<script>
+  // 生成两层星空（与数字赛车游戏同款夜间氛围）
+  (function () {
+    const mk = (cls, n, css) => {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('class', cls);
+      svg.setAttribute('width', '100%'); svg.setAttribute('height', '100%');
+      let s = '';
+      for (let i = 0; i < n; i++) {
+        const x = (Math.random() * 100).toFixed(2), y = (Math.random() * 100).toFixed(2);
+        const r = (Math.random() * 1.3 + 0.4).toFixed(2);
+        const o = (Math.random() * 0.5 + 0.25).toFixed(2);
+        s += `<circle cx="${x}%" cy="${y}%" r="${r}" fill="#dceaff" opacity="${o}"/>`;
+      }
+      svg.innerHTML = s;
+      document.body.appendChild(svg);
+    };
+    mk('stars', 60);
+    mk('stars2', 35);
+  })();
+</script>
+<noscript><style>.stars,.stars2{display:none}</style></noscript>
+
+<div class="wrap">
+  <h1>少儿 AI 游戏乐园</h1>
+  <p class="sub">边玩边学 · 点击卡片开始游戏</p>
+
+  <div class="grid">
+    <a class="card" href="number-car/index.html">
+      <div class="icon" aria-hidden="true">🏎️</div>
+      <div class="name">数字赛车</div>
+      <div class="desc">在伪 3D 赛道上飞驰，超越跑车、卡车、挖掘机。答对车尾的数字就能加速超车，答错也不怕，会告诉你正确答案再试一次。</div>
+      <div class="tags">
+        <span class="tag">数字认知 0-9</span>
+        <span class="tag">键盘练习</span>
+        <span class="tag">语音播报</span>
+      </div>
+      <span class="play">开始游戏</span>
+    </a>
+  </div>
+
+  <p class="more">更多游戏制作中，敬请期待 ✨</p>
+</div>
+
+<footer>at-ai-child-game · 用 AI 编写的少儿教育游戏 · MIT License</footer>
+</body>
+</html>
