@@ -300,16 +300,26 @@ if (synth) {
   pickVoice();
   synth.onvoiceschanged = pickVoice;
 }
-function speak(text) {
+function speak(text, opts) {
   if (muted || !synth) return;
   try {
-    synth.cancel();
+    /* 关键教学句（数字播报）打断一切；次要句（开始/表扬等）不冲掉正在读的关键句 */
+    const isKey = opts && opts.key;
+    if (isKey) synth.cancel();
+    else if (synth.speaking && lastSpeakKey) return;
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'zh-CN';
     if (zhVoice) u.voice = zhVoice;
     u.rate = 0.92;
+    u.onend = () => { if (lastSpeakKey === u) lastSpeakKey = null; };
+    if (isKey) lastSpeakKey = u;
     synth.speak(u);
   } catch (e) { /* 忽略 */ }
+}
+let lastSpeakKey = null;
+/* 数字播报：数字重复读两遍，突出关键信息 */
+function speakNumber(prefix, n) {
+  speak(prefix + n + '！' + n + '，' + n + '！', { key: true });
 }
 
 /* ---------------- 音效 ---------------- */
@@ -412,7 +422,7 @@ function makeQuiz() {
 
   targetWordEl.textContent = n;
   targetHintEl.textContent = '戳数字 ' + n + ' 的气球';
-  speak('戳数字' + n + '！');
+  speakNumber('戳数字', n);
   caption('🔈 戳数字 ' + n + ' 的气球');
   updateHUD();
 }
@@ -562,7 +572,7 @@ function judge(b) {
     b.wrongShake = 0.5;
     sfxWrong();
     toast('这是 ' + b.num, false);
-    speak('这是数字' + b.num + '，找找' + targetNum + '吧');
+    speakNumber('这是数字' + b.num + '，找找', targetNum);
     caption('🔈 这是数字 ' + b.num + '，找找 ' + targetNum + ' 吧');
     updateHUD();
   }

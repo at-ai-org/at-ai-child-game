@@ -297,16 +297,28 @@ if (synth) {
   pickVoice();
   synth.onvoiceschanged = pickVoice;
 }
-function speak(text) {
+function speak(text, opts) {
   if (muted || !synth) return;
   try {
-    synth.cancel();
+    /* 关键教学句（数字播报）打断一切；次要句（表扬等）不冲掉正在读的关键句 */
+    const isKey = opts && opts.key;
+    if (isKey) synth.cancel();
+    else if (synth.speaking && lastSpeakKey) return;
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'zh-CN';
     if (zhVoice) u.voice = zhVoice;
     u.rate = 0.92;
+    u.onend = () => { if (lastSpeakKey === u) lastSpeakKey = null; };
+    if (isKey) lastSpeakKey = u;
     synth.speak(u);
   } catch (e) { /* 忽略 */ }
+}
+let lastSpeakKey = null;
+/* 数字挑战播报：数字重复读两遍，突出关键信息 */
+function speakNumber(prefix, n, suffix) {
+  const parts = [prefix + n + '！', String(n)];
+  if (suffix) parts.push(suffix);
+  speak(parts.join('，'), { key: true });
 }
 
 /* ---------------- 音效 ---------------- */
@@ -506,7 +518,7 @@ function openChallenge() {
   if (!isTouch) {
     setTimeout(() => { numberInput.focus(); numberInput.select(); }, 60);
   }
-  speak(`锁定敌机！它身上的数字是 ${answer}，输入它就能发射导弹`);
+  speakNumber('锁定敌机！它身上的数字是', answer, '输入它就能发射导弹');
 }
 function closeChallenge() {
   challengeBox.classList.remove('show');
@@ -535,7 +547,7 @@ function submitAnswer() {
     updateHUD();
     challengeTip.textContent = `正确的数字是 ${answer}，再输入一次！`;
     challengeTip.style.color = '#ff9d9d';
-    speak(`答错了，正确的数字是 ${answer}，请再输入一次`);
+    speakNumber('答错了，正确的数字是', answer, '请再输入一次');
     sfxWrong();
     shake = 0.35;
     numberInput.value = '';

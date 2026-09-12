@@ -307,17 +307,29 @@ if (synth) {
     speechSynthesis.onvoiceschanged = pickVoice;
   }
 }
-function speak(text) {
+function speak(text, opts) {
   if (!synth || muted) return;
   try {
-    synth.cancel();
+    /* 关键教学句（数字播报）打断一切；次要句（表扬等）不冲掉正在读的关键句 */
+    const isKey = opts && opts.key;
+    if (isKey) synth.cancel();
+    else if (synth.speaking && lastSpeakKey) return;   // 关键句播报中，跳过次要句
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'zh-CN';
     if (zhVoice) u.voice = zhVoice;
     u.rate = 0.95;
     u.pitch = 1.05;
+    u.onend = () => { if (lastSpeakKey === u) lastSpeakKey = null; };
+    if (isKey) lastSpeakKey = u;
     synth.speak(u);
   } catch (e) { /* 部分浏览器不支持，忽略 */ }
+}
+let lastSpeakKey = null;
+/* 数字挑战播报：数字重复读两遍，突出关键信息 */
+function speakNumber(prefix, n, suffix) {
+  const parts = [prefix + n + '！', String(n)];
+  if (suffix) parts.push(suffix);
+  speak(parts.join('，'), { key: true });
 }
 
 /* ---------------- 音效（Web Audio） ---------------- */
@@ -1425,7 +1437,7 @@ function startChallenge(r) {
   if (!isTouch) {
     setTimeout(() => { numberInput.focus(); numberInput.select(); }, 60);
   }
-  speak(`超车挑战！对手的号码是 ${answer}，输入它就能超越他`);
+  speakNumber('超车挑战！对手的号码是', answer, '输入它就能超越他');
 }
 
 function closeChallenge() {
@@ -1469,7 +1481,7 @@ function submitAnswer() {
     challengeTip.textContent = `正确的数字是 ${answer}，再输入一次！`;
     toast(`❌ 正确数字是 ${answer}`);
     sfxWrong();
-    speak(`答错了，正确的数字是 ${answer}，请再输入一次`);
+    speakNumber('答错了，正确的数字是', answer, '请再输入一次');
     numberInput.value = '';
     if (!isTouch) numberInput.focus();
     shake = 0.35;

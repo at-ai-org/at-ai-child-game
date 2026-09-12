@@ -122,16 +122,22 @@ function pickVoice() {
   zhVoice = vs.find(v => /zh[-_]CN/i.test(v.lang)) || vs.find(v => /^zh/i.test(v.lang)) || null;
 }
 if (synth) { pickVoice(); if (synth.onvoiceschanged !== undefined) synth.onvoiceschanged = pickVoice; }
-function speak(text) {
+function speak(text, opts) {
   if (muted || !synth) return;
   try {
-    synth.cancel();
+    /* 关键教学句（数字播报）打断一切；次要句（表扬等）不冲掉正在读的关键句 */
+    const isKey = opts && opts.key;
+    if (isKey) synth.cancel();
+    else if (synth.speaking && lastSpeakKey) return;
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'zh-CN'; if (zhVoice) u.voice = zhVoice; u.rate = 0.92;
+    u.onend = () => { if (lastSpeakKey === u) lastSpeakKey = null; };
+    if (isKey) lastSpeakKey = u;
     synth.speak(u);
   } catch (e) {}
 }
-function say(text) { caption(text); speak(text); }
+let lastSpeakKey = null;
+function say(text, key) { caption(text); speak(text, key ? { key: true } : undefined); }
 function caption(text) {
   captionEl.style.display = 'block';
   captionEl.textContent = text;
@@ -211,7 +217,7 @@ function buildLevel() {
   trainX = Math.min(140, W * 0.14);
   departT = -1; nextT = -1;
   updateHUD();
-  say(`第${level}站！这一关要按顺序挂 ${coupledTarget} 节车厢：${nums.join('、')}。先挂 1 号`);
+  say(`第${level}站！这一关挂 1 到 ${coupledTarget} 号车厢，先挂 1 号，1 号！`, true);
 }
 
 /* 点击车厢 */
@@ -234,7 +240,7 @@ function clickCar(car) {
       streak++;
       if (streak > bestStreak) bestStreak = streak;
     } else {
-      say(`挂上 ${car.num} 号啦！接下来挂 ${need + 1} 号`);
+      say(`挂上 ${car.num} 号啦！接下来挂 ${need + 1} 号，${need + 1} 号！`, true);
     }
   } else {
     // 错误：车厢抖动 + 报该数字
@@ -244,7 +250,7 @@ function clickCar(car) {
     shake = 0.25;
     sfxWrong();
     toast(`这是 ${car.num} 号车厢`);
-    speak(`这是${car.num}号车厢，现在要挂${need}号哦，再找找看！`);
+    speak(`这是${car.num}号车厢，现在要挂${need}号，${need}号哦，再找找看！`, { key: true });
     updateHUD();
   }
 }
