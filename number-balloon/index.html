@@ -155,6 +155,26 @@
   }
   #start p { font-size: 16px; color: #9db4d8; line-height: 2; max-width: 560px; }
   #start .rules { margin: 22px 0 28px; }
+  /* 键盘输入模式提示 */
+  #start .kbd-tip {
+    display: inline-block; margin-top: 14px;
+    background: rgba(10, 16, 40, .72);
+    border: 1px solid rgba(120, 200, 255, .35);
+    border-radius: 14px;
+    padding: 10px 18px;
+    font-size: 15px; color: #b9cdf0; font-weight: 600;
+  }
+  #start .kbd-tip kbd {
+    display: inline-block;
+    background: linear-gradient(160deg, #1c2a58, #101a3e);
+    border: 1px solid rgba(150, 210, 255, .5);
+    border-bottom-width: 3px;
+    border-radius: 8px;
+    color: #dff2ff;
+    font-family: inherit; font-size: 16px; font-weight: 800;
+    padding: 2px 9px; margin: 0 2px;
+    box-shadow: 0 3px 8px rgba(0,0,0,.4);
+  }
   #start button {
     font-size: 21px; padding: 14px 56px; border-radius: 999px;
     border: none; cursor: pointer;
@@ -210,6 +230,7 @@
     ✅ 点对 → 气球砰的一声爆开，纸屑飞舞　　❌ 点错 → 气球晃一晃，告诉你正确数字，再点一次<br>
     打爆 10 个气球就通关！
   </p>
+  <p class="kbd-tip">觉得鼠标点太慢？直接按键盘 <kbd>0</kbd>-<kbd>9</kbd> 打对应的气球，还支持数字小键盘哦</p>
   <button id="btnStart">开始游戏</button>
 </div>
 
@@ -385,6 +406,7 @@ function makeQuiz() {
       r: Math.min(W, H) * 0.095,
       pop: 0,
       wrongShake: 0,
+      keyFocus: 0,
     });
   });
 
@@ -418,6 +440,7 @@ function respawnQuiz() {
       r: Math.min(W, H) * 0.095,
       pop: 0,
       wrongShake: 0,
+      keyFocus: 0,
     });
   });
   caption('🔈 再来一次，戳数字 ' + n + ' 的气球');
@@ -446,6 +469,50 @@ canvas.addEventListener('pointerdown', e => {
   const x = e.clientX - rect.left, y = e.clientY - rect.top;
   const b = balloonAt(x, y);
   if (b) judge(b);
+});
+
+/* ---------------- 键盘直接输入数字 ---------------- */
+/* 按主键盘 0-9 或数字小键盘 0-9：打掉场上写该数字的气球。
+ * 场上可能有同数字多只（补发批次）→ 只打最高（最先出现的）那只。
+ * 无该数字的气球时给轻提示，不打断游戏。 */
+function balloonByNum(n) {
+  let best = null;
+  for (const b of balloons) {
+    if (b.num === n && b.pop <= 0) {
+      if (!best || b.fy < best.fy) best = b;   // fy 越小越高，优先打位置高的
+    }
+  }
+  return best;
+}
+window.addEventListener('keydown', e => {
+  if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+  // 回车 / 空格：开始界面 → 开始；结算界面 → 再来一次
+  if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+    if (state === STATE.FINISH) return;   // 爆炸动画收尾中，不响应
+    if ($('result').classList.contains('show')) {
+      e.preventDefault();
+      $('btnRestart').click();
+      return;
+    }
+    if (state === STATE.START && $('start').style.display !== 'none') {
+      e.preventDefault();
+      startGame();
+      return;
+    }
+  }
+  if (state !== STATE.RUNNING) return;
+  // 主键盘 / 小键盘 0-9：e.key 均为 '0'-'9'
+  const n = e.key >= '0' && e.key <= '9' ? e.key : null;
+  if (n === null) return;
+  e.preventDefault();
+  const b = balloonByNum(n);
+  if (b) {
+    b.keyFocus = 0.35;              // 键盘命中光环
+    judge(b);
+  } else {
+    toast('场上没有 ' + n, false);  // 轻提示，不算错
+    beep(240, .12, 'sine', .08);
+  }
 });
 
 function judge(b) {
@@ -586,6 +653,7 @@ function update(dt, t) {
       b.fy -= v * b.riseMul * dt;
       if (b.pop > 0) b.pop = Math.max(0, b.pop - dt * 5);
       if (b.wrongShake > 0) b.wrongShake = Math.max(0, b.wrongShake - dt);
+      if (b.keyFocus > 0) b.keyFocus = Math.max(0, b.keyFocus - dt);
     }
     // 全部飘走也绝不卡死：从头补发一批同目标气球（无限重试铁律）
     // length>0 守卫：答对清场后的换题等待窗口不触发
@@ -682,6 +750,18 @@ function drawBalloon(b, t) {
   ctx.textBaseline = 'middle';
   ctx.strokeText(b.num, 0, r * 0.04);
   ctx.fillText(b.num, 0, r * 0.04);
+
+  // 键盘命中的白色光环（快速扩散消失）
+  if (b.keyFocus > 0) {
+    const k = 1 - b.keyFocus / 0.35;         // 0 → 1
+    ctx.globalAlpha = b.keyFocus / 0.35;
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = Math.max(3, r * 0.12 * (1 - k));
+    ctx.beginPath();
+    ctx.arc(0, 0, r * (1.05 + k * 0.55), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
 
   ctx.restore();
 }
