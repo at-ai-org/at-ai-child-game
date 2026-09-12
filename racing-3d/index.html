@@ -774,22 +774,27 @@ function updateLapDots() {
 }
 
 /* ---------- 音效（Web Audio） ---------- */
-let actx = null, engineOsc = null, engineGain = null, muted = false;
+let actx = null, engineOsc = null, engineGain = null, engineFilter = null, muted = false;
 function initAudio() {
   if (actx) { actx.resume && actx.resume(); return; }
   try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
   engineOsc = actx.createOscillator();
+  engineFilter = actx.createBiquadFilter();
+  engineFilter.type = 'lowpass';
+  engineFilter.frequency.value = 220;        // 砍掉锯齿波的高频毛刺，只留低沉轰鸣
+  engineFilter.Q.value = 0.7;
   engineGain = actx.createGain();
   engineOsc.type = 'sawtooth';
   engineOsc.frequency.value = 70;
   engineGain.gain.value = 0.0;
-  engineOsc.connect(engineGain).connect(actx.destination);
+  engineOsc.connect(engineFilter).connect(engineGain).connect(actx.destination);
   engineOsc.start();
 }
 function setEngine(speedRatio) {
   if (!engineOsc) return;
-  engineOsc.frequency.value = 55 + speedRatio * 120;
-  engineGain.gain.value = muted ? 0 : 0.028 + speedRatio * 0.035;
+  /* 柔和版：音量约为原来的 1/3，频率范围收窄（60→105Hz），怠速极轻 */
+  engineOsc.frequency.value = 60 + speedRatio * 45;
+  engineGain.gain.value = muted ? 0 : (0.006 + speedRatio * 0.018);
 }
 function beep(freq, dur, type, vol, delay, sweepTo) {
   if (!actx || muted) return;
