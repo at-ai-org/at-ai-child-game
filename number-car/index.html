@@ -743,277 +743,559 @@ function carShadow(sz, w) {
   ctx.ellipse(0, sz * 0.44, w * 0.72, sz * 0.10, 0, 0, Math.PI * 2);
   ctx.fill();
 }
-function carFlame(sz, w) {
-  const L = sz * (0.30 + Math.random() * 0.25);
-  const fg = ctx.createLinearGradient(0, sz * 0.36, 0, sz * 0.36 + L);
-  fg.addColorStop(0, 'rgba(255,190,80,.95)');
+function carFlame(sz, w, fx, sc) {
+  const L = sz * (0.24 + Math.random() * 0.20) * (sc || 1);
+  const y0 = sz * 0.44;
+  const fg = ctx.createLinearGradient(0, y0, 0, y0 + L);
+  fg.addColorStop(0, 'rgba(255,210,120,.95)');
+  fg.addColorStop(0.5, 'rgba(255,140,60,.75)');
   fg.addColorStop(1, 'rgba(255,60,40,0)');
   ctx.fillStyle = fg;
   ctx.beginPath();
-  ctx.moveTo(-w * 0.18, sz * 0.36);
-  ctx.lineTo(0, sz * 0.36 + L);
-  ctx.lineTo(w * 0.18, sz * 0.36);
+  ctx.moveTo(fx - w * 0.09, y0);
+  ctx.quadraticCurveTo(fx - w * 0.02, y0 + L * 0.6, fx, y0 + L);
+  ctx.quadraticCurveTo(fx + w * 0.02, y0 + L * 0.6, fx + w * 0.09, y0);
   ctx.closePath();
   ctx.fill();
 }
-/* 公共：车尾号码牌（白底圆 + 车色描边 + 大数字） */
+/* 尾灯光晕（径向渐变，比 shadowBlur 便宜） */
+function lampGlow(x, y, r, color) {
+  const g = ctx.createRadialGradient(x, y, r * 0.25, x, y, r * 2.4);
+  g.addColorStop(0, color);
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(x, y, r * 2.4, 0, Math.PI * 2);
+  ctx.fill();
+}
+/* 公共：车尾号码牌（白底圆 + 车色描边 + 阴影 + 大数字） */
 function drawNumPlate(sz, accent, num, yFrac) {
   const r = sz * 0.16, ny = sz * yFrac;
+  /* 底部投影（贴牌立体感） */
+  ctx.fillStyle = 'rgba(0,0,0,.28)';
+  ctx.beginPath();
+  ctx.arc(0, ny + sz * 0.018, r, 0, Math.PI * 2);
+  ctx.fill();
   ctx.fillStyle = '#fff';
   ctx.beginPath();
   ctx.arc(0, ny, r, 0, Math.PI * 2);
   ctx.fill();
-  ctx.lineWidth = Math.max(1.5, sz * 0.03);
+  ctx.lineWidth = Math.max(2, sz * 0.032);
   ctx.strokeStyle = accent;
   ctx.stroke();
+  /* 内圈细线 */
+  ctx.lineWidth = Math.max(1, sz * 0.012);
+  ctx.strokeStyle = 'rgba(27,37,71,.18)';
+  ctx.beginPath();
+  ctx.arc(0, ny, r * 0.82, 0, Math.PI * 2);
+  ctx.stroke();
   ctx.fillStyle = '#1b2547';
-  ctx.font = `800 ${sz * 0.24}px system-ui, sans-serif`;
+  ctx.font = `800 ${sz * 0.23}px system-ui, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(num, 0, ny + sz * 0.012);
 }
 
-/* ---- 跑车（默认款：尾翼 + 车尾箱号码牌） ---- */
+/* ---- 跑车（低趴宽体：曲面车顶 + 大尾翼 + 全宽 LED 尾灯带） ---- */
 function drawSport(cx, cy, sz, body, accent, o) {
-  const w = sz * 0.62;
+  const w = sz * 0.66;
   carBegin(cx, cy, sz, o);
   carShadow(sz, w);
-  if (o.flame) carFlame(sz, w);
-  const topY = -sz * 0.50, botY = sz * 0.50;
+  if (o.flame) {
+    carFlame(sz, w, -w * 0.22, 0.8);
+    carFlame(sz, w,  w * 0.22, 0.8);
+  }
+  const topY = -sz * 0.52, botY = sz * 0.50;
 
-  // 后轮
-  const tw = w * 0.16, th = sz * 0.26;
+  /* 后轮 + 轮眉鼓包 */
+  const tw = w * 0.17, th = sz * 0.26;
   ctx.fillStyle = '#14161f';
-  for (const px of [-w / 2 - tw * 0.28, w / 2 - tw * 0.72]) {
-    roundRect(ctx, px, sz * 0.16, tw, th, tw * 0.3);
+  for (const px of [-w * 0.50, w * 0.50 - tw]) {
+    roundRect(ctx, px, sz * 0.17, tw, th, tw * 0.34);
+    ctx.fill();
+  }
+  /* 轮眉（车身色宽体挡泥板） */
+  ctx.fillStyle = shade(body, -0.22);
+  for (const fx of [-w * 0.545, w * 0.545 - tw * 1.1]) {
+    roundRect(ctx, fx, sz * 0.12, tw * 1.2, th * 0.55, tw * 0.4);
     ctx.fill();
   }
 
-  // 车身（上窄下宽梯形）
+  /* 车身主体：圆角宽体（低趴） */
   const g = ctx.createLinearGradient(0, topY, 0, botY);
-  g.addColorStop(0, shade(body, 0.18));
-  g.addColorStop(0.55, body);
-  g.addColorStop(1, shade(body, -0.30));
+  g.addColorStop(0, shade(body, 0.16));
+  g.addColorStop(0.45, body);
+  g.addColorStop(1, shade(body, -0.32));
   ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.moveTo(-w * 0.42, topY);
-  ctx.lineTo(w * 0.42, topY);
-  ctx.lineTo(w * 0.50, botY);
-  ctx.lineTo(-w * 0.50, botY);
-  ctx.closePath();
+  roundRect(ctx, -w * 0.50, topY + sz * 0.05, w, botY - topY - sz * 0.02, sz * 0.14);
   ctx.fill();
 
-  // 后风挡
-  ctx.fillStyle = 'rgba(15,25,45,.88)';
+  /* 车顶舱（弧形快背 + 后风挡） */
+  const rg = ctx.createLinearGradient(0, topY - sz * 0.06, 0, -sz * 0.10);
+  rg.addColorStop(0, shade(body, 0.30));
+  rg.addColorStop(1, shade(body, -0.05));
+  ctx.fillStyle = rg;
   ctx.beginPath();
-  ctx.moveTo(-w * 0.30, -sz * 0.40);
-  ctx.lineTo(w * 0.30, -sz * 0.40);
-  ctx.lineTo(w * 0.34, -sz * 0.08);
-  ctx.lineTo(-w * 0.34, -sz * 0.08);
+  ctx.moveTo(-w * 0.26, topY + sz * 0.05);
+  ctx.quadraticCurveTo(-w * 0.22, topY - sz * 0.10, 0, topY - sz * 0.11);
+  ctx.quadraticCurveTo(w * 0.22, topY - sz * 0.10, w * 0.26, topY + sz * 0.05);
   ctx.closePath();
   ctx.fill();
-  const wg = ctx.createLinearGradient(0, -sz * 0.40, 0, -sz * 0.08);
-  wg.addColorStop(0, 'rgba(160,200,255,.35)');
-  wg.addColorStop(1, 'rgba(160,200,255,.05)');
+  /* 后风挡（深色玻璃 + 天际线反光） */
+  ctx.fillStyle = 'rgba(18,30,52,.92)';
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.20, topY + sz * 0.02);
+  ctx.quadraticCurveTo(-w * 0.17, topY - sz * 0.06, 0, topY - sz * 0.07);
+  ctx.quadraticCurveTo(w * 0.17, topY - sz * 0.06, w * 0.20, topY + sz * 0.02);
+  ctx.closePath();
+  ctx.fill();
+  const wg = ctx.createLinearGradient(0, topY - sz * 0.07, 0, topY + sz * 0.02);
+  wg.addColorStop(0, 'rgba(170,210,255,.42)');
+  wg.addColorStop(1, 'rgba(170,210,255,.04)');
   ctx.fillStyle = wg;
   ctx.fill();
 
-  // 尾翼
-  ctx.fillStyle = shade(body, -0.45);
-  ctx.fillRect(-w * 0.38, -sz * 0.06, w * 0.08, sz * 0.10);
-  ctx.fillRect(w * 0.30, -sz * 0.06, w * 0.08, sz * 0.10);
-  ctx.fillRect(-w * 0.44, -sz * 0.10, w * 0.88, sz * 0.05);
-
-  // 车尾箱
-  const tg = ctx.createLinearGradient(0, sz * 0.06, 0, botY);
-  tg.addColorStop(0, shade(body, -0.10));
-  tg.addColorStop(1, shade(body, -0.35));
-  ctx.fillStyle = tg;
-  roundRect(ctx, -w * 0.46, sz * 0.06, w * 0.92, sz * 0.40, sz * 0.06);
-  ctx.fill();
-
-  // 尾灯
-  ctx.fillStyle = '#ff4646';
-  roundRect(ctx, -w * 0.42, sz * 0.16, w * 0.24, sz * 0.09, sz * 0.04); ctx.fill();
-  roundRect(ctx, w * 0.18, sz * 0.16, w * 0.24, sz * 0.09, sz * 0.04); ctx.fill();
-
-  if (o.num != null) drawNumPlate(sz, accent, o.num, 0.34);
-  ctx.restore();
-}
-
-/* ---- 卡车（大货柜：高尾箱 + 排气筒 + 防撞梁） ---- */
-function drawTruck(cx, cy, sz, body, accent, o) {
-  const w = sz * 0.72;
-  carBegin(cx, cy, sz, o);
-  carShadow(sz, w);
-  const topY = -sz * 0.52, botY = sz * 0.50;
-
-  // 后轮双排（卡车感）
-  const tw = w * 0.15, th = sz * 0.24;
-  ctx.fillStyle = '#14161f';
-  for (const px of [-w / 2 - tw * 0.20, -w / 2 + tw * 0.34, w / 2 - tw * 1.14, w / 2 - tw * 0.60]) {
-    roundRect(ctx, px, sz * 0.18, tw, th, tw * 0.3);
-    ctx.fill();
-  }
-
-  // 货柜主体（大方箱）
-  const g = ctx.createLinearGradient(0, topY, 0, botY);
-  g.addColorStop(0, shade(body, 0.12));
-  g.addColorStop(0.6, body);
-  g.addColorStop(1, shade(body, -0.32));
-  ctx.fillStyle = g;
-  roundRect(ctx, -w / 2, topY, w, botY - topY, sz * 0.05);
-  ctx.fill();
-
-  // 货柜棱线（竖条质感）
-  ctx.fillStyle = 'rgba(0,0,0,.18)';
-  for (const lx of [-w * 0.30, 0, w * 0.30]) {
-    ctx.fillRect(lx - sz * 0.01, topY + sz * 0.03, sz * 0.02, botY - topY - sz * 0.06);
-  }
-
-  // 货柜门横缝
-  ctx.strokeStyle = 'rgba(0,0,0,.25)';
-  ctx.lineWidth = Math.max(1, sz * 0.015);
-  for (const hy of [-sz * 0.16, sz * 0.05]) {
-    ctx.beginPath();
-    ctx.moveTo(-w / 2 + sz * 0.03, hy);
-    ctx.lineTo(w / 2 - sz * 0.03, hy);
-    ctx.stroke();
-  }
-
-  // 顶部排气筒（右上角小烟囱）
+  /* 大尾翼（双立柱 + 弧形翼面 + 端板） */
   ctx.fillStyle = shade(body, -0.5);
-  roundRect(ctx, w * 0.24, topY - sz * 0.16, w * 0.10, sz * 0.16, sz * 0.03);
+  roundRect(ctx, -w * 0.30, topY - sz * 0.055, w * 0.07, sz * 0.09, sz * 0.02);
   ctx.fill();
-
-  // 防撞梁 + 反光条（卡车尾部特征）
-  ctx.fillStyle = '#2a2e38';
-  roundRect(ctx, -w * 0.46, botY - sz * 0.09, w * 0.92, sz * 0.07, sz * 0.03);
+  roundRect(ctx, w * 0.23, topY - sz * 0.055, w * 0.07, sz * 0.09, sz * 0.02);
   ctx.fill();
-  ctx.fillStyle = '#ffd35c';
-  for (let i = 0; i < 4; i++) {
-    ctx.fillRect(-w * 0.42 + i * w * 0.24, botY - sz * 0.08, w * 0.10, sz * 0.05);
-  }
-
-  // 尾灯
-  ctx.fillStyle = '#ff4646';
-  roundRect(ctx, -w * 0.46, sz * 0.10, w * 0.14, sz * 0.07, sz * 0.03); ctx.fill();
-  roundRect(ctx, w * 0.32, sz * 0.10, w * 0.14, sz * 0.07, sz * 0.03); ctx.fill();
-
-  if (o.num != null) drawNumPlate(sz, accent, o.num, -0.30);
-  ctx.restore();
-}
-
-/* ---- 挖掘机（履带底盘 + 上方回转驾驶舱 + 大臂） ---- */
-function drawDigger(cx, cy, sz, body, accent, o) {
-  const w = sz * 0.78;
-  carBegin(cx, cy, sz, o);
-  carShadow(sz, w);
-  const topY = -sz * 0.48, botY = sz * 0.48;
-
-  // 履带（左右两条，带驱动轮轮廓）
-  const tw = w * 0.20;
-  ctx.fillStyle = '#1a1d26';
-  for (const px of [-w / 2 - tw * 0.12, w / 2 - tw * 0.88]) {
-    roundRect(ctx, px, sz * 0.08, tw, sz * 0.36, tw * 0.4);
-    ctx.fill();
-  }
-  // 履带齿（近处才画）
-  if (sz > 60) {
-    ctx.fillStyle = '#333a48';
-    for (const px of [-w / 2 - tw * 0.12, w / 2 - tw * 0.88]) {
-      for (let i = 0; i < 4; i++) {
-        ctx.fillRect(px + tw * (0.12 + i * 0.24), sz * 0.10, tw * 0.10, sz * 0.32);
-      }
-    }
-  }
-
-  // 底盘架（连接两履带）
-  ctx.fillStyle = shade(body, -0.38);
-  roundRect(ctx, -w * 0.38, sz * 0.02, w * 0.76, sz * 0.12, sz * 0.04);
-  ctx.fill();
-
-  // 驾驶舱（回转体，梯形，正面带窗）
-  const cg = ctx.createLinearGradient(0, topY, 0, sz * 0.05);
-  cg.addColorStop(0, shade(body, 0.15));
-  cg.addColorStop(1, shade(body, -0.25));
-  ctx.fillStyle = cg;
+  const wingG = ctx.createLinearGradient(-w * 0.5, 0, w * 0.5, 0);
+  wingG.addColorStop(0, shade(body, -0.35));
+  wingG.addColorStop(0.5, shade(body, -0.15));
+  wingG.addColorStop(1, shade(body, -0.40));
+  ctx.fillStyle = wingG;
   ctx.beginPath();
-  ctx.moveTo(-w * 0.36, topY);
-  ctx.lineTo(w * 0.36, topY);
-  ctx.lineTo(w * 0.42, sz * 0.05);
-  ctx.lineTo(-w * 0.42, sz * 0.05);
+  ctx.moveTo(-w * 0.52, topY - sz * 0.10);
+  ctx.quadraticCurveTo(0, topY - sz * 0.16, w * 0.52, topY - sz * 0.10);
+  ctx.lineTo(w * 0.52, topY - sz * 0.055);
+  ctx.quadraticCurveTo(0, topY - sz * 0.115, -w * 0.52, topY - sz * 0.055);
   ctx.closePath();
   ctx.fill();
 
-  // 舱窗
-  ctx.fillStyle = 'rgba(170,215,255,.85)';
-  roundRect(ctx, -w * 0.26, -sz * 0.38, w * 0.52, sz * 0.22, sz * 0.06);
+  /* 车尾曲面（保险杠 + 全宽 LED 尾灯带） */
+  const tg = ctx.createLinearGradient(0, sz * 0.08, 0, botY);
+  tg.addColorStop(0, shade(body, -0.08));
+  tg.addColorStop(1, shade(body, -0.35));
+  ctx.fillStyle = tg;
+  roundRect(ctx, -w * 0.47, sz * 0.08, w * 0.94, sz * 0.38, sz * 0.10);
   ctx.fill();
-  // 警示灯（舱顶橙灯）
-  ctx.fillStyle = '#ffa726';
-  roundRect(ctx, -sz * 0.05, topY - sz * 0.10, sz * 0.10, sz * 0.08, sz * 0.02);
+  /* 保险杠下缘（碳纤维黑） */
+  ctx.fillStyle = '#191c26';
+  roundRect(ctx, -w * 0.47, botY - sz * 0.09, w * 0.94, sz * 0.09, sz * 0.05);
   ctx.fill();
+  /* 扩散器竖鳍 */
+  if (sz > 46) {
+    ctx.fillStyle = '#2a2e3a';
+    for (const fx of [-w * 0.30, -w * 0.10, w * 0.10, w * 0.30]) {
+      ctx.fillRect(fx - sz * 0.015, botY - sz * 0.075, sz * 0.03, sz * 0.05);
+    }
+  }
 
-  if (o.num != null) drawNumPlate(sz, accent, o.num, -0.10);
+  /* 全宽 LED 尾灯带（亮红 + 内部光晕） */
+  const ly = sz * 0.16;
+  lampGlow(0, ly, w * 0.30, 'rgba(255,70,70,.30)');
+  const lg = ctx.createLinearGradient(-w * 0.42, 0, w * 0.42, 0);
+  lg.addColorStop(0, '#ff5c5c');
+  lg.addColorStop(0.5, '#ff8080');
+  lg.addColorStop(1, '#ff5c5c');
+  ctx.fillStyle = lg;
+  roundRect(ctx, -w * 0.42, ly - sz * 0.035, w * 0.84, sz * 0.07, sz * 0.035);
+  ctx.fill();
+  /* 尾灯内侧高光 */
+  ctx.fillStyle = 'rgba(255,190,190,.6)';
+  roundRect(ctx, -w * 0.40, ly - sz * 0.022, w * 0.80, sz * 0.018, sz * 0.01);
+  ctx.fill();
+  /* 尾灯两端小圆灯 */
+  ctx.fillStyle = '#ff4646';
+  ctx.beginPath(); ctx.arc(-w * 0.43, ly, sz * 0.035, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc( w * 0.43, ly, sz * 0.035, 0, Math.PI * 2); ctx.fill();
+
+  /* 铬排气管（双出椭圆口） */
+  ctx.fillStyle = '#c9d2e0';
+  ctx.beginPath(); ctx.ellipse(-w * 0.20, botY - sz * 0.03, sz * 0.045, sz * 0.025, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse( w * 0.20, botY - sz * 0.03, sz * 0.045, sz * 0.025, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#3a4152';
+  ctx.beginPath(); ctx.ellipse(-w * 0.20, botY - sz * 0.03, sz * 0.028, sz * 0.014, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse( w * 0.20, botY - sz * 0.03, sz * 0.028, sz * 0.014, 0, 0, Math.PI * 2); ctx.fill();
+
+  /* 车身侧面反光线（Speedster 腰线） */
+  if (sz > 40) {
+    ctx.strokeStyle = 'rgba(255,255,255,.22)';
+    ctx.lineWidth = Math.max(1, sz * 0.012);
+    ctx.beginPath();
+    ctx.moveTo(-w * 0.48, sz * 0.10);
+    ctx.quadraticCurveTo(0, sz * 0.055, w * 0.48, sz * 0.10);
+    ctx.stroke();
+  }
+
+  if (o.num != null) drawNumPlate(sz, accent, o.num, 0.36);
   ctx.restore();
 }
 
-/* ---- 装载机（铲斗车：前方大铲斗从两侧翘出 + 双排气管） ---- */
-function drawLoader(cx, cy, sz, body, accent, o) {
-  const w = sz * 0.80;
+/* ---- 卡车（圆角货柜 + 卷帘门 + 导流罩 + 斜纹防撞梁） ---- */
+function drawTruck(cx, cy, sz, body, accent, o) {
+  const w = sz * 0.74;
   carBegin(cx, cy, sz, o);
   carShadow(sz, w);
-  const topY = -sz * 0.46, botY = sz * 0.48;
+  const topY = -sz * 0.54, botY = sz * 0.50;
 
-  // 大轮胎（四只，粗壮）
-  const tw = w * 0.18, th = sz * 0.34;
+  /* 后轮双排 + 轮毂细节 */
+  const tw = w * 0.14, th = sz * 0.25;
   ctx.fillStyle = '#14161f';
-  for (const px of [-w / 2 - tw * 0.30, -w / 2 + tw * 0.10, w / 2 - tw * 0.80, w / 2 - tw * 0.40]) {
-    roundRect(ctx, px, sz * 0.10, tw, th, tw * 0.45);
+  for (const px of [-w * 0.50, -w * 0.50 + tw * 1.15, w * 0.50 - tw * 2.15, w * 0.50 - tw]) {
+    roundRect(ctx, px, sz * 0.17, tw, th, tw * 0.3);
     ctx.fill();
   }
-  // 轮毂
   if (sz > 55) {
     ctx.fillStyle = '#3c4456';
-    for (const px of [-w / 2 - tw * 0.30, -w / 2 + tw * 0.10, w / 2 - tw * 0.80, w / 2 - tw * 0.40]) {
+    for (const px of [-w * 0.50, -w * 0.50 + tw * 1.15, w * 0.50 - tw * 2.15, w * 0.50 - tw]) {
       ctx.beginPath();
-      ctx.arc(px + tw / 2, sz * 0.10 + th / 2, tw * 0.28, 0, Math.PI * 2);
+      ctx.arc(px + tw / 2, sz * 0.17 + th / 2, tw * 0.30, 0, Math.PI * 2);
       ctx.fill();
     }
   }
 
-  // 车体（发动机罩：上窄下宽）
-  const g = ctx.createLinearGradient(0, topY, 0, sz * 0.08);
-  g.addColorStop(0, shade(body, 0.15));
-  g.addColorStop(1, shade(body, -0.28));
+  /* 货柜主体（圆角大箱 + 顶部导流罩） */
+  const g = ctx.createLinearGradient(-w / 2, 0, w / 2, 0);
+  g.addColorStop(0, shade(body, -0.28));
+  g.addColorStop(0.22, shade(body, 0.14));
+  g.addColorStop(0.55, body);
+  g.addColorStop(1, shade(body, -0.30));
   ctx.fillStyle = g;
+  roundRect(ctx, -w / 2, topY, w, botY - topY - sz * 0.06, sz * 0.07);
+  ctx.fill();
+  /* 顶部导流罩（减少风阻的弧形帽） */
+  const cg = ctx.createLinearGradient(0, topY - sz * 0.16, 0, topY + sz * 0.02);
+  cg.addColorStop(0, shade(body, 0.22));
+  cg.addColorStop(1, shade(body, -0.10));
+  ctx.fillStyle = cg;
   ctx.beginPath();
-  ctx.moveTo(-w * 0.30, topY);
-  ctx.lineTo(w * 0.30, topY);
-  ctx.lineTo(w * 0.42, sz * 0.08);
-  ctx.lineTo(-w * 0.42, sz * 0.08);
+  ctx.moveTo(-w * 0.34, topY + sz * 0.01);
+  ctx.quadraticCurveTo(0, topY - sz * 0.20, w * 0.34, topY + sz * 0.01);
   ctx.closePath();
   ctx.fill();
 
-  // 驾驶棚（ROPS 保护架：两根立柱 + 顶横梁）
-  ctx.strokeStyle = '#22262f';
-  ctx.lineWidth = Math.max(1.5, sz * 0.045);
-  ctx.beginPath();
-  ctx.moveTo(-w * 0.28, topY + sz * 0.02);
-  ctx.lineTo(-w * 0.28, -sz * 0.10);
-  ctx.moveTo(w * 0.28, topY + sz * 0.02);
-  ctx.lineTo(w * 0.28, -sz * 0.10);
-  ctx.stroke();
-  ctx.fillStyle = '#22262f';
-  ctx.fillRect(-w * 0.32, -sz * 0.14, w * 0.64, sz * 0.05);
+  /* 卷帘门（横条纹 + 中央锁扣） */
+  const dg = ctx.createLinearGradient(0, -sz * 0.40, 0, botY - sz * 0.10);
+  dg.addColorStop(0, shade(body, -0.05));
+  dg.addColorStop(1, shade(body, -0.22));
+  ctx.fillStyle = dg;
+  roundRect(ctx, -w * 0.40, -sz * 0.40, w * 0.80, botY - topY - sz * 0.44 + sz * 0.18, sz * 0.04);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,.22)';
+  ctx.lineWidth = Math.max(1, sz * 0.012);
+  for (let i = 1; i < 5; i++) {
+    const hy = -sz * 0.40 + (botY - sz * 0.10 + sz * 0.40) * i / 5 - sz * 0.08;
+    ctx.beginPath();
+    ctx.moveTo(-w * 0.40, hy);
+    ctx.lineTo(w * 0.40, hy);
+    ctx.stroke();
+  }
+  /* 中央锁杆 */
+  ctx.fillStyle = '#9aa4b8';
+  ctx.fillRect(-sz * 0.015, -sz * 0.40, sz * 0.03, botY - topY - sz * 0.36);
+  /* 铆钉（柜门四角） */
+  if (sz > 52) {
+    ctx.fillStyle = 'rgba(255,255,255,.5)';
+    for (const rx of [-w * 0.37, w * 0.37]) {
+      for (const ry of [-sz * 0.36, sz * 0.18]) {
+        ctx.beginPath();
+        ctx.arc(rx, ry, sz * 0.012, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
 
-  // 配重块（车尾下方的黑铁块）
-  ctx.fillStyle = '#22262f';
-  roundRect(ctx, -w * 0.36, sz * 0.12, w * 0.72, sz * 0.24, sz * 0.04);
+  /* 反光斜纹防撞梁（黑黄警示） */
+  ctx.fillStyle = '#23262e';
+  roundRect(ctx, -w * 0.46, botY - sz * 0.12, w * 0.92, sz * 0.10, sz * 0.035);
+  ctx.fill();
+  ctx.save();
+  ctx.beginPath();
+  roundRect(ctx, -w * 0.44, botY - sz * 0.11, w * 0.88, sz * 0.08, sz * 0.03);
+  ctx.clip();
+  ctx.fillStyle = '#ffd35c';
+  for (let i = -2; i < 7; i++) {
+    ctx.save();
+    ctx.translate(-w * 0.44 + i * w * 0.16, botY - sz * 0.07);
+    ctx.rotate(-0.5);
+    ctx.fillRect(-w * 0.03, -sz * 0.06, w * 0.06, sz * 0.12);
+    ctx.restore();
+  }
+  ctx.restore();
+
+  /* 尾灯（竖角灯 + 光晕） */
+  lampGlow(-w * 0.42, sz * 0.08, sz * 0.06, 'rgba(255,70,70,.35)');
+  lampGlow( w * 0.42, sz * 0.08, sz * 0.06, 'rgba(255,70,70,.35)');
+  ctx.fillStyle = '#ff4646';
+  roundRect(ctx, -w * 0.47, sz * 0.02, w * 0.11, sz * 0.10, sz * 0.03); ctx.fill();
+  roundRect(ctx, w * 0.36, sz * 0.02, w * 0.11, sz * 0.10, sz * 0.03); ctx.fill();
+
+  /* 侧防护网（底部横杆 + 挂钩） */
+  ctx.fillStyle = '#333842';
+  roundRect(ctx, -w * 0.44, botY - sz * 0.19, w * 0.88, sz * 0.03, sz * 0.015);
   ctx.fill();
 
-  if (o.num != null) drawNumPlate(sz, accent, o.num, 0.22);
+  if (o.num != null) drawNumPlate(sz, accent, o.num, -0.32);
+  ctx.restore();
+}
+
+/* ---- 挖掘机（履带底盘 + 圆角驾驶舱 + 尾部大臂配重） ---- */
+function drawDigger(cx, cy, sz, body, accent, o) {
+  const w = sz * 0.78;
+  carBegin(cx, cy, sz, o);
+  carShadow(sz, w);
+  const topY = -sz * 0.50, botY = sz * 0.48;
+
+  /* 履带（圆角跑道形 + 驱动轮/支重轮） */
+  const tw = w * 0.22, ty = sz * 0.10, th = sz * 0.34;
+  for (const px of [-w * 0.52, w * 0.52 - tw]) {
+    ctx.fillStyle = '#1a1d26';
+    roundRect(ctx, px, ty, tw, th, th * 0.42);
+    ctx.fill();
+    /* 履带外缘亮线 */
+    ctx.strokeStyle = 'rgba(120,140,170,.35)';
+    ctx.lineWidth = Math.max(1, sz * 0.012);
+    roundRect(ctx, px + sz * 0.012, ty + sz * 0.012, tw - sz * 0.024, th - sz * 0.024, th * 0.38);
+    ctx.stroke();
+    /* 内部滚轮 */
+    if (sz > 48) {
+      ctx.fillStyle = '#3c4456';
+      for (let i = 0; i < 3; i++) {
+        ctx.beginPath();
+        ctx.arc(px + tw * (0.25 + i * 0.25), ty + th / 2, th * 0.16, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      /* 前后驱动轮（略大） */
+      ctx.fillStyle = '#2a3040';
+      ctx.beginPath(); ctx.arc(px + tw * 0.10, ty + th / 2, th * 0.22, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(px + tw * 0.90, ty + th / 2, th * 0.22, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  /* 底盘架（连接履带的梁） */
+  ctx.fillStyle = shade(body, -0.40);
+  roundRect(ctx, -w * 0.40, sz * 0.03, w * 0.80, sz * 0.13, sz * 0.04);
+  ctx.fill();
+  /* 液压油缸 hint（底盘与舱之间黄色圆杆） */
+  ctx.fillStyle = '#e8b23a';
+  roundRect(ctx, -w * 0.10, sz * 0.00, w * 0.20, sz * 0.05, sz * 0.025);
+  ctx.fill();
+
+  /* 驾驶舱（圆角梯形回转体） */
+  const cg = ctx.createLinearGradient(-w * 0.4, 0, w * 0.4, 0);
+  cg.addColorStop(0, shade(body, -0.25));
+  cg.addColorStop(0.25, shade(body, 0.18));
+  cg.addColorStop(0.65, body);
+  cg.addColorStop(1, shade(body, -0.28));
+  ctx.fillStyle = cg;
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.34, topY);
+  ctx.quadraticCurveTo(0, topY - sz * 0.05, w * 0.34, topY);
+  ctx.lineTo(w * 0.42, sz * 0.06);
+  ctx.quadraticCurveTo(0, sz * 0.10, -w * 0.42, sz * 0.06);
+  ctx.closePath();
+  ctx.fill();
+
+  /* 舱窗（大弧形观察窗 + 反光） */
+  ctx.fillStyle = 'rgba(24,40,64,.92)';
+  roundRect(ctx, -w * 0.25, -sz * 0.40, w * 0.50, sz * 0.24, sz * 0.09);
+  ctx.fill();
+  const wgr = ctx.createLinearGradient(0, -sz * 0.40, 0, -sz * 0.16);
+  wgr.addColorStop(0, 'rgba(170,215,255,.5)');
+  wgr.addColorStop(1, 'rgba(170,215,255,.06)');
+  ctx.fillStyle = wgr;
+  roundRect(ctx, -w * 0.25, -sz * 0.40, w * 0.50, sz * 0.24, sz * 0.09);
+  ctx.fill();
+  /* 窗框 */
+  ctx.strokeStyle = shade(body, -0.35);
+  ctx.lineWidth = Math.max(1.5, sz * 0.02);
+  roundRect(ctx, -w * 0.25, -sz * 0.40, w * 0.50, sz * 0.24, sz * 0.09);
+  ctx.stroke();
+
+  /* 旋转警示灯（闪烁光晕） */
+  const blink = 0.5 + 0.5 * Math.sin(performance.now() / 180);
+  ctx.fillStyle = '#ffa726';
+  roundRect(ctx, -sz * 0.045, topY - sz * 0.075, sz * 0.09, sz * 0.07, sz * 0.02);
+  ctx.fill();
+  if (o.lampOn !== false) {
+    ctx.globalAlpha *= 0.28 + blink * 0.4;
+    lampGlow(0, topY - sz * 0.045, sz * 0.09, 'rgba(255,180,60,.8)');
+    ctx.globalAlpha /= (0.28 + blink * 0.4);
+  }
+
+  /* 尾部大臂（收拢状态：斜置臂杆伸向右上方） */
+  ctx.strokeStyle = shade(body, -0.30);
+  ctx.lineWidth = Math.max(3, sz * 0.075);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(w * 0.34, -sz * 0.02);
+  ctx.lineTo(w * 0.56, -sz * 0.30);
+  ctx.stroke();
+  /* 斗杆（第二段，更细） */
+  ctx.strokeStyle = shade(body, -0.40);
+  ctx.lineWidth = Math.max(2, sz * 0.055);
+  ctx.beginPath();
+  ctx.moveTo(w * 0.56, -sz * 0.30);
+  ctx.lineTo(w * 0.72, -sz * 0.10);
+  ctx.stroke();
+  /* 铲斗（小弧形齿斗挂在末端） */
+  ctx.fillStyle = shade(body, -0.45);
+  ctx.beginPath();
+  ctx.moveTo(w * 0.66, -sz * 0.14);
+  ctx.quadraticCurveTo(w * 0.80, -sz * 0.10, w * 0.74, sz * 0.02);
+  ctx.lineTo(w * 0.62, -sz * 0.04);
+  ctx.closePath();
+  ctx.fill();
+  /* 液压油缸（黄色细节杆） */
+  ctx.strokeStyle = '#e8b23a';
+  ctx.lineWidth = Math.max(2, sz * 0.035);
+  ctx.beginPath();
+  ctx.moveTo(w * 0.36, -sz * 0.10);
+  ctx.lineTo(w * 0.52, -sz * 0.24);
+  ctx.stroke();
+
+  if (o.num != null) drawNumPlate(sz, accent, o.num, -0.06);
+  ctx.restore();
+}
+
+/* ---- 装载机（铲斗车：粗壮轮胎 + 铲斗连杆 + 防滚架） ---- */
+function drawLoader(cx, cy, sz, body, accent, o) {
+  const w = sz * 0.80;
+  carBegin(cx, cy, sz, o);
+  carShadow(sz, w);
+  const topY = -sz * 0.48, botY = sz * 0.48;
+
+  /* 大轮胎（粗壮 + 人字花纹 + 轮毂） */
+  const tw = w * 0.20, th = sz * 0.36;
+  const tireXs = [-w * 0.52, w * 0.52 - tw];
+  for (const px of tireXs) {
+    ctx.fillStyle = '#14161f';
+    roundRect(ctx, px, sz * 0.09, tw, th, tw * 0.45);
+    ctx.fill();
+    /* 人字胎纹 */
+    if (sz > 50) {
+      ctx.strokeStyle = '#2a2f3a';
+      ctx.lineWidth = Math.max(1, sz * 0.014);
+      for (let i = 0; i < 3; i++) {
+        const cxp = px + tw * (0.22 + i * 0.28);
+        ctx.beginPath();
+        ctx.moveTo(cxp - tw * 0.10, sz * 0.09 + th * 0.14);
+        ctx.lineTo(cxp + tw * 0.02, sz * 0.09 + th * 0.5);
+        ctx.lineTo(cxp - tw * 0.10, sz * 0.09 + th * 0.86);
+        ctx.stroke();
+      }
+    }
+    /* 轮毂（同心圆） */
+    ctx.fillStyle = '#3c4456';
+    ctx.beginPath();
+    ctx.arc(px + tw / 2, sz * 0.09 + th / 2, tw * 0.30, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#59637a';
+    ctx.beginPath();
+    ctx.arc(px + tw / 2, sz * 0.09 + th / 2, tw * 0.16, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  /* 车体（发动机罩：圆角梯形） */
+  const g = ctx.createLinearGradient(-w * 0.4, 0, w * 0.4, 0);
+  g.addColorStop(0, shade(body, -0.25));
+  g.addColorStop(0.25, shade(body, 0.16));
+  g.addColorStop(0.7, body);
+  g.addColorStop(1, shade(body, -0.30));
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.30, topY);
+  ctx.quadraticCurveTo(0, topY - sz * 0.04, w * 0.30, topY);
+  ctx.lineTo(w * 0.42, sz * 0.09);
+  ctx.quadraticCurveTo(0, sz * 0.13, -w * 0.42, sz * 0.09);
+  ctx.closePath();
+  ctx.fill();
+
+  /* 散热格栅（车尾中部的黑色百叶） */
+  ctx.fillStyle = '#20242e';
+  roundRect(ctx, -w * 0.16, -sz * 0.34, w * 0.32, sz * 0.20, sz * 0.03);
+  ctx.fill();
+  if (sz > 50) {
+    ctx.strokeStyle = '#3a4150';
+    ctx.lineWidth = Math.max(1, sz * 0.012);
+    for (let i = 0; i < 3; i++) {
+      const gy = -sz * 0.31 + i * sz * 0.06;
+      ctx.beginPath();
+      ctx.moveTo(-w * 0.13, gy);
+      ctx.lineTo(w * 0.13, gy);
+      ctx.stroke();
+    }
+  }
+
+  /* 驾驶棚（ROPS 防滚架：立柱 + 顶梁 + 顶灯） */
+  ctx.strokeStyle = '#22262f';
+  ctx.lineWidth = Math.max(2, sz * 0.05);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.26, topY + sz * 0.02);
+  ctx.lineTo(-w * 0.26, -sz * 0.12);
+  ctx.moveTo(w * 0.26, topY + sz * 0.02);
+  ctx.lineTo(w * 0.26, -sz * 0.12);
+  ctx.stroke();
+  ctx.fillStyle = '#22262f';
+  roundRect(ctx, -w * 0.32, -sz * 0.17, w * 0.64, sz * 0.06, sz * 0.02);
+  ctx.fill();
+  /* 顶灯两只 */
+  ctx.fillStyle = '#ffd35c';
+  ctx.beginPath(); ctx.arc(-w * 0.16, -sz * 0.135, sz * 0.022, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc( w * 0.16, -sz * 0.135, sz * 0.022, 0, Math.PI * 2); ctx.fill();
+
+  /* 铲斗连杆（两侧斜置液压臂 + 中央油缸） */
+  ctx.strokeStyle = '#2a2f3a';
+  ctx.lineWidth = Math.max(2.5, sz * 0.055);
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.30, topY + sz * 0.03);
+  ctx.lineTo(-w * 0.44, -sz * 0.20);
+  ctx.moveTo(w * 0.30, topY + sz * 0.03);
+  ctx.lineTo(w * 0.44, -sz * 0.20);
+  ctx.stroke();
+  ctx.strokeStyle = '#e8b23a';
+  ctx.lineWidth = Math.max(1.5, sz * 0.03);
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.16, topY + sz * 0.05);
+  ctx.lineTo(-w * 0.26, -sz * 0.16);
+  ctx.moveTo(w * 0.16, topY + sz * 0.05);
+  ctx.lineTo(w * 0.26, -sz * 0.16);
+  ctx.stroke();
+  /* 铲斗（顶端横置弧斗，微露于车顶上缘） */
+  ctx.fillStyle = shade(body, -0.42);
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.48, -sz * 0.20);
+  ctx.quadraticCurveTo(0, -sz * 0.30, w * 0.48, -sz * 0.20);
+  ctx.lineTo(w * 0.44, -sz * 0.10);
+  ctx.quadraticCurveTo(0, -sz * 0.18, -w * 0.44, -sz * 0.10);
+  ctx.closePath();
+  ctx.fill();
+  /* 斗齿 hint */
+  if (sz > 52) {
+    ctx.fillStyle = '#59637a';
+    for (const fx of [-w * 0.36, -w * 0.12, w * 0.12, w * 0.36]) {
+      ctx.beginPath();
+      ctx.moveTo(fx - sz * 0.02, -sz * 0.105);
+      ctx.lineTo(fx + sz * 0.02, -sz * 0.105);
+      ctx.lineTo(fx, -sz * 0.06);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  /* 配重块（车尾黑铁块 + 铭牌） */
+  ctx.fillStyle = '#22262f';
+  roundRect(ctx, -w * 0.36, sz * 0.14, w * 0.72, sz * 0.22, sz * 0.05);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.14)';
+  roundRect(ctx, -w * 0.28, sz * 0.18, w * 0.56, sz * 0.08, sz * 0.02);
+  ctx.fill();
+
+  if (o.num != null) drawNumPlate(sz, accent, o.num, 0.24);
   ctx.restore();
 }
 
