@@ -38,6 +38,17 @@
     z-index: 5; pointer-events: none; letter-spacing: 1px;
   }
 
+  /* 冲出赛道提示条 */
+  #offroadTip {
+    position: fixed; top: 62%; left: 50%; transform: translateX(-50%);
+    background: rgba(140, 26, 26, .82); border: 2px solid rgba(255, 110, 110, .9);
+    border-radius: 14px; padding: 10px 26px; color: #ffe3e3;
+    font-size: 19px; font-weight: 800; letter-spacing: 1px;
+    z-index: 5; pointer-events: none; opacity: 0;
+    transition: opacity .18s; text-shadow: 0 2px 6px rgba(0,0,0,.5);
+    white-space: nowrap;
+  }
+
   /* 触屏转向按钮（移动端） */
   #touchUI { position: fixed; bottom: 0; left: 0; right: 0; display: none; z-index: 6; padding: 18px 22px calc(18px + env(safe-area-inset-bottom)); justify-content: space-between; }
   #touchUI button {
@@ -115,6 +126,7 @@
 </div>
 <div id="lapDots"></div>
 <div id="posBoard">🏆 完赛 <b id="posNum" style="color:#ffd35c">6</b> / 6 · 超越 <b id="passNum" style="color:#7dffa1">0</b> 辆</div>
+<div id="offroadTip">⚠️ 冲出赛道了！按 ← 或 → 回到路面</div>
 
 <div id="touchUI">
   <button id="btnLeft" aria-label="左转">◀</button>
@@ -296,9 +308,14 @@ function makeRoadTexture() {
     c.fillStyle = '#e04a4a'; c.fillRect(0, y, shW, 32); c.fillRect(W - shW, y, shW, 32);
     c.fillStyle = '#f2f2f2'; c.fillRect(0, y + 32, shW, 32); c.fillRect(W - shW, y + 32, shW, 32);
   }
-  /* 黄色中线（赛道纹理水平中线） */
+  /* 黄色中线（实线）+ 左右车道白色虚线（增强道路感） */
   c.fillStyle = '#ffd35c';
   c.fillRect(W / 2 - 5, 0, 10, H);
+  c.fillStyle = 'rgba(245,245,245,.92)';
+  for (let y = 0; y < H; y += 64) {
+    c.fillRect(W * 0.31 - 3, y, 6, 34);
+    c.fillRect(W * 0.69 - 3, y, 6, 34);
+  }
   /* 轮胎磨痕（中央两条暗带） */
   c.fillStyle = 'rgba(0,0,0,.16)';
   c.fillRect(W * 0.28, 0, 26, H);
@@ -354,6 +371,76 @@ function makeGrassTexture() {
     treeGroup.add(g);
   }
   scene.add(treeGroup);
+
+  /* 路边距离柱：每 25m 左右各一根红白条纹柱，弯道走向 + 车横向位置一眼可见 */
+  const postGeo = new THREE.CylinderGeometry(0.22, 0.22, 2.1, 8);
+  const postTexCanvas = document.createElement('canvas');
+  postTexCanvas.width = 8; postTexCanvas.height = 32;
+  {
+    const c = postTexCanvas.getContext('2d');
+    c.fillStyle = '#f2f2f2'; c.fillRect(0, 0, 8, 32);
+    c.fillStyle = '#e04a4a';
+    c.fillRect(0, 0, 8, 8); c.fillRect(0, 16, 8, 8);
+  }
+  const postTex = new THREE.CanvasTexture(postTexCanvas);
+  const postMat = new THREE.MeshLambertMaterial({ map: postTex });
+  const postGroup = new THREE.Group();
+  const postSpacing = trackLen / Math.round(trackLen / 25);
+  for (let s = 0; s < trackLen; s += postSpacing) {
+    for (const side of [-1, 1]) {
+      const p = trackPos(s, side * (ROAD_W + 1.1), 1.05);
+      const post = new THREE.Mesh(postGeo, postMat);
+      post.position.copy(p);
+      postGroup.add(post);
+    }
+  }
+  scene.add(postGroup);
+
+  /* 急弯箭头警示牌：曲率大的路段，弯道外侧立黄底箭头牌（指向前方道路走向） */
+  (function buildCurveSigns() {
+    const signCanvas = document.createElement('canvas');
+    signCanvas.width = 64; signCanvas.height = 64;
+    const c = signCanvas.getContext('2d');
+    c.fillStyle = '#ffd35c'; c.fillRect(0, 0, 64, 64);
+    c.strokeStyle = '#111'; c.lineWidth = 3; c.strokeRect(2, 2, 60, 60);
+    c.fillStyle = '#111';
+    c.beginPath();
+    c.moveTo(14, 44); c.lineTo(34, 24); c.lineTo(54, 44);
+    c.lineTo(44, 44); c.lineTo(44, 56); c.lineTo(24, 56); c.lineTo(24, 44);
+    c.closePath(); c.fill();
+    const signTex = new THREE.CanvasTexture(signCanvas);
+    const signMat = new THREE.MeshBasicMaterial({ map: signTex, side: THREE.DoubleSide });
+    const signGeo = new THREE.PlaneGeometry(2.4, 2.4);
+    const poleMat2 = new THREE.MeshLambertMaterial({ color: 0x8a8f9a });
+    const poleGeo2 = new THREE.BoxGeometry(0.12, 1.6, 0.12);
+    const step = 6;                                  // 每 6 个采样点检查一次曲率
+    const placed = [];
+    for (let i = 0; i < SEG_SAMPLES; i += step) {
+      const n0 = normals[i], n1 = normals[(i + 8) % SEG_SAMPLES];
+      const curv = 1 - n0.dot(n1);
+      if (curv < 0.02) continue;                     // 只在急弯放牌
+      /* 与上一个牌至少隔 30 个采样点 */
+      if (placed.some(p2 => Math.min(Math.abs(p2 - i), SEG_SAMPLES - Math.abs(p2 - i)) < 30)) continue;
+      placed.push(i);
+      const crossY = n0.x * n1.z - n0.z * n1.x;      // 弯道方向
+      const outerSide = crossY > 0 ? -1 : 1;         // 离心甩向外侧 → 牌立外侧
+      const s = i / SEG_SAMPLES * trackLen;
+      const base = trackPos(s, outerSide * (ROAD_W + 2.2), 0);
+      const g = new THREE.Group();
+      const pole = new THREE.Mesh(poleGeo2, poleMat2);
+      pole.position.set(0, 0.8, 0);
+      const board = new THREE.Mesh(signGeo, signMat);
+      board.position.set(0, 2.4, 0);
+      /* 箭头牌面向来车方向（沿切线看过去） */
+      const ahead = trackPos(s + 6, outerSide * (ROAD_W + 2.2), 0);
+      g.position.copy(base);
+      g.lookAt(ahead.x, base.y, ahead.z);
+      /* 镜像：右弯时箭头指右 */
+      if (crossY < 0) board.scale.x = -1;
+      g.add(pole, board);
+      scene.add(g);
+    }
+  })();
 
   /* 起跑门（两柱 + 横梁 + 方格旗纹理） */
   const gateGroup = new THREE.Group();
@@ -528,6 +615,7 @@ window.addEventListener('keydown', e => {
 window.addEventListener('keyup', e => { keys[e.key] = false; });
 /* 触屏按钮 */
 const btnLeft = $('btnLeft'), btnRight = $('btnRight');
+const offroadTip = $('offroadTip');
 function bindHold(btn, dir) {
   const on = e => { e.preventDefault(); steerInput = dir; };
   const off = e => { e.preventDefault(); if (steerInput === dir) steerInput = 0; };
@@ -599,9 +687,9 @@ function update(dt, t) {
   } else {
     PS.speed = Math.max(0, PS.speed - 20 * dt);
   }
-  /* 出弯减速（离心）：横向偏移越靠外越慢 */
+  /* 出弯减速（离心）：贴路肩才轻微掉速（阈值 0.78，之前 0.55 太苛刻） */
   const offRatio = Math.abs(PS.o) / ROAD_W;
-  let effSpeed = PS.speed * (1 - Math.max(0, offRatio - 0.55) * 0.9);
+  let effSpeed = PS.speed * (1 - Math.max(0, offRatio - 0.78) * 0.55);
 
   /* 转向 */
   let steer = steerInput;
@@ -619,12 +707,34 @@ function update(dt, t) {
     PS.o -= crossY * curvMag * dt * Math.min(1, PS.speed / 30);
   }
 
-  /* 冲出赛道：草地强阻力 */
-  if (Math.abs(PS.o) > ROAD_W - 0.6) {
+  /* 冲出赛道：草地阻力（放宽到 0.5，最狠 50% 而非 35%）+ 明显反馈 */
+  const offroad = Math.abs(PS.o) > ROAD_W - 0.6;
+  if (offroad) {
     const over = Math.abs(PS.o) - (ROAD_W - 0.6);
-    effSpeed *= Math.max(0.35, 1 - over * 0.28);
+    effSpeed *= Math.max(0.5, 1 - over * 0.18);
     PS.o = Math.max(-(ROAD_W + 2.6), Math.min(ROAD_W + 2.6, PS.o));
-    if (Math.random() < dt * 14) dustBurst(PS);
+    if (Math.random() < dt * 30) dustBurst(PS);   // 持续浓尘（原来 14 稀稀拉拉）
+  }
+  /* 减速状态可视化：速度表变红 + 冲出赛道提示条 */
+  {
+    const chip = $('hudSpeed');
+    const n = $('speedNum');
+    if (offroad) {
+      chip.style.borderColor = 'rgba(255, 90, 90, .9)';
+      chip.style.background = 'rgba(120, 20, 20, .72)';
+      n.style.color = '#ff9d9d';
+      offroadTip.style.opacity = '1';
+    } else if (offRatio > 0.78) {
+      chip.style.borderColor = 'rgba(255, 200, 90, .8)';
+      chip.style.background = 'rgba(120, 80, 10, .6)';
+      n.style.color = '#ffd35c';
+      offroadTip.style.opacity = '0';
+    } else {
+      chip.style.borderColor = '';
+      chip.style.background = '';
+      n.style.color = '';
+      offroadTip.style.opacity = '0';
+    }
   }
 
   PS.s += effSpeed * dt;
@@ -682,8 +792,8 @@ function update(dt, t) {
   updateRank();
 
   /* ---- 相机追尾 ---- */
-  const camTarget = trackPos(PS.s - 9.2, PS.o * 0.55, 4.6);
-  const lookAt = trackPos(PS.s + 14, PS.o * 0.25, 1.1);
+  const camTarget = trackPos(PS.s - 9.2, PS.o * 0.55, 5.8);
+  const lookAt = trackPos(PS.s + 20, PS.o * 0.25, 1.2);
   camera.position.lerp(camTarget, Math.min(1, dt * 6));
   if (shake > 0) {
     shake = Math.max(0, shake - dt * 1.6);
