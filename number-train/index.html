@@ -100,7 +100,7 @@ let cars = [];                 // 月台车厢 [{num, x, y, hit, wiggle}]
 let coupled = [];              // 已挂车厢号（按序）
 let coupledTarget = 3;
 let smoke = [];                // 烟囱粒子
-let trainX = 0;                // 火车水平位置（开走动画）
+let trainX = 0;                // 车头右边缘位置（整列从画面右侧向右开走）
 let departT = -1;              // 开走计时
 let nextT = -1;                // 进下一关延迟
 let flyingCar = null;          // 飞行中车厢 {car, t, from, to}
@@ -129,14 +129,19 @@ function speak(text, opts) {
     const isKey = opts && opts.key;
     if (isKey) synth.cancel();
     else if (synth.speaking && lastSpeakKey) return;
+    /* 防截断三件套：全局引用防 GC、同文本去重、结束清理 */
+    if (isKey && lastSpeakKey && lastSpeakKey.text === text) return;   // 同一句播报中，不重复打断
     const u = new SpeechSynthesisUtterance(text);
+    speakKeepAlive.push(u);
     u.lang = 'zh-CN'; if (zhVoice) u.voice = zhVoice; u.rate = 0.92;
-    u.onend = () => { if (lastSpeakKey === u) lastSpeakKey = null; };
+    u.onend = () => { if (lastSpeakKey === u) lastSpeakKey = null; const i = speakKeepAlive.indexOf(u); if (i >= 0) speakKeepAlive.splice(i, 1); };
+    u.onerror = u.onend;
     if (isKey) lastSpeakKey = u;
     synth.speak(u);
   } catch (e) {}
 }
 let lastSpeakKey = null;
+const speakKeepAlive = [];   // 持有 utterance 引用，防止被 GC 提前回收导致播报中断
 function say(text, key) { caption(text); speak(text, key ? { key: true } : undefined); }
 function caption(text) {
   captionEl.style.display = 'block';
@@ -206,7 +211,7 @@ function buildLevel() {
     const cols = coupledTarget <= 4 ? coupledTarget : 5;
     const col = i % cols;
     const row = Math.floor(i / cols);
-    const x = 60 + col * (cw + 24) + (Math.random() - 0.5) * 16;
+    const x = W - 60 - cw - col * (cw + 24) + (Math.random() - 0.5) * 16;  /* 月台靠右（与列车同侧） */
     const y = H * 0.52 + row * (cw * 0.85 + 24) + (Math.random() - 0.5) * 10;
     cars.push({
       num: n, x, y, w: cw, h: cw * 0.82,
@@ -214,7 +219,7 @@ function buildLevel() {
       color: CAR_COLORS[(n - 1) % CAR_COLORS.length],
     });
   });
-  trainX = Math.min(140, W * 0.14);
+  trainX = W - 40;
   departT = -1; nextT = -1;
   updateHUD();
   say(`第${level}站！这一关挂 1 到 ${coupledTarget} 号车厢，先挂 1 号，1 号！`, true);
@@ -264,7 +269,7 @@ function update(dt, t) {
   // 烟囱粒子
   if (departT >= 0 || state === STATE.RUNNING) {
     if (Math.random() < 0.3) {
-      smoke.push({ x: trainX + 34, y: H * 0.46 - 70, vx: -0.5 - Math.random(), vy: -0.8 - Math.random(), r: 6 + Math.random() * 8, life: 1 });
+      smoke.push({ x: trainX - 64, y: H * 0.46 - 70, vx: -0.5 - Math.random(), vy: -0.8 - Math.random(), r: 6 + Math.random() * 8, life: 1 });
     }
   }
   for (const s of smoke) { s.x += s.vx; s.y += s.vy; s.r += 0.15; s.life -= dt * 0.8; }
@@ -286,7 +291,7 @@ function update(dt, t) {
   // 开走动画
   if (departT >= 0) {
     departT += dt;
-    trainX -= (120 + departT * 260) * dt;
+    trainX += (120 + departT * 260) * dt;
     if (Math.random() < 0.4) sfxChug();
     if (departT > 2.6) {
       departT = -1;
@@ -321,19 +326,22 @@ function drawTrain(t) {
   /* 已挂车厢（第 9 关列车长：车头 + 9 节，宽度自适应） */
   const cw = Math.min(96, (W * 0.72) / (coupledTarget + 1));
   const headW = Math.max(86, cw);
-  let x = trainX;
-  /* 火车头 */
-  drawLoco(x, ry, headW, t);
-  x += headW + 8;
-  coupled.forEach((n, i) => {
-    drawWagon(x, ry, cw, n, CAR_COLORS[(n - 1) % CAR_COLORS.length], t);
-    x += cw + 6;
-  });
-  /* 飞行中的车厢：从月台飞到火车尾 */
+  /* 车厢从左往右排（车尾在左），车头在最右端 —— 整列车从画面右侧出发往右开走 */
+  const trainRight = trainX;   // 车头右边缘
+  /* 已挂车厢（排在车头左侧） */
+  const tailStart = trainRight - headW - 8;
+  let wx = tailStart;
+  for (let i = coupled.length - 1; i >= 0; i--) {
+    drawWagon(wx - cw, ry, cw, coupled[i], CAR_COLORS[(coupled[i] - 1) % CAR_COLORS.length], t);
+    wx -= cw + 6;
+  }
+  /* 火车头（最右端，朝右） */
+  drawLoco(trainRight - headW, ry, headW, t);
+  /* 飞行中的车厢：从月台飞到火车尾（左侧） */
   if (flyingCar) {
     const fc = flyingCar;
     const k = fc.t;
-    const targetX = x + 4;
+    const targetX = wx;                    // 列车左端
     const from = fc.from;
     const toX = targetX, toY = ry;
     const bx = from.x + (toX - from.x) * k;

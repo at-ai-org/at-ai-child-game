@@ -307,16 +307,21 @@ function speak(text, opts) {
     const isKey = opts && opts.key;
     if (isKey) synth.cancel();
     else if (synth.speaking && lastSpeakKey) return;
+    /* 防截断三件套：全局引用防 GC、同文本去重、结束清理 */
+    if (isKey && lastSpeakKey && lastSpeakKey.text === text) return;   // 同一句播报中，不重复打断
     const u = new SpeechSynthesisUtterance(text);
+    speakKeepAlive.push(u);
     u.lang = 'zh-CN';
     if (zhVoice) u.voice = zhVoice;
     u.rate = 0.92;
-    u.onend = () => { if (lastSpeakKey === u) lastSpeakKey = null; };
+    u.onend = () => { if (lastSpeakKey === u) lastSpeakKey = null; const i = speakKeepAlive.indexOf(u); if (i >= 0) speakKeepAlive.splice(i, 1); };
+    u.onerror = u.onend;
     if (isKey) lastSpeakKey = u;
     synth.speak(u);
   } catch (e) { /* 忽略 */ }
 }
 let lastSpeakKey = null;
+const speakKeepAlive = [];   // 持有 utterance 引用，防止被 GC 提前回收导致播报中断
 /* 数字播报：数字重复读两遍，突出关键信息 */
 function speakNumber(prefix, n) {
   speak(prefix + n + '！' + n + '，' + n + '！', { key: true });
