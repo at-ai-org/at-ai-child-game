@@ -30,6 +30,26 @@
   #start h1 { font-size: clamp(38px, 8vw, 60px); letter-spacing: 6px; color: #0d5c0d; text-shadow: 0 2px 0 #fff; margin-bottom: 14px; }
   #start p { font-size: 16px; color: #2c5c2c; line-height: 2; max-width: 560px; }
   #start .rules { margin: 22px 0 28px; }
+  /* 键盘输入模式提示 */
+  #start .kbd-tip {
+    display: inline-block; margin-top: 14px;
+    background: rgba(255,255,255,.75);
+    border: 1px solid rgba(20,60,20,.25);
+    border-radius: 14px;
+    padding: 10px 18px;
+    font-size: 15px; color: #2c5c2c; font-weight: 600;
+  }
+  #start .kbd-tip kbd {
+    display: inline-block;
+    background: linear-gradient(160deg, #ffffff, #e2f0e2);
+    border: 1px solid rgba(20,60,20,.4);
+    border-bottom-width: 3px;
+    border-radius: 8px;
+    color: #0d5c0d;
+    font-family: inherit; font-size: 16px; font-weight: 800;
+    padding: 2px 9px; margin: 0 2px;
+    box-shadow: 0 3px 8px rgba(0,0,0,.15);
+  }
   #start button { font-size: 21px; padding: 14px 56px; border-radius: 999px; border: none; cursor: pointer; background: linear-gradient(90deg, #ff9c5c, #ffd35c); color: #3a2200; font-weight: 800; letter-spacing: 6px; box-shadow: 0 8px 26px rgba(255,156,92,.5); font-family: inherit; }
   #start button:active { transform: scale(.97); }
 </style>
@@ -38,7 +58,7 @@
 <canvas id="game"></canvas>
 <button id="btnMute" title="声音开关">🔊</button>
 <div class="hud">
-  <div class="hud-chip">第 <b id="hudLevel">1</b> / 8 关</div>
+  <div class="hud-chip">第 <b id="hudLevel">1</b> / 9 关</div>
   <div class="hud-chip">连对 <b id="hudStreak">0</b> 🔥</div>
   <div class="hud-chip">已挂 <b id="hudCoupled">0</b> / <b id="hudTotal">3</b> 节</div>
 </div>
@@ -56,14 +76,15 @@
   <p class="rules">
     车站的月台上停着好多车厢，上面写着数字。<br>
     听语音提示，<b>按顺序</b> 1 → 2 → 3 点击车厢，把它们挂到火车上！<br>
-    挂满整列火车就会呜呜地开走，一共 <b>8 站</b>哦～
+    挂满整列火车就会呜呜地开走，一共 <b>9 站</b>哦～
   </p>
+  <p class="kbd-tip">挂车不用鼠标，直接按键盘 <kbd>1</kbd>-<kbd>9</kbd> 挂对应号码的车厢</p>
   <button id="btnStart">发车！</button>
 </div>
 <script>
 /* =========================================================
  * 数字小火车 Number Train —— 单文件 Canvas 小游戏（G2）
- * 月台散乱车厢，按 1..N 顺序点击挂车；挂满开走，8 关递增。
+ * 月台散乱车厢，按 1..N 顺序点击挂车；挂满开走，9 关递增（第 9 关 9 节）。
  * ========================================================= */
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -165,7 +186,7 @@ function toast(text, good) {
 
 /* 关卡生成：月台随机摆 coupledTarget 节车厢（数字 1..N 乱序） */
 function buildLevel() {
-  coupledTarget = Math.min(3 + level - 1, 8);
+  coupledTarget = Math.min(3 + level - 1, 9);
   coupled = [];
   const nums = [];
   for (let i = 1; i <= coupledTarget; i++) nums.push(i);
@@ -174,10 +195,11 @@ function buildLevel() {
     [nums[i], nums[j]] = [nums[j], nums[i]];
   }
   cars = [];
-  const cw = Math.min(110, (W - 80) / coupledTarget);
+  const cw = Math.min(104, (W - 80) / Math.min(coupledTarget, 5));
   nums.forEach((n, i) => {
-    const col = i % Math.min(4, coupledTarget);
-    const row = Math.floor(i / 4);
+    const cols = coupledTarget <= 4 ? coupledTarget : 5;
+    const col = i % cols;
+    const row = Math.floor(i / cols);
     const x = 60 + col * (cw + 24) + (Math.random() - 0.5) * 16;
     const y = H * 0.52 + row * (cw * 0.85 + 24) + (Math.random() - 0.5) * 10;
     cars.push({
@@ -189,7 +211,7 @@ function buildLevel() {
   trainX = Math.min(140, W * 0.14);
   departT = -1; nextT = -1;
   updateHUD();
-  say(`第${level}站！按顺序挂车厢，先挂 1 号`);
+  say(`第${level}站！这一关要按顺序挂 ${coupledTarget} 节车厢：${nums.join('、')}。先挂 1 号`);
 }
 
 /* 点击车厢 */
@@ -262,7 +284,7 @@ function update(dt, t) {
     if (Math.random() < 0.4) sfxChug();
     if (departT > 2.6) {
       departT = -1;
-      if (level >= 8) {
+      if (level >= 9) {
         showResult();
       } else {
         nextT = 0.4;
@@ -290,8 +312,8 @@ function drawTrain(t) {
   for (let x = -20; x < W + 40; x += 28) {
     ctx.fillRect(x, ry + 42, 14, 16);
   }
-  /* 已挂车厢 */
-  const cw = Math.min(96, (W * 0.5) / coupledTarget);
+  /* 已挂车厢（第 9 关列车长：车头 + 9 节，宽度自适应） */
+  const cw = Math.min(96, (W * 0.72) / (coupledTarget + 1));
   const headW = Math.max(86, cw);
   let x = trainX;
   /* 火车头 */
@@ -500,6 +522,32 @@ canvas.addEventListener('pointerdown', e => {
   }
 });
 
+/* ---------------- 键盘直接输入数字 ---------------- */
+/* 按主键盘 1-8 或数字小键盘：直接点对应号码的月台车厢。
+ * clickCar 自带飞行中 / 开走中 / 顺序校验，键盘与鼠标同一入口。 */
+window.addEventListener('keydown', e => {
+  if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+  // 回车 / 空格：开始界面 → 发车；结算界面 → 再玩一次
+  if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+    if (state === STATE.START && $('start').style.display !== 'none') {
+      e.preventDefault();
+      $('btnStart').click();
+      return;
+    }
+    if (state === STATE.FINISH) {
+      e.preventDefault();
+      $('btnRestart').click();
+      return;
+    }
+  }
+  if (state !== STATE.RUNNING) return;
+  const n = e.key >= '1' && e.key <= '9' ? e.key : null;
+  if (n === null) return;
+  e.preventDefault();
+  const c = cars.find(x => String(x.num) === n);
+  if (c) clickCar(c);   // 号码不存在（如已挂走）由 clickCar 无声忽略
+});
+
 /* 开始 / 重开 */
 $('btnStart').addEventListener('click', () => {
   initAudio();
@@ -528,9 +576,9 @@ function showResult() {
   else                       { title = '🚂 全线通车！';  medal = '继续加油'; }
   $('resultTitle').textContent = title;
   $('resultDesc').innerHTML =
-    `跑完 <b style="color:#0d5c0d">8</b> 站（${medal}）<br>` +
+    `跑完 <b style="color:#0d5c0d">9</b> 站（${medal}）<br>` +
     `最佳连挂 <b style="color:#0d5c0d">${bestStreak}</b> 站 · 挂错 <b style="color:#c22">${wrongTotal}</b> 次<br>` +
-    `数字顺序 1 到 8 全记住啦！`;
+    `数字顺序 1 到 9 全记住啦！`;
   $('result').classList.add('show');
   state = STATE.FINISH;
   say(`全线通车！你连续挂对了${bestStreak}站，获得${medal}！`);

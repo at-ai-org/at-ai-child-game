@@ -506,6 +506,7 @@ function openChallenge() {
   if (!isTouch) {
     setTimeout(() => { numberInput.focus(); numberInput.select(); }, 60);
   }
+  speak(`锁定敌机！它身上的数字是 ${answer}，输入它就能发射导弹`);
 }
 function closeChallenge() {
   challengeBox.classList.remove('show');
