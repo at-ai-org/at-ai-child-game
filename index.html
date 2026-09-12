@@ -126,6 +126,9 @@
 <div class="stars" aria-hidden="true"></div>
 <div class="stars2" aria-hidden="true"></div>
 <script>
+/* 屏蔽右键菜单：防止误触弹出系统菜单 */
+window.addEventListener('contextmenu', e => e.preventDefault());
+
   // 生成两层星空（与数字赛车游戏同款夜间氛围）
   (function () {
     const mk = (cls, n, css) => {

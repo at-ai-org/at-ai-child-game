@@ -231,6 +231,9 @@
 </div>
 
 <script>
+/* 屏蔽右键菜单：防止游戏中误触（触屏板双指/鼠标右键弹出系统菜单打断游戏） */
+window.addEventListener('contextmenu', e => e.preventDefault());
+
 /* =========================================================
  * 数字赛车 Number Racing —— 单文件 Canvas 小游戏
  *

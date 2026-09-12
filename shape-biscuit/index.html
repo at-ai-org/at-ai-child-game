@@ -62,6 +62,9 @@
   <button id="btnStart">开始烤饼干</button>
 </div>
 <script>
+/* 屏蔽右键菜单：防止游戏中误触（触屏板双指/鼠标右键弹出系统菜单打断游戏） */
+window.addEventListener('contextmenu', e => e.preventDefault());
+
 /* =========================================================
  * 形状饼干工厂 Shape Biscuit —— 单文件 Canvas 小游戏
  * 传送带送来形状饼干，点对应模具盖章；盖对烤成金色。

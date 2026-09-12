@@ -61,6 +61,9 @@
   <button id="btnStart">去过马路</button>
 </div>
 <script>
+/* 屏蔽右键菜单：防止游戏中误触（触屏板双指/鼠标右键弹出系统菜单打断游戏） */
+window.addEventListener('contextmenu', e => e.preventDefault());
+
 /* =========================================================
  * 红绿灯过马路 Traffic Safety —— 单文件 Canvas 小游戏（G13）
  * 红灯 3s → 绿灯 4s 循环；绿灯点过街按钮走斑马线；
