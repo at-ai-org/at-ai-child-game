@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>时钟小管家 · Clock Master</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  body {
+    background: #0b1026;
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+  }
+  #game { display: block; width: 100vw; height: 100vh; }
+  .hud { position: absolute; top: 46px; left: 14px; z-index: 10; display: flex; gap: 10px; flex-wrap: wrap; pointer-events: none; }
+  .hud-chip { background: rgba(10, 16, 40, .72); border: 1px solid rgba(120, 200, 255, .35); border-radius: 14px; color: #dff2ff; padding: 7px 15px; font-size: 17px; font-weight: 600; box-shadow: 0 4px 18px rgba(0,0,0,.35); backdrop-filter: blur(6px); }
+  .hud-chip b { color: #ffd35c; font-size: 21px; }
+  #btnMute { position: absolute; top: 12px; right: 12px; z-index: 60; font-size: 20px; line-height: 1; padding: 9px 13px; border-radius: 12px; cursor: pointer; background: rgba(10, 16, 40, .72); border: 1px solid rgba(120, 200, 255, .35); color: #dff2ff; }
+  #caption { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 15; background: rgba(10, 16, 40, .85); border: 2px solid rgba(120, 200, 255, .5); border-radius: 18px; color: #dff2ff; padding: 10px 26px; font-size: 20px; font-weight: 700; letter-spacing: 1px; pointer-events: none; white-space: nowrap; max-width: 92vw; text-align: center; }
+  #toast { position: absolute; left: 50%; top: 22%; transform: translate(-50%, -50%) scale(1); z-index: 30; font-size: 52px; font-weight: 800; color: #ffd35c; text-shadow: 0 4px 18px rgba(0,0,0,.6); opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; white-space: nowrap; }
+  #toast.pop { opacity: 1; transform: translate(-50%, -58%) scale(1.12); }
+  #result { position: absolute; inset: 0; z-index: 40; background: rgba(4, 8, 22, .82); display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+  #result.show { display: flex; }
+  .result-card { text-align: center; color: #eaf4ff; background: linear-gradient(160deg, #16224a, #0d1330); border: 2px solid #4f8cff; border-radius: 26px; padding: 30px 44px; box-shadow: 0 20px 60px rgba(0,0,0,.55); max-width: 88vw; }
+  .result-card h1 { font-size: 38px; color: #ffd35c; margin-bottom: 12px; }
+  .result-card p { font-size: 17px; color: #b9cdf0; margin: 6px 0 22px; line-height: 1.8; }
+  .result-card button { font-size: 20px; padding: 12px 42px; border-radius: 999px; border: none; cursor: pointer; background: linear-gradient(90deg, #4f8cff, #59d1ff); color: #fff; font-weight: 700; letter-spacing: 4px; box-shadow: 0 6px 20px rgba(79,140,255,.45); font-family: inherit; }
+  #start { position: absolute; inset: 0; z-index: 50; background: radial-gradient(1200px 600px at 50% 30%, #17275e 0%, #0b1026 70%); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #eaf4ff; text-align: center; padding: 20px; }
+  #start h1 { font-size: clamp(38px, 8vw, 60px); letter-spacing: 6px; background: linear-gradient(90deg, #ffd35c, #7dffa1, #5cc8ff); -webkit-background-clip: text; background-clip: text; color: transparent; margin-bottom: 14px; }
+  #start p { font-size: 16px; color: #9db4d8; line-height: 2; max-width: 560px; }
+  #start .rules { margin: 22px 0 28px; }
+  #start button { font-size: 21px; padding: 14px 56px; border-radius: 999px; border: none; cursor: pointer; background: linear-gradient(90deg, #37d67a, #59ff9c); color: #06331a; font-weight: 800; letter-spacing: 6px; box-shadow: 0 8px 26px rgba(55,214,122,.45); font-family: inherit; }
+  #start button:active { transform: scale(.97); }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<button id="btnMute" title="声音开关">🔊</button>
+<div class="hud">
+  <div class="hud-chip">答对 <b id="hudRight">0</b> / 12 题</div>
+  <div class="hud-chip">连对 <b id="hudStreak">0</b> 🔥</div>
+</div>
+<div id="caption" style="display:none"></div>
+<div id="toast"></div>
+<div id="result">
+  <div class="result-card">
+    <h1 id="resultTitle">⏰ 全部答对！</h1>
+    <p id="resultDesc"></p>
+    <button id="btnRestart">再玩一次</button>
+  </div>
+</div>
+<div id="start">
+  <h1>时钟小管家</h1>
+  <p class="rules">
+    大时钟需要你来调！听语音说：<b>"小明 8 点要刷牙"</b>。<br>
+    点击表盘上的<b>数字刻度</b>，时针就会转过去。<br>
+    半点的题目还有两个大按钮：选 <b>00 分</b> 还是 <b>30 分</b>。<br>
+    一共 12 题，看看你是不是时间小管家！
+  </p>
+  <button id="btnStart">开始挑战</button>
+</div>
+<script>
+/* =========================================================
+ * 时钟小管家 Clock Master —— 单文件 Canvas 小游戏（G12）
+ * 点击表盘刻度设时针；半点题点 00/30 大按钮。12 题。
+ * ========================================================= */
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0;
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+window.addEventListener('resize', resize);
+resize();
+
+const STATE = { START: 0, RUNNING: 1, FINISH: 2 };
+let state = STATE.START;
+let qIndex = 0;                 // 第几题（0 起）
+let rightCount = 0, streak = 0, bestStreak = 0, wrongTotal = 0;
+let question = null;            // {hour, half, sceneKey, askText}
+let hourAngle = 0;              // 当前时针角度（弧度，0=12点方向）
+let hourTarget = 0;
+let minPhase = null;            // 半点题：'ask-min' 待选分钟
+let minuteShown = 0;            // 显示的分钟（0 或 30）
+let popT = 0;                   // 答对庆祝
+let shake = 0;
+let bounceBack = false;         // 答错弹回动画
+
+/* 情境库 */
+const SCENES = [
+  { key: 'brush', text: '刷牙',  emoji: '🪥' },
+  { key: 'eat',   text: '吃午饭', emoji: '🍜' },
+  { key: 'sleep', text: '睡觉',  emoji: '😴' },
+  { key: 'play',  text: '玩耍',  emoji: '⚽' },
+  { key: 'read',  text: '看书',  emoji: '📖' },
+  { key: 'school',text: '上学',  emoji: '🎒' },
+];
+function hourName(h) { return h === 0 ? '12' : String(h); }
+function timeText(h, m) { return m === 30 ? `${hourName(h)} 点半` : `${hourName(h)} 点整`; }
+
+const $ = id => document.getElementById(id);
+const captionEl = $('caption');
+const toastEl = $('toast');
+
+/* 语音 */
+const synth = window.speechSynthesis || null;
+let zhVoice = null;
+function pickVoice() {
+  if (!synth) return;
+  const vs = synth.getVoices();
+  zhVoice = vs.find(v => /zh[-_]CN/i.test(v.lang)) || vs.find(v => /^zh/i.test(v.lang)) || null;
+}
+if (synth) { pickVoice(); if (synth.onvoiceschanged !== undefined) synth.onvoiceschanged = pickVoice; }
+function speak(text) {
+  if (muted || !synth) return;
+  try {
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN'; if (zhVoice) u.voice = zhVoice; u.rate = 0.92;
+    synth.speak(u);
+  } catch (e) {}
+}
+function say(text) {
+  captionEl.style.display = 'block';
+  captionEl.textContent = text;
+  speak(text);
+}
+
+/* 音效 */
+let actx = null, muted = false;
+function initAudio() {
+  if (actx) { actx.resume && actx.resume(); return; }
+  try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+}
+function beep(freq, dur, type, vol, delay) {
+  if (!actx || muted) return;
+  const t0 = actx.currentTime + (delay || 0);
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type || 'sine'; o.frequency.value = freq;
+  g.gain.setValueAtTime(vol || 0.15, t0);
+  g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+  o.connect(g).connect(actx.destination);
+  o.start(t0); o.stop(t0 + dur + 0.02);
+}
+const sfxTick  = () => { beep(880, .05, 'sine', .1); };
+const sfxRight = () => { beep(660, .1, 'sine', .18); beep(990, .16, 'sine', .18, .1); };
+const sfxWrong = () => beep(180, .22, 'sawtooth', .1);
+const sfxWin   = () => { [523, 659, 784, 1047].forEach((f, i) => beep(f, .22, 'sine', .17, i * 0.13)); };
+
+$('btnMute').addEventListener('click', () => {
+  muted = !muted;
+  $('btnMute').textContent = muted ? '🔇' : '🔊';
+  if (muted && synth) synth.cancel();
+});
+
+function updateHUD() {
+  $('hudRight').textContent = rightCount;
+  $('hudStreak').textContent = streak;
+}
+let toastTimer = null;
+function toast(text, good) {
+  toastEl.textContent = text;
+  toastEl.style.color = good ? '#7dffa1' : '#ffb0a0';
+  toastEl.classList.add('pop');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('pop'), 1000);
+}
+
+/* 出题：12 题 = 整点6 + 半点4 + 整点2 */
+function buildQuestions() {
+  const qs = [];
+  const usedH = new Set();
+  // 整点 6 题
+  for (let i = 0; i < 6; i++) {
+    let h; do { h = Math.floor(Math.random() * 12); } while (usedH.has(h));
+    usedH.add(h);
+    const sc = SCENES[i % SCENES.length];
+    qs.push({ hour: h, half: false, scene: sc });
+  }
+  // 半点 4 题
+  for (let i = 0; i < 4; i++) {
+    let h; do { h = Math.floor(Math.random() * 12); } while (usedH.has(h));
+    usedH.add(h);
+    const sc = SCENES[(i + 3) % SCENES.length];
+    qs.push({ hour: h, half: true, scene: sc });
+  }
+  // 整点收尾 2 题
+  for (let i = 0; i < 2; i++) {
+    let h; do { h = Math.floor(Math.random() * 12); } while (usedH.has(h));
+    usedH.add(h);
+    const sc = SCENES[(i + 5) % SCENES.length];
+    qs.push({ hour: h, half: false, scene: sc });
+  }
+  return qs;
+}
+let questions = [];
+
+function askQuestion() {
+  question = questions[qIndex];
+  hourTarget = 0;
+  hourAngle = 0;
+  minuteShown = 0;
+  minPhase = null;
+  bounceBack = false;
+  if (question.half) {
+    say(`小明要${question.scene.text}啦，把时钟调到 ${hourName(question.hour)} 点半！先点数字 ${hourName(question.hour)} 的刻度`);
+  } else {
+    say(`小明 ${hourName(question.hour)} 点要${question.scene.text}，把时针转到 ${hourName(question.hour)} 点！`);
+  }
+}
+
+/* 点击小时刻度 */
+function setHour(h) {
+  if (state !== STATE.RUNNING || !question) return;
+  if (minPhase === 'ask-min') {
+    // 半点题已过小时：忽略（此时应选分钟）
+    return;
+  }
+  sfxTick();
+  const want = question.hour;
+  hourTarget = h;
+  hourAngle = -Math.PI / 2 + (h % 12) * (Math.PI / 6);
+  if (h === want) {
+    if (question.half) {
+      minPhase = 'ask-min';
+      minuteShown = -1;   // 待选
+      say(`对！${hourName(h)} 点。现在选分针：是 00 分还是 30 分？`);
+    } else {
+      correct();
+    }
+  } else {
+    // 错：弹回
+    wrongTotal++;
+    streak = 0;
+    bounceBack = true;
+    shake = 0.3;
+    sfxWrong();
+    toast(`正确时间是 ${timeText(question.hour, question.half ? 30 : 0)}`);
+    speak(`现在指向 ${hourName(h)} 点，正确的是 ${hourName(want)} 点${question.half ? '半' : '整'}哦，再转一次！`);
+    updateHUD();
+  }
+}
+
+/* 点击分钟按钮（半点题） */
+function setMinute(m) {
+  if (state !== STATE.RUNNING || !question || minPhase !== 'ask-min') return;
+  sfxTick();
+  if ((m === 30) === question.half) {
+    minuteShown = 30;
+    correct();
+  } else {
+    wrongTotal++;
+    streak = 0;
+    shake = 0.3;
+    sfxWrong();
+    toast('正确是 30 分（一点半）');
+    speak(`${hourName(question.hour)} 点半的半，就是 30 分钟。选 30 分再试试！`);
+    updateHUD();
+  }
+}
+
+function correct() {
+  rightCount++;
+  streak++;
+  if (streak > bestStreak) bestStreak = streak;
+  popT = 1.2;
+  sfxRight();
+  const sc = question.scene;
+  toast(`${timeText(question.hour, question.half ? 30 : 0)} ✓`, true);
+  speak(`答对啦！${hourName(question.hour)}${question.half ? '点半' : '点整'}，小明去${sc.text}喽！`);
+  updateHUD();
+  question = null;
+  setTimeout(nextQuestion, 1200);
+}
+function nextQuestion() {
+  qIndex++;
+  if (qIndex >= questions.length) {
+    showResult();
+  } else {
+    askQuestion();
+  }
+}
+function showResult() {
+  let title, medal;
+  if (bestStreak >= 10)     { title = '🥇 金牌时间管家！'; medal = '金牌'; }
+  else if (bestStreak >= 6) { title = '🥈 银牌时间管家！'; medal = '银牌'; }
+  else if (bestStreak >= 3) { title = '🥉 铜牌时间管家！'; medal = '铜牌'; }
+  else                      { title = '⏰ 全部答完！';     medal = '继续加油'; }
+  $('resultTitle').textContent = title;
+  $('resultDesc').innerHTML =
+    `答对 <b style="color:#ffd35c">${rightCount}</b> / 12 题（${medal}）<br>` +
+    `最佳连对 <b style="color:#ffd35c">${bestStreak}</b> 次 · 答错 <b style="color:#ff9d9d">${wrongTotal}</b> 次<br>` +
+    `整点半点全都认识啦！`;
+  $('result').classList.add('show');
+  state = STATE.FINISH;
+  speak(`全部答完！你答对了${rightCount}题，获得${medal}！`);
+}
+
+/* 布局 */
+function clockCenter() { return { cx: W / 2, cy: H * 0.48, r: Math.min(W, H) * 0.26 }; }
+function minButtons() {
+  const { cx, cy, r } = clockCenter();
+  const bw = Math.min(110, W * 0.2), bh = 56;
+  return {
+    zero: { x: cx - r - bw - 24, y: cy - bh / 2, w: bw, h: bh, label: '00 分' },
+    thirty: { x: cx + r + 24, y: cy - bh / 2, w: bw, h: bh, label: '30 分' },
+  };
+}
+
+/* 绘制 */
+function drawScene(t) {
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#101a3c');
+  bg.addColorStop(1, '#0b1026');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+  /* 星点 */
+  ctx.fillStyle = 'rgba(220,235,255,.5)';
+  for (let i = 0; i < 36; i++) {
+    const x = (i * 137.5) % W, y = (i * 89.3) % (H * 0.35);
+    ctx.globalAlpha = 0.15 + 0.25 * (0.5 + 0.5 * Math.sin(t + i));
+    ctx.fillRect(x, y, 2, 2);
+  }
+  ctx.globalAlpha = 1;
+  /* 情境小场景（右下角提示当前活动） */
+  if (question) {
+    ctx.save();
+    ctx.globalAlpha = 0.95;
+    ctx.font = '52px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(question.scene.emoji, W * 0.86, H * 0.82);
+    ctx.font = 'bold 18px system-ui, sans-serif';
+    ctx.fillStyle = '#b9cdf0';
+    ctx.fillText(`小明要${question.scene.text}`, W * 0.86, H * 0.82 + 44);
+    ctx.restore();
+  }
+}
+function drawClock(t) {
+  const { cx, cy, r } = clockCenter();
+  ctx.save();
+  ctx.translate(cx, cy);
+  /* 表盘 */
+  const g = ctx.createRadialGradient(0, 0, r * 0.1, 0, 0, r);
+  g.addColorStop(0, '#fdf6e3');
+  g.addColorStop(1, '#e8d9b8');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#8a6a42'; ctx.lineWidth = 8;
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(138,106,66,.4)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(0, 0, r - 12, 0, Math.PI * 2); ctx.stroke();
+  /* 刻度数字 12 个（可点击大热区） */
+  for (let i = 0; i < 12; i++) {
+    const a = -Math.PI / 2 + i * (Math.PI / 6);
+    const nx = Math.cos(a) * (r * 0.78), ny = Math.sin(a) * (r * 0.78);
+    const hNum = i === 0 ? 12 : i;
+    /* 命中态高亮 */
+    const isSel = (i % 12) === (hourTarget % 12) && hourTarget >= 0;
+    ctx.beginPath();
+    ctx.arc(nx, ny, r * 0.135, 0, Math.PI * 2);
+    ctx.fillStyle = isSel ? '#ffd35c' : 'rgba(255,255,255,.55)';
+    ctx.fill();
+    ctx.strokeStyle = isSel ? '#c9922a' : 'rgba(138,106,66,.5)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = '#1a2a55';
+    ctx.font = `bold ${Math.round(r * 0.16)}px system-ui, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(hNum), nx, ny + 1);
+    /* 小刻度点 */
+    const dx = Math.cos(a) * r * 0.94, dy = Math.sin(a) * r * 0.94;
+    ctx.fillStyle = '#8a6a42';
+    ctx.beginPath(); ctx.arc(dx, dy, 4, 0, Math.PI * 2); ctx.fill();
+  }
+  /* 分针（固定 12 点方向，半点时转 30 分钟方向） */
+  const mAng = minuteShown === 30 ? Math.PI : (minuteShown === -1 ? -Math.PI / 2 : -Math.PI / 2);
+  ctx.save();
+  ctx.rotate(mAng);
+  ctx.strokeStyle = '#3a5a9a'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(0, r * 0.12); ctx.lineTo(0, -r * 0.62); ctx.stroke();
+  ctx.restore();
+  /* 时针 */
+  const hb = bounceBack ? Math.sin(t * 30) * 0.1 : 0;
+  ctx.save();
+  ctx.rotate(hourAngle + hb);
+  ctx.strokeStyle = '#b03c3c'; ctx.lineWidth = 9; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(0, r * 0.14); ctx.lineTo(0, -r * 0.42); ctx.stroke();
+  ctx.restore();
+  /* 中心圆 */
+  ctx.fillStyle = '#1a2a55';
+  ctx.beginPath(); ctx.arc(0, 0, r * 0.06, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+function drawMinButtons(t) {
+  if (minPhase !== 'ask-min') return;
+  const btns = minButtons();
+  const pulse = 1 + Math.sin(t * 6) * 0.04;
+  for (const key of ['zero', 'thirty']) {
+    const b = btns[key];
+    ctx.save();
+    ctx.translate(b.x + b.w / 2, b.y + b.h / 2);
+    ctx.scale(pulse, pulse);
+    ctx.fillStyle = 'rgba(22,34,74,.95)';
+    roundR(-b.w / 2, -b.h / 2, b.w, b.h, 16);
+    ctx.fill();
+    ctx.strokeStyle = '#4f8cff'; ctx.lineWidth = 3;
+    roundR(-b.w / 2, -b.h / 2, b.w, b.h, 16);
+    ctx.stroke();
+    ctx.fillStyle = '#eaf4ff';
+    ctx.font = 'bold 26px system-ui, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(b.label, 0, 0);
+    ctx.restore();
+  }
+  /* 顶部提示 */
+  ctx.fillStyle = '#ffd35c';
+  ctx.font = 'bold 22px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('选哪个：00 分 还是 30 分？', W / 2, clockCenter().cy - clockCenter().r - 40);
+}
+function drawPop(t) {
+  if (popT <= 0) return;
+  const k = 1 - popT;
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, popT);
+  ctx.font = `bold ${52 + k * 20}px system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#7dffa1';
+  ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 10;
+  ctx.fillText('✓ 对啦！', W / 2, H * 0.16 - k * 30);
+  ctx.restore();
+}
+function roundR(x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function update(dt, t) {
+  if (shake > 0) shake = Math.max(0, shake - dt);
+  if (popT > 0) popT = Math.max(0, popT - dt);
+  /* 时针缓动 */
+  if (question && !bounceBack) {
+    const want = -Math.PI / 2 + (hourTarget % 12) * (Math.PI / 6);
+    hourAngle += (want - hourAngle) * Math.min(1, dt * 8);
+  }
+}
+function render(t) {
+  ctx.save();
+  if (shake > 0) {
+    const m = shake * 8;
+    ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m);
+  }
+  drawScene(t);
+  drawClock(t);
+  drawMinButtons(t);
+  drawPop(t);
+  ctx.restore();
+}
+
+let lastT = 0;
+function frame(now) {
+  const dt = Math.min(0.05, lastT === 0 ? 0.016 : (now - lastT) / 1000);
+  lastT = now;
+  if (state === STATE.RUNNING) update(dt, now / 1000);
+  render(now / 1000);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* 点击：先分钟按钮，再表盘刻度 */
+canvas.addEventListener('pointerdown', e => {
+  if (state !== STATE.RUNNING) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) * (W / rect.width);
+  const y = (e.clientY - rect.top) * (H / rect.height);
+  /* 分钟按钮 */
+  if (minPhase === 'ask-min') {
+    const btns = minButtons();
+    for (const key of ['zero', 'thirty']) {
+      const b = btns[key];
+      if (x >= b.x - 8 && x <= b.x + b.w + 8 && y >= b.y - 8 && y <= b.y + b.h + 8) {
+        setMinute(key === 'zero' ? 0 : 30);
+        return;
+      }
+    }
+    return;
+  }
+  /* 表盘刻度 */
+  const { cx, cy, r } = clockCenter();
+  const dx = x - cx, dy = y - cy;
+  if (Math.hypot(dx, dy) > r * 1.15) return;
+  let best = -1, bestD = 1e9;
+  for (let i = 0; i < 12; i++) {
+    const a = -Math.PI / 2 + i * (Math.PI / 6);
+    const nx = cx + Math.cos(a) * (r * 0.78), ny = cy + Math.sin(a) * (r * 0.78);
+    const d = Math.hypot(x - nx, y - ny);
+    if (d < bestD) { bestD = d; best = i; }
+  }
+  if (bestD <= r * 0.2) setHour(best === 0 ? 12 : best);
+});
+
+/* 开始 / 重开 */
+$('btnStart').addEventListener('click', () => {
+  initAudio();
+  $('start').style.display = 'none';
+  resetGame();
+  state = STATE.RUNNING;
+});
+$('btnRestart').addEventListener('click', () => {
+  $('result').classList.remove('show');
+  resetGame();
+  state = STATE.RUNNING;
+});
+function resetGame() {
+  qIndex = 0; rightCount = 0; streak = 0; bestStreak = 0; wrongTotal = 0;
+  questions = buildQuestions();
+  question = null;
+  hourAngle = 0; hourTarget = 0; minuteShown = 0; minPhase = null;
+  popT = 0; shake = 0; bounceBack = false;
+  captionEl.style.display = 'none';
+  updateHUD();
+  askQuestion();
+}
+
+/* 测试钩子 */
+window.__testSetHour = h => setHour(h);
+window.__testSetMinute = m => setMinute(m);
+window.__testState = () => ({
+  state, qIndex, right: rightCount, streak, bestStreak, wrong: wrongTotal,
+  hour: question ? question.hour : null, half: question ? question.half : null, minPhase,
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>找不同小侦探 · Spot Difference</title>
+<style>*{margin: 0;padding: 0;box-sizing: border-box}
+html, body{width: 100%;height: 100%;overflow: hidden}
+body{background: #0b1026;font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;user-select: none;-webkit-user-select: none;-webkit-tap-highlight-color: transparent}
+#game{display: block;width: 100vw;height: 100vh;touch-action: manipulation}
+.hud{position: absolute;top: 64px;left: 14px;z-index: 10;display: flex;gap: 10px;flex-wrap: wrap;pointer-events: none}
+.hud-chip{background: rgba(10, 16, 40, .72);border: 1px solid rgba(120, 200, 255, .35);border-radius: 14px;color: #dff2ff;padding: 7px 15px;font-size: 17px;font-weight: 600;box-shadow: 0 4px 18px rgba(0,0,0,.35);backdrop-filter: blur(6px)}
+.hud-chip b{color: #ffd35c;font-size: 21px}
+#btnMute{position: absolute;top: 12px;right: 12px;z-index: 60;font-size: 20px;line-height: 1;padding: 9px 13px;border-radius: 12px;cursor: pointer;background: rgba(10, 16, 40, .72);border: 1px solid rgba(120, 200, 255, .35);color: #dff2ff}
+#btnHint{position: absolute;bottom: 18px;left: 50%;transform: translateX(-50%);z-index: 60;font-size: 19px;line-height: 1.2;padding: 12px 30px;border-radius: 999px;cursor: pointer;background: linear-gradient(90deg, #ff9c5c, #ffd35c);border: none;outline: none;color: #3a2200;font-weight: 800;letter-spacing: 2px;box-shadow: 0 8px 26px rgba(255,180,70,.45);font-family: inherit}
+#btnHint:active{transform: translateX(-50%) scale(.96)}
+#voiceBar{position: absolute;top: 12px;left: 50%;transform: translateX(-50%);z-index: 25;background: rgba(10, 16, 40, .80);border: 1px solid rgba(120, 200, 255, .35);border-radius: 999px;color: #ffe9b0;font-size: 18px;font-weight: 700;padding: 9px 24px;max-width: 86vw;text-align: center;box-shadow: 0 4px 18px rgba(0,0,0,.35);backdrop-filter: blur(6px);transition: opacity .25s;white-space: nowrap;overflow: hidden;text-overflow: ellipsis}
+#voiceBar.hide{opacity: 0}
+#toast{position: absolute;left: 50%;top: 42%;transform: translate(-50%, -50%) scale(1);z-index: 30;font-size: 56px;font-weight: 800;color: #ffd35c;text-shadow: 0 4px 18px rgba(0,0,0,.6);opacity: 0;pointer-events: none;transition: opacity .25s, transform .25s;white-space: nowrap}
+#toast.pop{opacity: 1;transform: translate(-50%, -58%) scale(1.12)}
+#result{position: absolute;inset: 0;z-index: 40;background: rgba(4, 8, 22, .82);display: none;align-items: center;justify-content: center;backdrop-filter: blur(4px)}
+#result.show{display: flex}
+.result-card{text-align: center;color: #eaf4ff;background: linear-gradient(160deg, #16224a, #0d1330);border: 2px solid #4f8cff;border-radius: 26px;padding: 30px 44px;box-shadow: 0 20px 60px rgba(0,0,0,.55);max-width: 88vw}
+.result-card h1{font-size: 38px;color: #ffd35c;margin-bottom: 12px}
+.result-card p{font-size: 17px;color: #b9cdf0;margin: 6px 0 22px;line-height: 1.8}
+.result-card button{font-size: 20px;padding: 12px 42px;border-radius: 999px;border: none;cursor: pointer;background: linear-gradient(90deg, #4f8cff, #59d1ff);color: #fff;font-weight: 700;letter-spacing: 4px;box-shadow: 0 6px 20px rgba(79,140,255,.45);font-family: inherit}
+.result-card button:active{transform: scale(.97)}
+#start{position: absolute;inset: 0;z-index: 50;background: radial-gradient(1200px 600px at 50% 30%, #17275e 0%, #0b1026 70%);display: flex;flex-direction: column;align-items: center;justify-content: center;color: #eaf4ff;text-align: center;padding: 20px}
+#start h1{font-size: clamp(38px, 8vw, 60px);letter-spacing: 6px;background: linear-gradient(90deg, #ffd35c, #ff9c5c, #5cc8ff);-webkit-background-clip: text;background-clip: text;color: transparent;margin-bottom: 14px}
+#start p{font-size: 16px;color: #9db4d8;line-height: 2;max-width: 560px}
+#start .rules{margin: 22px 0 28px}
+#start button{font-size: 21px;padding: 14px 56px;border-radius: 999px;border: none;cursor: pointer;background: linear-gradient(90deg, #ff9c5c, #ffd35c);color: #3a2200;font-weight: 800;letter-spacing: 6px;box-shadow: 0 8px 26px rgba(255,180,70,.45);font-family: inherit}
+#start button:active{transform: scale(.97)}</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<button id="btnMute" title="声音开关">🔊</button>
+
+<div id="voiceBar">点击开始，睁大眼睛找不同吧！</div>
+
+<div class="hud">
+  <div class="hud-chip">第 <b id="hudLevel">1</b> / 4 关</div>
+  <div class="hud-chip">找到 <b id="hudFound">0</b> / <b id="hudTotal">5</b> 处</div>
+  <div class="hud-chip">用了 <b id="hudHints">0</b> 次提示 💡</div>
+</div>
+
+<button id="btnHint">💡 提示一下</button>
+
+<div id="toast"></div>
+
+<div id="result">
+  <div class="result-card">
+    <h1 id="resultTitle">🎉 神探小柯南！</h1>
+    <p id="resultDesc"></p>
+    <button id="btnRestart">再玩一次</button>
+  </div>
+</div>
+
+<div id="start">
+  <h1>找不同小侦探</h1>
+  <p class="rules">
+    两幅画看起来一样，其实藏着 5 处小秘密：<br>
+    🔍 点击<b>下面那幅图</b>里不一样的地方 → 放大镜圈出它！<br>
+    💡 实在找不到就点"提示"，一处不同会闪闪发光<br>
+    🏆 闯过 4 大场景：公园、海底、太空、糖果城！
+  </p>
+  <button id="btnStart">开始侦探之旅</button>
+</div>
+
+<script>
+/* =========================================================
+ * 找不同小侦探 Spot Difference —— 单文件 Canvas 小游戏
+ * 上下两幅 400×300 场景图，同一绘制函数带 variant 参数；
+ * 点击下图差异处 → 放大镜光圈标记；点错 → 轻摇 + 嗡声；
+ * 5 处找齐 → 烟花庆祝进下一关，4 关结算。
+ * ========================================================= */
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const $ = id => document.getElementById(id);
+
+let W = 0, H = 0;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  layout();
+}
+window.addEventListener('resize', resize);
+
+/* ---------------- 常量 ---------------- */
+const IMG_W = 400, IMG_H = 300;
+const HIT_R = 32;
+const STATE = { START: 0, RUNNING: 1, LEVEL_UP: 2, FINISH: 3 };
+const TOTAL_LEVELS = 4;
+const HIT_MARGIN = 30;                    // 命中判定缩边（差异尽量远离外边）
+const CHEER_TIME = 1.4;
+
+/* ---------------- 场景定义 ----------------
+ * 每关一个绘制函数，variant ∈ {'A','B'}，5 个差异点坐标写死（场景内 400×300 系）。
+ * d.desc: 测试/提示语音用差异名。 */
+const SCENES = [
+  {
+    name: '公园', sky: ['#aee3ff', '#e8f7ff'],
+    draw: drawPark,
+    diffs: [
+      { x: 68,  y: 252, desc: '左边皮球' },        // 有无：左下皮球
+      { x: 322, y: 238, desc: '花丛颜色' },        // 颜色：右下花朵
+      { x: 200, y: 176, desc: '秋千绳子' },        // 大小：秋千座板宽窄
+      { x: 118, y: 92,  desc: '风筝' },            // 有无：左上风筝
+      { x: 36,  y: 168, desc: '苹果数量' },        // 数量：树上苹果 3 vs 4
+    ],
+  },
+  {
+    name: '海底', sky: ['#0b4f8a', '#08305c'],
+    draw: drawSea,
+    diffs: [
+      { x: 74,  y: 90,  desc: '水母数量' },        // 数量：左上水母 2 vs 1
+      { x: 330, y: 105, desc: '小丑鱼颜色' },      // 颜色：右上鱼橙 vs 蓝
+      { x: 202, y: 225, desc: '宝箱' },            // 有无：中下宝箱
+      { x: 258, y: 70,  desc: '气泡大小' },        // 大小：右上气泡
+      { x: 132, y: 215, desc: '章鱼' },            // 有无：左下章鱼
+    ],
+  },
+  {
+    name: '太空', sky: ['#060a24', '#0b1036'],
+    draw: drawSpace,
+    diffs: [
+      { x: 76,  y: 66,  desc: '飞碟' },            // 有无：左上飞碟
+      { x: 322, y: 78,  desc: '行星环' },          // 有无：右上行星光环
+      { x: 196, y: 150, desc: '火箭颜色' },        // 颜色：火箭身红 vs 紫
+      { x: 270, y: 222, desc: '星星数量' },        // 数量：右下星星 4 vs 3
+      { x: 118, y: 222, desc: '宇航员大小' },      // 大小：左下宇航员
+    ],
+  },
+  {
+    name: '糖果城', sky: ['#ffc7e6', '#ffeaf6'],
+    draw: drawCandy,
+    diffs: [
+      { x: 72,  y: 60,  desc: '棒棒糖颜色' },      // 颜色：左上棒棒糖
+      { x: 326, y: 96,  desc: '彩虹数量' },        // 数量：彩虹 7 道 vs 5 道
+      { x: 200, y: 150, desc: '姜饼人' },          // 有无：中央姜饼人
+      { x: 298, y: 232, desc: '杯子蛋糕大小' },    // 大小：右下蛋糕
+      { x: 122, y: 258, desc: '糖果数量' },        // 数量：左下散糖 3 vs 2
+    ],
+  },
+];
+
+/* ---------------- 状态 ---------------- */
+let state = STATE.START;
+let level = 1, foundCount = 0, foundFlags = [0,0,0,0,0];
+let hintTotal = 0, wrongTotal = 0;
+let hintFlash = -1, hintUntil = 0;                // 提示闪烁的差异索引/截止时间
+let marks = [];                                   // 已找到标记 [{x,y,anim}]
+let fireworks = [];                               // 庆祝烟花粒子
+let shake = 0;                                    // 点错轻摇强度
+let cheerTimer = -1;
+let stageTop = { x: 0, y: 0, w: 0, h: 0 };         // 上图画区
+let stageBot = { x: 0, y: 0, w: 0, h: 0 };         // 下图画区
+
+function layout() {
+  /* 两幅图横向铺满（保持 4:3），中间留 12px 缝，上下留 HUD 空间 */
+  const marginX = Math.min(40, W * 0.04);
+  const iw = W - marginX * 2;
+  const ih = iw * IMG_H / IMG_W;
+  const totalH = ih * 2 + 14;
+  const topY = Math.max(86, (H - totalH - 20) / 2);
+  stageTop = { x: marginX, y: topY, w: iw, h: ih };
+  stageBot = { x: marginX, y: topY + ih + 14, w: iw, h: ih };
+}
+resize();
+
+/* ---------------- 语音播报 ---------------- */
+const synth = window.speechSynthesis || null;
+let zhVoice = null, muted = false;
+function pickVoice() {
+  if (!synth) return;
+  const vs = synth.getVoices();
+  zhVoice = vs.find(v => /zh[-_]CN/i.test(v.lang)) ||
+            vs.find(v => /^zh/i.test(v.lang)) || null;
+}
+if (synth) {
+  pickVoice();
+  synth.onvoiceschanged = pickVoice;
+}
+function speak(text) {
+  if (muted || !synth) return;
+  try {
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN';
+    if (zhVoice) u.voice = zhVoice;
+    u.rate = 0.92;
+    synth.speak(u);
+  } catch (e) { /* 忽略 */ }
+}
+const voiceBar = $('voiceBar');
+let voiceTimer = null;
+function say(text) {
+  voiceBar.textContent = text;
+  voiceBar.classList.remove('hide');
+  if (voiceTimer) clearTimeout(voiceTimer);
+  voiceTimer = setTimeout(() => voiceBar.classList.add('hide'), 3600);
+  speak(text);
+}
+
+/* ---------------- 音效 ---------------- */
+let actx = null;
+function initAudio() {
+  if (actx) return;
+  try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+}
+function beep(freq, dur, type, vol, sweepTo) {
+  if (!actx || muted) return;
+  try {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(freq, actx.currentTime);
+    if (sweepTo) o.frequency.exponentialRampToValueAtTime(sweepTo, actx.currentTime + dur);
+    g.gain.setValueAtTime(vol || 0.15, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + dur);
+    o.connect(g).connect(actx.destination);
+    o.start();
+    o.stop(actx.currentTime + dur);
+  } catch (e) { /* 忽略 */ }
+}
+const sfxRight  = () => { beep(660, .09, 'sine', .16); beep(990, .14, 'sine', .16); };
+const sfxWrong  = () => beep(180, .3, 'sawtooth', .12, 120);   // 嗡声
+const sfxHint   = () => beep(880, .12, 'sine', .12, 1100);
+const sfxCheer  = () => { beep(523, .12, 'sine', .14); beep(659, .12, 'sine', .14); beep(784, .2, 'sine', .16); };
+const sfxPop    = () => { beep(1200, .18, 'triangle', .16); beep(500, .2, 'sine', .14, 300); };
+
+$('btnMute').addEventListener('click', () => {
+  muted = !muted;
+  $('btnMute').textContent = muted ? '🔇' : '🔊';
+  if (muted && synth) synth.cancel();
+});
+
+/* ---------------- HUD / Toast ---------------- */
+function updateHUD() {
+  $('hudLevel').textContent = String(level);
+  $('hudFound').textContent = String(foundCount);
+  $('hudTotal').textContent = String(5);
+  $('hudHints').textContent = String(hintTotal);
+}
+let toastTimer = null;
+function toast(text, good) {
+  const el = $('toast');
+  el.textContent = text;
+  el.style.color = good ? '#7dffa1' : '#ffcf6b';
+  el.classList.add('pop');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('pop'), 900);
+}
+
+/* ---------------- 关卡流程 ---------------- */
+const PRAISES = ['太棒了', '好厉害', '真不错', '顶呱呱', '火眼金睛'];
+
+function startLevel() {
+  foundCount = 0;
+  foundFlags = [0,0,0,0,0];
+  marks = [];
+  fireworks = [];
+  hintFlash = -1;
+  hintUntil = 0;
+  shake = 0;
+  cheerTimer = -1;
+  state = STATE.RUNNING;
+  updateHUD();
+  say(`第 ${level} 关 ${SCENES[level - 1].name}，找出 5 处不同吧！`);
+}
+
+function hitDiff(i) {
+  if (state !== STATE.RUNNING || foundFlags[i]) return false;
+  const d = SCENES[level - 1].diffs[i];
+  foundFlags[i] = 1;
+  foundCount++;
+  marks.push({ x: d.x, y: d.y, anim: 0 });
+  sfxRight();
+  sfxPop();
+  const praise = PRAISES[Math.floor(Math.random() * PRAISES.length)];
+  toast(`${praise}！找到${d.desc}`, true);
+  say(`${praise}！找到了${d.desc}`);
+  updateHUD();
+  if (foundCount >= 5) {
+    cheerTimer = CHEER_TIME;
+    state = STATE.LEVEL_UP;
+    sfxCheer();
+    spawnFireworks();
+    const last = level >= TOTAL_LEVELS;
+    toast(last ? '🎉 全部通关啦！' : '🎉 本关找齐啦！', true);
+    say(last ? '太厉害了！四关全部通关！' : `${SCENES[level - 1].name}找齐啦！真棒！`);
+  }
+  return true;
+}
+
+function clickStage(gx, gy) {
+  /* gx/gy 是 400×300 图内坐标 */
+  if (state !== STATE.RUNNING) return false;
+  const scene = SCENES[level - 1];
+  let best = -1, bestD2 = Infinity;
+  for (let i = 0; i < scene.diffs.length; i++) {
+    if (foundFlags[i]) continue;
+    const d = scene.diffs[i];
+    const dx = gx - d.x, dy = gy - d.y;
+    const d2 = dx * dx + dy * dy;
+    if (d2 < bestD2) { bestD2 = d2; best = i; }
+  }
+  if (best >= 0 && bestD2 <= HIT_R * HIT_R) return hitDiff(best);
+  /* 点错：轻摇 + 嗡声（无惩罚） */
+  wrongTotal++;
+  shake = 1;
+  sfxWrong();
+  toast('再找找看，眼睛擦亮一点', false);
+  say('这里一样哦，再仔细看看');
+  return false;
+}
+
+canvas.addEventListener('pointerdown', e => {
+  if (state !== STATE.RUNNING) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left, y = e.clientY - rect.top;
+  const s = stageBot;
+  if (x < s.x || x > s.x + s.w || y < s.y || y > s.y + s.h) return;
+  const gx = (x - s.x) / s.w * IMG_W;
+  const gy = (y - s.y) / s.h * IMG_H;
+  clickStage(gx, gy);
+});
+
+/* ---------------- 提示 ---------------- */
+$('btnHint').addEventListener('click', () => {
+  if (state !== STATE.RUNNING) return;
+  const scene = SCENES[level - 1];
+  const candidates = [];
+  for (let i = 0; i < scene.diffs.length; i++) if (!foundFlags[i]) candidates.push(i);
+  if (!candidates.length) return;
+  hintTotal++;
+  hintFlash = candidates[Math.floor(Math.random() * candidates.length)];
+  hintUntil = perfT() + 1.5;
+  sfxHint();
+  say(`提示来啦，注意看${scene.diffs[hintFlash].desc}的位置`);
+  updateHUD();
+});
+
+/* ---------------- 烟花庆祝 ---------------- */
+function spawnFireworks() {
+  const colors = ['#ffd35c', '#ff6b6b', '#7dffa1', '#5cc8ff', '#ff9c5c'];
+  for (let k = 0; k < 3; k++) {
+    const fx = stageBot.x + stageBot.w * (0.25 + 0.25 * k);
+    const fy = stageBot.y + stageBot.h * (0.3 + 0.2 * ((k % 2)));
+    for (let i = 0; i < 24; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = 2 + Math.random() * 4;
+      fireworks.push({ x: fx, y: fy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        life: 1, color: colors[(k + i) % colors.length], size: 2.5 + Math.random() * 2.5 });
+    }
+  }
+}
+
+/* ---------------- 差异绘制通用小件 ---------------- */
+function ballAt(g, x, y, r, colors) {
+  const grad = g.createRadialGradient(x - r*0.3, y - r*0.3, r*0.1, x, y, r*1.1);
+  grad.addColorStop(0, colors[0]);
+  grad.addColorStop(1, colors[1]);
+  g.fillStyle = grad;
+  g.beginPath(); g.arc(x, y, r, 0, Math.PI*2); g.fill();
+}
+function drawStar(g, cx, cy, r, color) {
+  g.fillStyle = color;
+  g.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const rr = i % 2 ? r * 0.45 : r;
+    const a = -Math.PI/2 + i * Math.PI/5;
+    const px = cx + Math.cos(a) * rr, py = cy + Math.sin(a) * rr;
+    i ? g.lineTo(px, py) : g.moveTo(px, py);
+  }
+  g.closePath(); g.fill();
+}
+
+/* ================= 场景 1：公园 ================= */
+function drawPark(g, v) {
+  const grad = g.createLinearGradient(0, 0, 0, IMG_H);
+  grad.addColorStop(0, '#8ed8f8');
+  grad.addColorStop(1, '#d8f4ff');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, IMG_W, IMG_H);
+  g.fillStyle = '#ffffff';
+  g.beginPath(); g.ellipse(80, 42, 42, 15, 0, 0, Math.PI*2); g.fill();
+  g.beginPath(); g.ellipse(120, 50, 30, 12, 0, 0, Math.PI*2); g.fill();
+  g.beginPath(); g.ellipse(300, 36, 46, 16, 0, 0, Math.PI*2); g.fill();
+  g.fillStyle = '#7ec850';
+  g.fillRect(0, 232, IMG_W, 68);
+  g.fillStyle = '#6db845';
+  for (let i = 0; i < IMG_W; i += 18) g.fillRect(i, 232, 9, 4);
+  /* 太阳 */
+  ballAt(g, 352, 40, 22, ['#fff3b0', '#ffd35c']);
+  /* 左树 */
+  g.fillStyle = '#8a5a2b'; g.fillRect(46, 168, 12, 66);
+  ballAt(g, 52, 150, 34, ['#8fe08f', '#4fae4f']);
+  ballAt(g, 30, 172, 22, ['#8fe08f', '#4fae4f']);
+  ballAt(g, 74, 172, 22, ['#8fe08f', '#4fae4f']);
+  /* D5 树上苹果：A=3 个 / B=4 个 */
+  const apples = v === 'A' ? [[40,142],[64,136],[60,164]] : [[40,142],[64,136],[60,164],[36,168]];
+  for (const p of apples) ballAt(g, p[0], p[1], 6, ['#ff9f7f', '#e8403a']);
+  /* 右树（无差异，纯装饰） */
+  g.fillStyle = '#8a5a2b'; g.fillRect(340, 160, 12, 74);
+  ballAt(g, 346, 142, 32, ['#8fe08f', '#4fae4f']);
+  ballAt(g, 324, 166, 20, ['#8fe08f', '#4fae4f']);
+  ballAt(g, 368, 166, 20, ['#8fe08f', '#4fae4f']);
+  /* D1 左下皮球：A 有 / B 无 */
+  if (v === 'A') {
+    ballAt(g, 68, 252, 14, ['#ffd0d0', '#e8403a']);
+    g.strokeStyle = '#fff'; g.lineWidth = 2;
+    g.beginPath(); g.arc(68, 252, 7, 0, Math.PI*2); g.stroke();
+  } else {
+    g.fillStyle = '#7ec850';
+    g.beginPath(); g.ellipse(68, 258, 16, 5, 0, 0, Math.PI*2); g.fill();
+  }
+  /* D2 右下花丛颜色：A 红花 / B 黄花 */
+  for (let i = 0; i < 5; i++) {
+    const fx = 300 + i * 12, fy = 238 + (i % 2) * 8;
+    ballAt(g, fx, fy, 7, v === 'A' ? ['#ffb0c0', '#e83a6a'] : ['#fff0b0', '#e8b820']);
+    g.fillStyle = '#4fae4f';
+    g.fillRect(fx - 1, fy + 6, 2, 8);
+  }
+  /* D3 秋千：A 座板宽 / B 座板窄 */
+  g.strokeStyle = '#6b4a2b'; g.lineWidth = 4;
+  g.beginPath();
+  g.moveTo(150, 80); g.lineTo(200, 176); g.moveTo(250, 80); g.lineTo(200, 176);
+  g.stroke();
+  g.strokeStyle = '#5a3a1e'; g.lineWidth = 3;
+  g.beginPath();
+  g.moveTo(172, 118); g.lineTo(172, 176); g.moveTo(228, 118); g.lineTo(228, 176);
+  g.stroke();
+  g.fillStyle = '#c98a4b';
+  g.fillRect(200 - (v === 'A' ? 34 : 16), 176, v === 'A' ? 68 : 32, 10);
+  /* 秋千架子 */
+  g.strokeStyle = '#8a5a2b'; g.lineWidth = 6;
+  g.beginPath();
+  g.moveTo(140, 232); g.lineTo(150, 80); g.lineTo(250, 80); g.lineTo(260, 232);
+  g.stroke();
+  /* D4 左上风筝：A 有 / B 无 */
+  if (v === 'A') {
+    g.save();
+    g.translate(118, 92); g.rotate(0.5);
+    g.fillStyle = '#ff8f5c';
+    g.beginPath();
+    g.moveTo(0, -16); g.lineTo(12, 0); g.lineTo(0, 16); g.lineTo(-12, 0);
+    g.closePath(); g.fill();
+    g.strokeStyle = '#666'; g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(0, 16); g.lineTo(0, 40); g.stroke();
+    g.restore();
+  }
+  /* 云朵补充：右中 */
+  g.fillStyle = 'rgba(255,255,255,.9)';
+  g.beginPath(); g.ellipse(240, 110, 26, 10, 0, 0, Math.PI*2); g.fill();
+}
+
+/* ================= 场景 2：海底 ================= */
+function drawSea(g, v) {
+  const grad = g.createLinearGradient(0, 0, 0, IMG_H);
+  grad.addColorStop(0, '#0e6ab4');
+  grad.addColorStop(1, '#062c52');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, IMG_W, IMG_H);
+  /* 光柱 */
+  g.fillStyle = 'rgba(255,255,255,.08)';
+  g.beginPath();
+  g.moveTo(120, 0); g.lineTo(170, 0); g.lineTo(240, IMG_H); g.lineTo(150, IMG_H);
+  g.closePath(); g.fill();
+  /* 海底沙地 */
+  g.fillStyle = '#c9a96a';
+  g.beginPath();
+  g.moveTo(0, 262); g.quadraticCurveTo(100, 248, 200, 262);
+  g.quadraticCurveTo(300, 276, IMG_W, 258);
+  g.lineTo(IMG_W, IMG_H); g.lineTo(0, IMG_H); g.closePath(); g.fill();
+  /* D1 左上水母：A 2 只 / B 1 只 */
+  const jellyN = v === 'A' ? 2 : 1;
+  for (let i = 0; i < jellyN; i++) {
+    const jx = 48 + i * 26, jy = 76 + (i % 2) * 14;
+    ballAt(g, jx, jy, 12, ['#ffd0e8', '#e87ab8']);
+    g.strokeStyle = 'rgba(255,180,220,.8)'; g.lineWidth = 2;
+    g.beginPath();
+    for (let k = 0; k < 4; k++) {
+      g.moveTo(jx - 7 + k * 5, jy + 10);
+      g.quadraticCurveTo(jx - 7 + k * 5 + 2, jy + 22, jx - 5 + k * 5, jy + 30);
+    }
+    g.stroke();
+  }
+  /* D2 右上小丑鱼颜色：橙 / 蓝 */
+  const fishC = v === 'A' ? ['#ffb37f', '#f06a20'] : ['#a0d8ff', '#3a8fe0'];
+  g.save();
+  g.translate(330, 105);
+  ballAt(g, 0, 0, 16, fishC);
+  g.fillStyle = fishC[1];
+  g.beginPath();
+  g.moveTo(-14, 0); g.lineTo(-26, -12); g.lineTo(-26, 12); g.closePath(); g.fill();
+  ballAt(g, 5, -5, 4, ['#fff', '#e8e8e8']);
+  g.fillStyle = '#1b1b33';
+  g.beginPath(); g.arc(6, -5, 2, 0, Math.PI*2); g.fill();
+  g.fillStyle = 'rgba(255,255,255,.75)';
+  g.beginPath(); g.ellipse(0, 2, 6, 9, 0, 0, Math.PI*2); g.fill();
+  g.restore();
+  /* D3 中下宝箱：A 有 / B 无 */
+  if (v === 'A') {
+    g.fillStyle = '#a06a2b';
+    g.fillRect(182, 216, 40, 26);
+    g.fillStyle = '#c98a3b';
+    g.beginPath(); g.rect(182, 208, 40, 12); g.fill();
+    g.strokeStyle = '#5a3a1e'; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(202, 208); g.lineTo(202, 242); g.stroke();
+    ballAt(g, 202, 216, 5, ['#fff', '#ffe08a']);
+  } else {
+    g.fillStyle = '#b09468';
+    g.beginPath(); g.ellipse(202, 232, 26, 10, 0, 0, Math.PI*2); g.fill();
+  }
+  /* D4 右上气泡：A 大 / B 小 */
+  const br = v === 'A' ? 13 : 6;
+  g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 2;
+  g.beginPath(); g.arc(258, 70, br, 0, Math.PI*2); g.stroke();
+  g.beginPath(); g.arc(274, 96, br * 0.6, 0, Math.PI*2); g.stroke();
+  g.beginPath(); g.arc(246, 110, br * 0.45, 0, Math.PI*2); g.stroke();
+  /* D5 左下章鱼：A 有 / B 无 */
+  if (v === 'A') {
+    ballAt(g, 132, 215, 16, ['#c0a0ff', '#8a5fe0']);
+    g.fillStyle = '#8a5fe0';
+    for (let k = 0; k < 4; k++) {
+      g.beginPath();
+      g.ellipse(120 + k * 8, 236 + (k % 2) * 4, 4, 10, 0, 0, Math.PI*2);
+      g.fill();
+    }
+    g.fillStyle = '#fff';
+    g.beginPath(); g.arc(127, 210, 4, 0, Math.PI*2); g.fill();
+    g.beginPath(); g.arc(137, 210, 4, 0, Math.PI*2); g.fill();
+    g.fillStyle = '#1b1b33';
+    g.beginPath(); g.arc(127, 210, 2, 0, Math.PI*2); g.fill();
+    g.beginPath(); g.arc(137, 210, 2, 0, Math.PI*2); g.fill();
+  } else {
+    g.fillStyle = '#b09468';
+    g.beginPath(); g.ellipse(132, 240, 22, 8, 0, 0, Math.PI*2); g.fill();
+  }
+  /* 海草装饰 */
+  g.strokeStyle = '#3fae7a'; g.lineWidth = 5; g.lineCap = 'round';
+  for (const sx of [30, 360]) {
+    g.beginPath();
+    g.moveTo(sx, 268);
+    g.quadraticCurveTo(sx - 12, 240, sx + 4, 216);
+    g.stroke();
+  }
+}
+
+/* ================= 场景 3：太空 ================= */
+function drawSpace(g, v) {
+  g.fillStyle = '#070c2a';
+  g.fillRect(0, 0, IMG_W, IMG_H);
+  /* 遥远小星星（固定伪随机） */
+  let seed = 7;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  g.fillStyle = 'rgba(255,255,255,.6)';
+  for (let i = 0; i < 40; i++) {
+    const sx = rnd() * IMG_W, sy = rnd() * IMG_H, sr = rnd() * 1.3 + 0.4;
+    g.beginPath(); g.arc(sx, sy, sr, 0, Math.PI*2); g.fill();
+  }
+  /* D1 左上飞碟：A 有 / B 无 */
+  if (v === 'A') {
+    ballAt(g, 76, 66, 10, ['#c0e8ff', '#5aa0e8']);
+    g.fillStyle = '#b8b8c8';
+    g.beginPath(); g.ellipse(76, 74, 26, 8, 0, 0, Math.PI*2); g.fill();
+    g.fillStyle = '#5cff8a';
+    g.beginPath(); g.arc(62, 74, 3, 0, Math.PI*2); g.fill();
+    g.beginPath(); g.arc(90, 74, 3, 0, Math.PI*2); g.fill();
+  } else {
+    drawStar(g, 76, 66, 8, '#fff');
+  }
+  /* D2 右上行星环：A 有 / B 无 */
+  ballAt(g, 322, 78, 26, ['#ffd8a0', '#e8944a']);
+  if (v === 'A') {
+    g.strokeStyle = '#d8b8f8'; g.lineWidth = 5;
+    g.save();
+    g.translate(322, 78); g.rotate(-0.35);
+    g.beginPath(); g.ellipse(0, 0, 42, 12, 0, 0, Math.PI*2); g.stroke();
+    g.restore();
+  }
+  /* D3 火箭颜色：红 / 紫 */
+  const rc = v === 'A' ? ['#ff9f9f', '#e8403a'] : ['#d0b0ff', '#7a4fe0'];
+  g.save();
+  g.translate(196, 150);
+  g.fillStyle = rc[1];
+  g.beginPath();
+  g.moveTo(0, -46); g.quadraticCurveTo(16, -18, 14, 24);
+  g.lineTo(-14, 24); g.quadraticCurveTo(-16, -18, 0, -46);
+  g.closePath(); g.fill();
+  g.fillStyle = rc[0];
+  g.fillRect(-14, 8, 28, 10);
+  ballAt(g, 0, -10, 7, ['#c0e8ff', '#7fd4ff']);
+  g.fillStyle = '#ff9c5c';
+  g.beginPath(); g.moveTo(-14, 12); g.lineTo(-30, 30); g.lineTo(-14, 24); g.closePath(); g.fill();
+  g.beginPath(); g.moveTo(14, 12); g.lineTo(30, 30); g.lineTo(14, 24); g.closePath(); g.fill();
+  g.fillStyle = '#ffd35c';
+  g.beginPath(); g.moveTo(-6, 24); g.lineTo(0, 42); g.lineTo(6, 24); g.closePath(); g.fill();
+  g.restore();
+  /* D4 右下星星：A 4 颗 / B 3 颗 */
+  const starPos = [[268, 190], [292, 212], [310, 182], [270, 222]];
+  const starN = v === 'A' ? 4 : 3;
+  for (let i = 0; i < starN; i++) drawStar(g, starPos[i][0], starPos[i][1], 9, '#ffd35c');
+  /* D5 左下宇航员大小：A 大 / B 小 */
+  const as = v === 'A' ? 1.5 : 0.9;
+  g.save();
+  g.translate(118, 222); g.scale(as, as);
+  ballAt(g, 0, -18, 12, ['#f0f0f8', '#c8c8d8']);   // 头盔
+  ballAt(g, 2, -19, 7, ['#9fe8ff', '#5ac8f0']);   // 面罩
+  g.fillStyle = '#f0f0f8';
+  g.beginPath(); g.ellipse(0, 4, 10, 13, 0, 0, Math.PI*2); g.fill();   // 身体
+  g.fillStyle = '#4f8cff';
+  g.fillRect(-10, -6, 20, 6);
+  g.fillStyle = '#e8e8f0';
+  g.beginPath(); g.ellipse(-13, 2, 5, 9, 0.4, 0, Math.PI*2); g.fill();
+  g.beginPath(); g.ellipse(13, 2, 5, 9, -0.4, 0, Math.PI*2); g.fill();
+  g.beginPath(); g.ellipse(-5, 18, 5, 7, 0, 0, Math.PI*2); g.fill();
+  g.beginPath(); g.ellipse(5, 18, 5, 7, 0, 0, Math.PI*2); g.fill();
+  g.restore();
+  /* 陨石装饰 */
+  ballAt(g, 46, 160, 10, ['#c8a888', '#8a6a5a']);
+  ballAt(g, 368, 190, 8, ['#c8a888', '#8a6a5a']);
+}
+
+/* ================= 场景 4：糖果城 ================= */
+function drawCandy(g, v) {
+  const grad = g.createLinearGradient(0, 0, 0, IMG_H);
+  grad.addColorStop(0, '#ffd6ee');
+  grad.addColorStop(1, '#fff2fa');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, IMG_W, IMG_H);
+  /* 远处糖霜山 */
+  g.fillStyle = '#f0b8d8';
+  g.beginPath();
+  g.moveTo(0, 232); g.quadraticCurveTo(70, 180, 140, 232);
+  g.quadraticCurveTo(210, 176, 280, 232);
+  g.quadraticCurveTo(340, 186, IMG_W, 232);
+  g.lineTo(IMG_W, IMG_H); g.lineTo(0, IMG_H); g.closePath(); g.fill();
+  /* 巧克力地面 */
+  g.fillStyle = '#a8703f';
+  g.fillRect(0, 246, IMG_W, 54);
+  g.fillStyle = '#c98a4b';
+  for (let i = 0; i < IMG_W; i += 26) g.fillRect(i, 246, 14, 5);
+  /* D1 左上棒棒糖颜色：红 / 绿 */
+  const lc = v === 'A' ? ['#ff9f9f', '#e8403a'] : ['#a0f0a0', '#30a830'];
+  g.strokeStyle = '#fff'; g.lineWidth = 3;
+  g.beginPath(); g.moveTo(72, 74); g.lineTo(72, 96); g.stroke();
+  ballAt(g, 72, 60, 15, lc);
+  g.strokeStyle = 'rgba(255,255,255,.8)'; g.lineWidth = 4;
+  g.beginPath();
+  for (let a = 0; a < Math.PI * 4; a += 0.1) {
+    const r = 2 + (a / (Math.PI * 4)) * 11;
+    const px = 72 + Math.cos(a) * r, py = 60 + Math.sin(a) * r;
+    a === 0 ? g.moveTo(px, py) : g.lineTo(px, py);
+  }
+  g.stroke();
+  /* D2 右上彩虹：A 7 道 / B 5 道 */
+  const rainbow = ['#e8403a', '#f0942a', '#ffd35c', '#5cd85c', '#5cc8ff', '#5a5ae8', '#a05ce8'];
+  const rbN = v === 'A' ? 7 : 5;
+  g.lineCap = 'butt';
+  for (let i = 0; i < rbN; i++) {
+    g.strokeStyle = rainbow[i];
+    g.lineWidth = 6;
+    g.beginPath();
+    g.arc(326, 150, 84 - i * 6, Math.PI, 0);
+    g.stroke();
+  }
+  /* 云朵压住彩虹两端底部 */
+  g.fillStyle = '#fff';
+  g.beginPath(); g.ellipse(242, 148, 18, 10, 0, 0, Math.PI*2); g.fill();
+  g.beginPath(); g.ellipse(410, 148, 18, 10, 0, 0, Math.PI*2); g.fill();
+  /* D3 中央姜饼人：A 有 / B 无 */
+  if (v === 'A') {
+    g.fillStyle = '#c98a4b';
+    g.beginPath(); g.arc(200, 128, 16, 0, Math.PI*2); g.fill();     // 头
+    g.beginPath(); g.ellipse(200, 158, 14, 18, 0, 0, Math.PI*2); g.fill();  // 身
+    g.beginPath(); g.ellipse(180, 154, 6, 12, 0.6, 0, Math.PI*2); g.fill();
+    g.beginPath(); g.ellipse(220, 154, 6, 12, -0.6, 0, Math.PI*2); g.fill();
+    g.beginPath(); g.ellipse(192, 186, 6, 11, 0, 0, Math.PI*2); g.fill();
+    g.beginPath(); g.ellipse(208, 186, 6, 11, 0, 0, Math.PI*2); g.fill();
+    g.fillStyle = '#fff';
+    g.beginPath(); g.arc(194, 124, 2.5, 0, Math.PI*2); g.fill();
+    g.beginPath(); g.arc(206, 124, 2.5, 0, Math.PI*2); g.fill();
+    g.fillStyle = '#e8403a';
+    g.beginPath(); g.arc(200, 133, 3, 0, Math.PI*2); g.fill();
+    g.beginPath(); g.arc(200, 150, 2.5, 0, Math.PI*2); g.fill();
+    g.beginPath(); g.arc(195, 162, 2.5, 0, Math.PI*2); g.fill();
+    g.beginPath(); g.arc(205, 162, 2.5, 0, Math.PI*2); g.fill();
+  } else {
+    /* 无姜饼人：放一颗薄荷糖 */
+    ballAt(g, 200, 150, 14, ['#e0f8e0', '#a0e0a0']);
+    g.strokeStyle = '#fff'; g.lineWidth = 2;
+    g.beginPath(); g.arc(200, 150, 9, 0, Math.PI*2); g.stroke();
+  }
+  /* D4 右下杯子蛋糕大小：A 大 / B 小 */
+  const ck = v === 'A' ? 1.3 : 0.7;
+  g.save();
+  g.translate(298, 232); g.scale(ck, ck);
+  g.fillStyle = '#f0a8c8';
+  g.beginPath();
+  g.moveTo(-16, 0); g.lineTo(16, 0); g.lineTo(12, 18); g.lineTo(-12, 18);
+  g.closePath(); g.fill();
+  g.fillStyle = '#fff0f8';
+  g.beginPath();
+  g.moveTo(-18, 0);
+  g.quadraticCurveTo(-14, -22, 0, -16);
+  g.quadraticCurveTo(14, -24, 18, 0);
+  g.closePath(); g.fill();
+  ballAt(g, 0, -22, 5, ['#ffd0d0', '#e8403a']);
+  g.restore();
+  /* D5 左下散糖：A 3 颗 / B 2 颗 */
+  const dropPos = [[108, 240], [136, 248], [122, 258]];
+  const dropN = v === 'A' ? 3 : 2;
+  const dropC = [['#c0e8ff', '#4f8cff'], ['#ffe0f0', '#e87ab8'], ['#e0ffd0', '#5cb858']];
+  for (let i = 0; i < dropN; i++) ballAt(g, dropPos[i][0], dropPos[i][1], 8, dropC[i]);
+  /* 房子装饰 */
+  g.fillStyle = '#fff';
+  g.fillRect(34, 90, 4, 24); g.fillRect(30, 86, 12, 6);
+  g.fillStyle = '#f06a90';
+  g.beginPath(); g.ellipse(36, 120, 16, 20, 0, 0, Math.PI*2); g.fill();
+  g.fillStyle = '#e8b040';
+  g.beginPath(); g.rect(354, 204, 26, 42); g.fill();
+  g.fillStyle = '#fff';
+  g.beginPath(); g.arc(367, 204, 13, Math.PI, 0); g.fill();
+}
+
+/* ---------------- 舞台渲染 ---------------- */
+function drawStage(scene) {
+  ctx.save();
+  ctx.translate(stageTop.x, stageTop.y);
+  ctx.scale(stageTop.w / IMG_W, stageTop.h / IMG_H);
+  scene.draw(ctx, 'A');
+  ctx.restore();
+
+  ctx.save();
+  let ox = 0, oy = 0;
+  if (shake > 0) {
+    ox = Math.sin(shake * 40) * 8 * shake;
+  }
+  ctx.translate(stageBot.x + ox, stageBot.y + oy);
+  ctx.scale(stageBot.w / IMG_W, stageBot.h / IMG_H);
+  scene.draw(ctx, 'B');
+  ctx.restore();
+}
+
+/* 放大镜光圈标记（画在下图） */
+function drawMarks(now) {
+  for (const m of marks) {
+    const s = stageBot;
+    const cx = s.x + m.x / IMG_W * s.w;
+    const cy = s.y + m.y / IMG_H * s.h;
+    const pop = Math.min(1, m.anim);
+    const R = (26 + 10 * pop) * Math.min(s.w / IMG_W, 2);
+    /* 光圈 */
+    ctx.save();
+    ctx.globalAlpha = 0.9;
+    ctx.strokeStyle = '#ffd35c';
+    ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2); ctx.stroke();
+    /* 放大镜柄 */
+    ctx.strokeStyle = '#8a5a2b';
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(cx + R * 0.72, cy + R * 0.72);
+    ctx.lineTo(cx + R * 1.25, cy + R * 1.25);
+    ctx.stroke();
+    /* 内光晕 */
+    const glow = ctx.createRadialGradient(cx, cy, R * 0.2, cx, cy, R);
+    glow.addColorStop(0, 'rgba(255,211,92,.28)');
+    glow.addColorStop(1, 'rgba(255,211,92,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+}
+
+/* 提示闪烁（上下两幅同一点位对比闪现） */
+function drawHintFlash(now) {
+  if (hintFlash < 0 || now > hintUntil) return;
+  const scene = SCENES[level - 1];
+  const d = scene.diffs[hintFlash];
+  const blink = 0.5 + 0.5 * Math.sin(now * 14);
+  ctx.save();
+  ctx.globalAlpha = blink;
+  for (const s of [stageTop, stageBot]) {
+    const cx = s.x + d.x / IMG_W * s.w;
+    const cy = s.y + d.y / IMG_H * s.h;
+    ctx.strokeStyle = '#5cc8ff';
+    ctx.lineWidth = 5;
+    ctx.setLineDash([10, 8]);
+    ctx.beginPath(); ctx.arc(cx, cy, 34 * (s.w / IMG_W), 0, Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  ctx.restore();
+}
+
+/* 烟花粒子 */
+function drawFireworks() {
+  for (const p of fireworks) {
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function render(now) {
+  ctx.clearRect(0, 0, W, H);
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#070d26');
+  bg.addColorStop(1, '#12224e');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+  if (state === STATE.START) return;
+
+  const scene = SCENES[level - 1];
+  drawStage(scene);
+  drawMarks(now);
+  drawHintFlash(now);
+  drawFireworks();
+
+  /* 图框 + 标题 */
+  ctx.strokeStyle = 'rgba(120,200,255,.45)';
+  ctx.lineWidth = 2;
+  for (const s of [stageTop, stageBot]) {
+    ctx.strokeRect(s.x, s.y, s.w, s.h);
+  }
+  ctx.fillStyle = 'rgba(10,16,40,.72)';
+  ctx.font = `700 15px system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('看一看', stageTop.x + stageTop.w - 52, stageTop.y - 16);
+  ctx.fillText('找一找（点这里）', stageBot.x + 150, stageBot.y - 16);
+}
+
+/* ---------------- 主循环 ---------------- */
+let lastT = 0;
+function perfT() { return (window.performance ? performance.now() : 0) / 1000; }
+function frame(now) {
+  let dt = Math.min(0.05, (now - lastT) / 1000);
+  if (lastT === 0) dt = 0;
+  lastT = now;
+  const t = now / 1000;
+
+  if (shake > 0) shake = Math.max(0, shake - dt * 2.5);
+
+  for (const m of marks) m.anim = Math.min(1, m.anim + dt * 2.5);
+  if (hintFlash >= 0 && t > hintUntil) hintFlash = -1;
+
+  for (let i = fireworks.length - 1; i >= 0; i--) {
+    const p = fireworks[i];
+    p.x += p.vx; p.y += p.vy; p.vy += 0.1;
+    p.life -= dt * 0.9;
+    if (p.life <= 0) fireworks.splice(i, 1);
+  }
+
+  if (state === STATE.LEVEL_UP) {
+    if (cheerTimer > 0) {
+      cheerTimer -= dt;
+      if (cheerTimer <= 0) {
+        cheerTimer = -1;
+        if (level >= TOTAL_LEVELS) {
+          showResult();
+        } else {
+          level++;
+          startLevel();
+        }
+      }
+    }
+  }
+
+  render(t);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ---------------- 结算 ---------------- */
+function showResult() {
+  let title, medal;
+  if (hintTotal === 0)      { title = '🥇 金牌小侦探！'; medal = '金牌'; }
+  else if (hintTotal <= 2)  { title = '🥈 银牌小侦探！'; medal = '银牌'; }
+  else if (hintTotal <= 4)  { title = '🥉 铜牌小侦探！'; medal = '铜牌'; }
+  else                      { title = '🎉 观察小能手！'; medal = '参与奖'; }
+  $('resultTitle').textContent = title;
+  $('resultDesc').innerHTML =
+    `闯过 <b style="color:#ffd35c">4</b> 个场景（${medal}）<br>` +
+    `使用提示 <b style="color:#ffd35c">${hintTotal}</b> 次 · 点错 <b style="color:#ffcf6b">${wrongTotal}</b> 次<br>` +
+    `你的眼睛真尖，下次试试不用提示哦！`;
+  $('result').classList.add('show');
+  state = STATE.FINISH;
+  speak(`全部通关啦！获得${medal}！`);
+}
+
+/* ---------------- 开始 / 重开 ---------------- */
+function resetGame() {
+  level = 1; foundCount = 0;
+  foundFlags = [0,0,0,0,0];
+  hintTotal = 0; wrongTotal = 0;
+  marks = []; fireworks = [];
+  hintFlash = -1; hintUntil = 0;
+  shake = 0;
+  cheerTimer = -1;
+  updateHUD();
+}
+$('btnStart').addEventListener('click', () => {
+  initAudio();
+  $('start').style.display = 'none';
+  resetGame();
+  startLevel();
+});
+$('btnRestart').addEventListener('click', () => {
+  $('result').classList.remove('show');
+  resetGame();
+  startLevel();
+});
+
+/* ---------------- 测试钩子 ---------------- */
+window.__testDiffs = () => SCENES[level - 1].diffs.map((d, i) => ({
+  x: d.x, y: d.y, found: !!foundFlags[i], desc: d.desc,
+}));
+window.__testClickDiff = (x, y) => clickStage(x, y);
+window.__testState = () => state;
+window.__testProgress = () => ({
+  level, foundCount, hintTotal, wrongTotal, state,
+  scene: SCENES[level - 1].name,
+});
+</script>
+</body>
+</html>

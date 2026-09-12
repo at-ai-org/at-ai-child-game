@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>汉字直升机 · Hanzi Helicopter</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  body {
+    background: #0b1026;
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #game { display: block; width: 100vw; height: 100vh; }
+
+  /* ---------- HUD ---------- */
+  .hud {
+    position: absolute; top: 46px; left: 14px; z-index: 10;
+    display: flex; gap: 10px; flex-wrap: wrap; pointer-events: none;
+  }
+  .hud-chip {
+    background: rgba(10, 16, 40, .72);
+    border: 1px solid rgba(120, 200, 255, .35);
+    border-radius: 14px;
+    color: #dff2ff;
+    padding: 7px 15px;
+    font-size: 17px;
+    font-weight: 600;
+    box-shadow: 0 4px 18px rgba(0,0,0,.35);
+    backdrop-filter: blur(6px);
+  }
+  .hud-chip b { color: #ffd35c; font-size: 21px; }
+
+  /* ---------- 声音开关 ---------- */
+  #btnMute {
+    position: absolute; top: 12px; right: 12px; z-index: 60;
+    font-size: 20px; line-height: 1;
+    padding: 9px 13px; border-radius: 12px; cursor: pointer;
+    background: rgba(10, 16, 40, .72);
+    border: 1px solid rgba(120, 200, 255, .35);
+    color: #dff2ff;
+  }
+
+  /* ---------- 挑战弹窗 ---------- */
+  #challenge {
+    position: absolute; z-index: 20;
+    left: 50%; top: 28%;
+    transform: translate(-50%, -50%) scale(.6);
+    opacity: 0; pointer-events: none;
+    transition: transform .25s cubic-bezier(.34,1.56,.64,1), opacity .2s;
+    width: min(88vw, 420px);
+    background: linear-gradient(160deg, #16224a 0%, #0d1330 100%);
+    border: 2px solid #4f8cff;
+    border-radius: 22px;
+    padding: 18px 22px 16px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,.55), 0 0 0 1px rgba(79,140,255,.25) inset;
+  }
+  #challenge.show {
+    opacity: 1; pointer-events: auto;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  #challenge h2 {
+    color: #7fc4ff; font-size: 21px; letter-spacing: 2px; margin-bottom: 5px;
+  }
+  #challenge .sub { color: #9db4d8; font-size: 13.5px; margin-bottom: 12px; }
+  #targetWord {
+    display: inline-block;
+    font-size: 76px; font-weight: 800; line-height: 1.1;
+    color: #fff;
+    background: rgba(255, 210, 90, .12);
+    border: 2px solid rgba(255, 210, 90, .55);
+    border-radius: 18px;
+    padding: 4px 26px;
+    text-shadow: 0 4px 16px rgba(255, 200, 80, .4);
+    margin-bottom: 6px;
+  }
+  #targetHint {
+    color: #ffd35c; font-size: 18px; font-weight: 700;
+    letter-spacing: 1px; margin-bottom: 12px;
+    text-shadow: 0 2px 10px rgba(0,0,0,.4);
+  }
+  #candidateBoard {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+  .key {
+    min-height: 64px;
+    padding: 8px 0;
+    font-size: 34px; font-weight: 800;
+    border-radius: 14px;
+    border: 2px solid rgba(120,160,255,.4);
+    background: rgba(90,130,255,.18);
+    color: #eaf4ff;
+    cursor: pointer;
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .key:active { transform: scale(.93); background: rgba(90,130,255,.42); }
+  .key.wrong-shake { animation: kshake .4s; border-color: rgba(255,120,120,.6); background: rgba(255,120,120,.16); }
+  @keyframes kshake {
+    0%,100% { transform: translateX(0); }
+    25% { transform: translateX(-7px); }
+    50% { transform: translateX(6px); }
+    75% { transform: translateX(-4px); }
+  }
+  #challenge .tip {
+    margin-top: 10px;
+    min-height: 20px;
+    font-size: 14.5px;
+    color: #9db4d8;
+    font-weight: 600;
+  }
+
+  /* ---------- 反馈大字 ---------- */
+  #toast {
+    position: absolute; left: 50%; top: 22%;
+    transform: translate(-50%, -50%) scale(1);
+    z-index: 30;
+    font-size: 62px; font-weight: 800;
+    color: #ffd35c;
+    text-shadow: 0 4px 18px rgba(0,0,0,.6);
+    opacity: 0; pointer-events: none;
+    transition: opacity .25s, transform .25s;
+    white-space: nowrap;
+  }
+  #toast.pop {
+    opacity: 1;
+    transform: translate(-50%, -58%) scale(1.12);
+  }
+
+  /* ---------- 结算 ---------- */
+  #result {
+    position: absolute; inset: 0; z-index: 40;
+    background: rgba(4, 8, 22, .82);
+    display: none;
+    align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  #result.show { display: flex; }
+  .result-card {
+    text-align: center; color: #eaf4ff;
+    background: linear-gradient(160deg, #16224a, #0d1330);
+    border: 2px solid #4f8cff;
+    border-radius: 26px;
+    padding: 30px 44px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.55);
+    max-width: 88vw;
+  }
+  .result-card h1 { font-size: 38px; color: #ffd35c; margin-bottom: 12px; }
+  .result-card p { font-size: 17px; color: #b9cdf0; margin: 6px 0 22px; line-height: 1.8; }
+  .result-card button {
+    font-size: 20px; padding: 12px 42px; border-radius: 999px;
+    border: none; cursor: pointer;
+    background: linear-gradient(90deg, #4f8cff, #59d1ff);
+    color: #fff; font-weight: 700; letter-spacing: 4px;
+    box-shadow: 0 6px 20px rgba(79,140,255,.45);
+    font-family: inherit;
+  }
+  .result-card button:active { transform: scale(.97); }
+
+  /* ---------- 开始界面 ---------- */
+  #start {
+    position: absolute; inset: 0; z-index: 50;
+    background: radial-gradient(1200px 600px at 50% 30%, #17275e 0%, #0b1026 70%);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: #eaf4ff; text-align: center;
+    padding: 20px;
+  }
+  #start h1 {
+    font-size: clamp(38px, 8vw, 60px); letter-spacing: 6px;
+    background: linear-gradient(90deg, #ffd35c, #ff9c5c, #5cc8ff);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+    margin-bottom: 14px;
+  }
+  #start p { font-size: 16px; color: #9db4d8; line-height: 2; max-width: 560px; }
+  #start .rules { margin: 22px 0 28px; }
+  #start button {
+    font-size: 21px; padding: 14px 56px; border-radius: 999px;
+    border: none; cursor: pointer;
+    background: linear-gradient(90deg, #ff9c5c, #ffd35c);
+    color: #3a2200; font-weight: 800; letter-spacing: 6px;
+    box-shadow: 0 8px 26px rgba(255,180,70,.45);
+    font-family: inherit;
+  }
+  #start button:active { transform: scale(.97); }
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<button id="btnMute" title="声音开关">🔊</button>
+
+<!-- HUD -->
+<div class="hud">
+  <div class="hud-chip">击毁 <b id="hudKill">0</b> / 30</div>
+  <div class="hud-chip">连对 <b id="hudStreak">0</b> 🔥</div>
+  <div class="hud-chip">识字进度 <b id="hudLevel">L1</b></div>
+</div>
+
+<!-- 汉字挑战弹窗 -->
+<div id="challenge">
+  <h2>🎯 锁定敌机</h2>
+  <div class="sub">听一听，把瞄准敌机机身上的<b> 汉字 </b>找出来！</div>
+  <div id="targetWord">？</div>
+  <div id="targetHint">tí shì</div>
+  <div id="candidateBoard"></div>
+  <div class="tip" id="challengeTip">听语音提示，点击正确的汉字按钮</div>
+</div>
+
+<!-- 结果反馈 -->
+<div id="toast"></div>
+
+<!-- 结算 -->
+<div id="result">
+  <div class="result-card">
+    <h1 id="resultTitle">🎉 任务完成！</h1>
+    <p id="resultDesc"></p>
+    <button id="btnRestart">再战一次</button>
+  </div>
+</div>
+
+<!-- 开始 -->
+<div id="start">
+  <h1>汉字直升机</h1>
+  <p class="rules">
+    你的直升机正在高空巡航！敌机会迎面飞来，锁定后听语音找<b>正确汉字</b>：<br>
+    ✅ 答对 → 发射导弹击毁敌机，<b>识字进度条</b>越飞越远　　❌ 答错 → 播报正确读音，再来一次<br>
+    3 个级别共 30 架敌机（L1 一二三四五… → L2 日月水火… → L3 天空白云…），全部击毁完成任务！
+  </p>
+  <button id="btnStart">开始任务</button>
+</div>
+
+<script>
+/* =========================================================
+ * 汉字直升机 Hanzi Helicopter —— 单文件 Canvas 小游戏
+ *
+ * 玩法（number-plane 引擎变体）：直升机在高空巡航，敌机迎面飞来，
+ * 机身贴着汉字牌。锁定目标后弹出候选字选择板（4 个汉字按钮，
+ * 1 个正确 + 3 个形近/音近干扰）；点对 → 发射导弹击毁敌机；
+ * 点错 → 语音报正确字的读音，再选直到正确。
+ * 字库 3 级各 16 字，每级 10 架敌机，共 30 架完成任务。
+ * ========================================================= */
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+let W = 0, H = 0;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+/* ---------------- 常量 ---------------- */
+const STATE = { START: 0, RUNNING: 1, CHALLENGE: 2, FIRING: 3, FINISH: 4 };
+const PER_LEVEL       = 10;     // 每级击毁 10 架敌机
+const KILL_TARGET     = 30;     // 3 级共 30 架
+const LOCK_Y          = 0.60;    // 锁定敌机停留的高度比例
+const QUEUE_SPACING   = 0.24;    // 后续敌机在锁定机上方排队
+const SPAWN_Y         = -0.18;   // 出生高度（画面外）
+const PLAYER_Y        = 0.84;    // 玩家直升机高度
+const MISSILE_TIME    = 0.55;    // 导弹飞行秒数
+const APPROACH_V      = 0.115;   // 敌机下降速度（H/秒）
+
+/* ---------------- 字库（3 级各 16 字 + 拼音 + 干扰字池） ---------------- */
+const LEVELS = [
+  { tag: 'L1', name: '第一级',
+    chars: [
+      { han: '一', py: 'yī' },    { han: '二', py: 'èr' },
+      { han: '三', py: 'sān' },   { han: '四', py: 'sì' },
+      { han: '五', py: 'wǔ' },    { han: '六', py: 'liù' },
+      { han: '七', py: 'qī' },    { han: '八', py: 'bā' },
+      { han: '九', py: 'jiǔ' },   { han: '十', py: 'shí' },
+      { han: '人', py: 'rén' },   { han: '口', py: 'kǒu' },
+      { han: '手', py: 'shǒu' },
+      { han: '大', py: 'dà' },    { han: '天', py: 'tiān' },   // 备用填充
+      { han: '日', py: 'rì' },
+    ],
+    pool: ['一二三四五六七八九十人口手天地人大天夫犬太日目'],
+  },
+  { tag: 'L2', name: '第二级',
+    chars: [
+      { han: '日', py: 'rì' },    { han: '月', py: 'yuè' },
+      { han: '水', py: 'shuǐ' },  { han: '火', py: 'huǒ' },
+      { han: '山', py: 'shān' },  { han: '石', py: 'shí' },
+      { han: '田', py: 'tián' },  { han: '禾', py: 'hé' },
+      { han: '木', py: 'mù' },    { han: '土', py: 'tǔ' },
+      { han: '天', py: 'tiān' },  { han: '云', py: 'yún' },
+      { han: '风', py: 'fēng' },
+      { han: '雨', py: 'yǔ' },    { han: '雪', py: 'xuě' },  // 备用填充
+      { han: '电', py: 'diàn' },
+    ],
+    pool: ['日月水火山石田禾木土天云风雨雪电雷川石禾'],
+  },
+  { tag: 'L3', name: '第三级',
+    chars: [
+      { han: '天', py: 'tiān' },  { han: '空', py: 'kōng' },
+      { han: '白', py: 'bái' },  { han: '云', py: 'yún' },
+      { han: '大', py: 'dà' },   { han: '小', py: 'xiǎo' },
+      { han: '多', py: 'duō' },  { han: '少', py: 'shǎo' },
+      { han: '上', py: 'shàng' }, { han: '下', py: 'xià' },
+      { han: '左', py: 'zuǒ' },  { han: '右', py: 'yòu' },
+      { han: '高', py: 'gāo' },
+      { han: '低', py: 'dī' },   { han: '长', py: 'cháng' }, // 备用填充
+      { han: '短', py: 'duǎn' },
+    ],
+    pool: ['天空白云大小多少上下左右高低长短高矢天矢太犬大'],
+  },
+];
+/* 全字库（干扰候选 + 测试遍历用） */
+const ALL_HANZI = [];
+{
+  const seen = {};
+  for (const lv of LEVELS) {
+    for (const c of lv.chars) if (!seen[c.han]) { seen[c.han] = 1; ALL_HANZI.push(c); }
+    for (const ch of lv.pool) if (!seen[ch])   { seen[ch] = 1; ALL_HANZI.push({ han: ch, py: '' }); }
+  }
+}
+
+/* ---------------- 状态 ---------------- */
+let state = STATE.START;
+let killCount = 0, streak = 0, bestStreak = 0, wrongTotal = 0;
+let enemies = [], particles = [], rings = [], puffs = [], streaks = [];
+let missile = null;
+let lockedEnemy = null;
+let answerHanzi = '';                 // 当前目标字
+let answerPy = '';                   // 目标字拼音
+let shake = 0;
+let flashT = 0;
+let spawnDelay = 0;
+let finishTimer = -1;
+let literProgress = 0;               // 识字进度（0-30）
+let literShow = 0;                   // 平滑显示值
+let growPop = 0;
+let lastHanzi = null;
+let candidateBtns = [];              // 当前候选按钮
+let quizDone = 0;                    // 已出题数（每级 10）
+
+/* 当前级别（0=L1）与级别内剩余敌机 */
+function levelIndex() { return Math.min(2, Math.floor(killCount / PER_LEVEL)); }
+function levelRemain() { return PER_LEVEL - (killCount % PER_LEVEL); }
+function inLevelQueue() {            // 本级还需要出多少架敌机（排队 + 已在场）
+  const li = levelIndex();
+  const usedInLevel = li * PER_LEVEL;
+  return usedInLevel + enemies.length; // 敌机总数按顺序编号，见 spawnEnemy
+}
+
+/* ---------------- DOM ---------------- */
+const DOLLAR = id => document.getElementById(id);   // 避免与 JXA $ 冲突
+const $ = DOLLAR;
+const challengeBox = $('challenge');
+const targetWordEl = $('targetWord');
+const targetHintEl = $('targetHint');
+const challengeTip = $('challengeTip');
+const toastEl       = $('toast');
+const boardEl       = $('candidateBoard');
+
+/* ---------------- 语音播报 ---------------- */
+const synth = window.speechSynthesis || null;
+let zhVoice = null;
+function pickVoice() {
+  if (!synth) return;
+  const vs = synth.getVoices();
+  zhVoice = vs.find(v => /zh[-_]CN/i.test(v.lang)) ||
+            vs.find(v => /^zh/i.test(v.lang)) || null;
+}
+if (synth) {
+  pickVoice();
+  synth.onvoiceschanged = pickVoice;
+}
+function speak(text) {
+  if (muted || !synth) return;
+  try {
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN';
+    if (zhVoice) u.voice = zhVoice;
+    u.rate = 0.92;
+    synth.speak(u);
+  } catch (e) { /* 忽略 */ }
+}
+
+/* ---------------- 音效 ---------------- */
+let actx = null, muted = false;
+let engineOsc = null, engineGain = null;
+function initAudio() {
+  if (actx) return;
+  try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+  engineOsc = actx.createOscillator();
+  engineGain = actx.createGain();
+  engineOsc.type = 'triangle';
+  engineOsc.frequency.value = 96;
+  engineGain.gain.value = muted ? 0 : 0.035;
+  engineOsc.connect(engineGain).connect(actx.destination);
+  engineOsc.start();
+}
+function beep(freq, dur, type, vol, sweepTo) {
+  if (!actx || muted) return;
+  try {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(freq, actx.currentTime);
+    if (sweepTo) o.frequency.exponentialRampToValueAtTime(sweepTo, actx.currentTime + dur);
+    g.gain.setValueAtTime(vol || 0.15, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + dur);
+    o.connect(g).connect(actx.destination);
+    o.start();
+    o.stop(actx.currentTime + dur);
+  } catch (e) { /* 忽略 */ }
+}
+const sfxRight  = () => { beep(660, .09, 'sine', .16); beep(990, .14, 'sine', .16); };
+const sfxWrong  = () => beep(180, .20, 'sawtooth', .08);
+const sfxMissile= () => beep(320, .30, 'sawtooth', .12, 980);
+const sfxBoom   = () => { beep(150, .45, 'sawtooth', .3, 38); beep(90, .5, 'triangle', .22, 30); };
+function updateEngine() {
+  if (!engineOsc) return;
+  const target = muted ? 0 : (state === STATE.FIRING ? 0.06 : 0.035);
+  engineGain.gain.value += (target - engineGain.gain.value) * 0.1;
+}
+$('btnMute').addEventListener('click', () => {
+  muted = !muted;
+  $('btnMute').textContent = muted ? '🔇' : '🔊';
+  if (muted && synth) synth.cancel();
+});
+
+/* ---------------- 工具 ---------------- */
+function shade(hex, amt) {
+  const n = parseInt(hex.slice(1), 16);
+  let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  r = Math.round(Math.min(255, Math.max(0, r + r * amt)));
+  g = Math.round(Math.min(255, Math.max(0, g + g * amt)));
+  b = Math.round(Math.min(255, Math.max(0, b + b * amt)));
+  return `rgb(${r},${g},${b})`;
+}
+const seedRand = i => {
+  const x = Math.sin(i * 12.9898) * 43758.5453;
+  return x - Math.floor(x);
+};
+
+/* 星空（固定分数坐标） */
+const stars = [];
+for (let i = 0; i < 60; i++) {
+  stars.push({ fx: Math.random(), fy: Math.random() * 0.75, r: 0.6 + Math.random() * 1.3, p: Math.random() * 6.28 });
+}
+/* 云层（两层视差，柔和低对比） */
+const clouds = [];
+for (let i = 0; i < 7; i++) {
+  clouds.push({
+    fx: Math.random(), fy: Math.random(),
+    w: 0.16 + seedRand(i) * 0.22,
+    spd: 0.022 + seedRand(i + 9) * 0.020,
+    a: 0.07 + seedRand(i + 20) * 0.06,
+  });
+}
+
+/* ---------------- 敌机 ---------------- */
+const ENEMY_TYPES = [
+  { type: 'fighter', body: '#ff6b6b', accent: '#fff1c9' },  // 战斗机
+  { type: 'bomber',  body: '#51cf66', accent: '#eef7ff' },  // 轰炸机
+  { type: 'heli',    body: '#9d7bff', accent: '#e8ffe8' },  // 直升机
+];
+function spawnEnemy() {
+  const t = ENEMY_TYPES[Math.floor(Math.random() * ENEMY_TYPES.length)];
+  const seq = killCount + enemies.length;       // 全局第几架（含排队）
+  const li = Math.min(2, Math.floor(seq / PER_LEVEL));
+  const lv = LEVELS[li];
+  // 本级字池循环使用（16 字够 10 架敌机，不重复用完再循环）
+  const used = (seq - li * PER_LEVEL);
+  const c = lv.chars[used % lv.chars.length];
+  let han = c.han, py = c.py;
+  let guard = 0;
+  while (han === lastHanzi && guard++ < 40) {    // 避免连续两架同字
+    const c2 = lv.chars[Math.floor(Math.random() * lv.chars.length)];
+    han = c2.han; py = c2.py;
+  }
+  lastHanzi = han;
+  enemies.push({
+    type: t.type, body: t.body, accent: t.accent,
+    han, py,
+    x: 0.5 + (Math.random() - 0.5) * 0.44,
+    y: SPAWN_Y,
+    bob: Math.random() * 6.28,
+  });
+}
+
+/* ---------------- 粒子 / 冲击环 / 尾烟 ---------------- */
+function burst(x, y, color, n) {
+  for (let i = 0; i < (n || 26); i++) {
+    const a = Math.random() * Math.PI * 2;
+    const sp = 2 + Math.random() * 5;
+    particles.push({
+      x, y,
+      vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 1.5,
+      life: 1, color,
+      size: 3 + Math.random() * 4,
+    });
+  }
+}
+function updateParticles(dt) {
+  for (const p of particles) {
+    p.x += p.vx; p.y += p.vy; p.vy += 0.10;
+    p.life -= dt * 1.15;
+  }
+  particles = particles.filter(p => p.life > 0);
+  for (const r of rings) r.t += dt * 2.2;
+  rings = rings.filter(r => r.t < 1);
+  for (const s of streaks) { s.y += s.v * dt; s.life -= dt * 1.4; }
+  streaks = streaks.filter(s => s.life > 0);
+  for (const p of puffs) { p.life -= dt * 1.8; p.y += 30 * dt; }
+  puffs = puffs.filter(p => p.life > 0);
+}
+
+/* ---------------- HUD / Toast ---------------- */
+function updateHUD() {
+  $('hudKill').textContent = String(killCount);
+  $('hudStreak').textContent = String(streak);
+  $('hudLevel').textContent = LEVELS[levelIndex()].tag;
+}
+let toastTimer = null;
+function toast(text, good) {
+  toastEl.textContent = text;
+  toastEl.style.color = good ? '#7dffa1' : '#ff9d9d';
+  toastEl.classList.add('pop');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('pop'), 900);
+}
+function perfT() { return (window.performance ? performance.now() : 0) / 1000; }
+
+/* ---------------- 挑战流程 ---------------- */
+const PRAISES = ['击中了！', '太棒了', '好厉害', '打中了', '真不错', '顶呱呱'];
+
+/* 挑战面板：目标字 + 拼音提示 + 4 候选按钮（1 正确 + 3 干扰） */
+function buildChallenge(han, py) {
+  answerHanzi = han;
+  answerPy = py;
+  targetWordEl.textContent = han;
+  targetHintEl.textContent = py + '（找一找这个字）';
+  challengeTip.textContent = '听语音提示，点击正确的汉字按钮';
+  challengeTip.style.color = '';
+
+  // 干扰字：优先当前级别字池，其次全字库，凑满 3 个 ≠ 目标字
+  const lv = LEVELS[levelIndex()];
+  let pool = [];
+  for (const ch of lv.pool) if (ch !== han) pool.push(ch);
+  for (const c of ALL_HANZI) if (c.han !== han) pool.push(c.han);
+  pool = pool.filter((v, i, a) => a.indexOf(v) === i);   // 去重
+  // 洗牌干扰池并取 3 个
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
+  }
+  const wrongs = pool.slice(0, 3);
+
+  // 4 个按钮（正确 + 干扰）洗牌后排布
+  const texts = [han].concat(wrongs);
+  for (let i = texts.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = texts[i]; texts[i] = texts[j]; texts[j] = tmp;
+  }
+  boardEl.innerHTML = '';
+  candidateBtns = [];
+  texts.forEach((tx, idx) => {
+    const btn = document.createElement('button');
+    btn.className = 'key';
+    btn.textContent = tx;
+    btn.addEventListener('click', () => pickHanzi(tx, btn));
+    boardEl.appendChild(btn);
+    candidateBtns.push({ text: tx, btn });
+  });
+}
+
+function openChallenge() {
+  buildChallenge(lockedEnemy.han, lockedEnemy.py);
+  challengeBox.classList.add('show');
+}
+function closeChallenge() {
+  challengeBox.classList.remove('show');
+  candidateBtns = [];          // 关闭即清空候选（避免残留误点）
+}
+
+/* 点选汉字（正确 → 发射导弹；错误 → 播报正确字再选） */
+function pickHanzi(text, btn) {
+  if (state !== STATE.CHALLENGE || !lockedEnemy) return;
+  if (text === answerHanzi) {
+    sfxRight();
+    closeChallenge();
+    state = STATE.FIRING;
+    missile = { t: 0, trail: [] };
+    sfxMissile();
+  } else {
+    wrongTotal++;
+    streak = 0;
+    updateHUD();
+    challengeTip.textContent = `正确的字是「${answerHanzi}」，再选一次！`;
+    challengeTip.style.color = '#ff9d9d';
+    speak(`答错了，正确的字是${answerHanzi}，${answerPy}，请再选一次`);
+    sfxWrong();
+    shake = 0.35;
+    if (btn && btn.classList) {
+      btn.classList.add('wrong-shake');
+      setTimeout(() => btn.classList.remove('wrong-shake'), 420);
+    }
+  }
+}
+
+/* ---------------- 击毁结算 ---------------- */
+function explodeEnemy() {
+  const pos = enemyDrawPos(lockedEnemy, perfT());
+  burst(pos.x, pos.y, '#ffd35c', 34);
+  burst(pos.x, pos.y, '#ff8a5c', 22);
+  rings.push({ x: pos.x, y: pos.y, t: 0, color: '255,220,120' });
+  rings.push({ x: pos.x, y: pos.y, t: -0.18, color: '255,255,255' });
+  flashT = 0.22;
+  shake = 0.4;
+  sfxBoom();
+
+  const idx = enemies.indexOf(lockedEnemy);
+  if (idx >= 0) enemies.splice(idx, 1);
+  lockedEnemy = null;
+  missile = null;
+  killCount++;
+  quizDone = killCount;
+  streak++;
+  if (streak > bestStreak) bestStreak = streak;
+  literProgress = killCount;               // 识字进度：每击毁一字 +1
+  growPop = 1;
+
+  const praise = PRAISES[Math.min(PRAISES.length - 1, Math.floor(Math.random() * PRAISES.length))];
+  toast(praise + ' 「' + answerHanzi + '」', true);
+  speak(killCount >= KILL_TARGET ? '全部击毁，任务完成！'
+       : praise + '！' + answerHanzi + '，' + answerPy);
+  updateHUD();
+
+  const pp = playerDrawPos(perfT());
+  rings.push({ x: pp.x, y: pp.y, t: -0.3, color: '255,215,100' });
+
+  if (killCount >= KILL_TARGET) {
+    finishTimer = 1.1;
+    state = STATE.RUNNING;
+  } else {
+    state = STATE.RUNNING;
+  }
+}
+
+function showResult() {
+  let title, medal;
+  if (bestStreak >= 20)     { title = '🥇 金牌识字飞行员！'; medal = '金牌'; }
+  else if (bestStreak >= 12) { title = '🥈 银牌识字飞行员！'; medal = '银牌'; }
+  else if (bestStreak >= 6)  { title = '🥉 铜牌识字飞行员！'; medal = '铜牌'; }
+  else                       { title = '🎯 任务完成！';       medal = '继续加油'; }
+  $('resultTitle').textContent = title;
+  $('resultDesc').innerHTML =
+    `击毁 <b style="color:#ffd35c">${killCount}</b> 架敌机，认识 ${killCount} 个字（${medal}）<br>` +
+    `最佳连对 <b style="color:#ffd35c">${bestStreak}</b> 次 · 答错 <b style="color:#ff9d9d">${wrongTotal}</b> 次<br>` +
+    `识字进度条飞满了，你认识了 L1 到 L3 的 <b style="color:#7dffa1">${killCount}</b> 个汉字！`;
+  $('result').classList.add('show');
+  speak(`任务完成！获得${medal}！`);
+}
+
+/* ---------------- 主循环 ---------------- */
+function update(dt, t) {
+  if (shake > 0) shake = Math.max(0, shake - dt);
+  if (flashT > 0) flashT = Math.max(0, flashT - dt);
+  if (growPop > 0) growPop = Math.max(0, growPop - dt * 2.2);
+  literShow += (literProgress - literShow) * Math.min(1, dt * 6);
+
+  const cloudK = state === STATE.CHALLENGE ? 0.25 : 1;
+  for (const c of clouds) {
+    c.fy += c.spd * cloudK * dt;
+    if (c.fy > 1.15) { c.fy = -0.18; c.fx = Math.random(); }
+  }
+
+  if (state === STATE.RUNNING) {
+    const sorted = [...enemies].sort((a, b) => b.y - a.y);
+    sorted.forEach((e, i) => {
+      const targetY = LOCK_Y - i * QUEUE_SPACING;
+      if (e.y < targetY) {
+        e.y = Math.min(targetY, e.y + APPROACH_V * dt);
+      }
+    });
+    // 补充敌机（最多 2 架在场：1 锁定 + 1 排队；总量不超过 30）
+    spawnDelay -= dt;
+    if (enemies.length < 2 && killCount + enemies.length < KILL_TARGET && spawnDelay <= 0) {
+      spawnEnemy();
+      spawnDelay = 0.8;
+    }
+    const front = sorted[0];
+    if (front && front.y >= LOCK_Y - 0.001 && killCount < KILL_TARGET && finishTimer < 0) {
+      lockedEnemy = front;
+      state = STATE.CHALLENGE;
+      openChallenge();
+    }
+    if (finishTimer > 0) {
+      finishTimer -= dt;
+      if (finishTimer <= 0) {
+        finishTimer = -1;
+        state = STATE.FINISH;
+        closeChallenge();
+        showResult();
+      }
+    }
+  }
+
+  if (state === STATE.FIRING && missile && lockedEnemy) {
+    missile.t += dt / MISSILE_TIME;
+    const pos = missilePos(missile.t);
+    missile.trail.push({ x: pos.x, y: pos.y });
+    if (missile.trail.length > 14) missile.trail.shift();
+    if (Math.random() < 0.7) puffs.push({ x: pos.x, y: pos.y, life: 1, r: 3 + Math.random() * 3 });
+    if (missile.t >= 1) explodeEnemy();
+  }
+
+  if (state === STATE.FIRING && Math.random() < 0.5) {
+    streaks.push({
+      x: Math.random() * W, y: H * 0.30 - Math.random() * 100,
+      v: 900 + Math.random() * 500, life: 1,
+    });
+  }
+
+  updateParticles(dt);
+  updateEngine();
+  updateHUD();
+}
+
+/* ---------------- 位置计算 ---------------- */
+function enemyDrawPos(e, t) {
+  const sizeFrac = Math.min(1, Math.max(0.35, e.y / LOCK_Y));
+  const s = Math.min(W, H) * 0.20 * (0.55 + 0.45 * sizeFrac);
+  return {
+    x: W * e.x + Math.sin(t * 1.6 + e.bob) * s * 0.06,
+    y: H * e.y + Math.sin(t * 2.2 + e.bob) * s * 0.05,
+    s,
+  };
+}
+function playerDrawPos(t) {
+  const s = Math.min(W, H) * 0.20;
+  return {
+    x: W / 2 + Math.sin(t * 0.7) * W * 0.018,
+    y: H * PLAYER_Y + Math.sin(t * 1.3) * H * 0.004,
+    s,
+  };
+}
+function missilePos(t) {
+  const pp = playerDrawPos(perfT());
+  const ep = enemyDrawPos(lockedEnemy, perfT());
+  const x0 = pp.x, y0 = pp.y - pp.s * 0.55;
+  const x2 = ep.x, y2 = ep.y;
+  const side = x2 > x0 ? 1 : -1;
+  const x1 = (x0 + x2) / 2 + side * W * 0.20;
+  const y1 = Math.min(y0, y2) - H * 0.14;
+  const u = 1 - t, tt = t * t;
+  return {
+    x: u * u * x0 + 2 * u * t * x1 + tt * x2,
+    y: u * u * y0 + 2 * u * t * y1 + tt * y2,
+    ang: Math.atan2(
+      2 * u * (y1 - y0) + 2 * t * (y2 - y1),
+      2 * u * (x1 - x0) + 2 * t * (x2 - x1)
+    ),
+  };
+}
+
+/* ---------------- 绘制 ---------------- */
+function drawBackground(t) {
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#070d26');
+  sky.addColorStop(0.6, '#0d1637');
+  sky.addColorStop(1, '#182964');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H);
+
+  for (const s of stars) {
+    const a = 0.35 + 0.4 * (0.5 + 0.5 * Math.sin(t * 2 + s.p));
+    ctx.globalAlpha = a;
+    ctx.fillStyle = '#dceaff';
+    ctx.beginPath();
+    ctx.arc(s.fx * W, s.fy * H, s.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  for (const c of clouds) {
+    const cx = c.fx * W, cy = c.fy * H;
+    const rx = c.w * W, ry = rx * 0.36;
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rx);
+    g.addColorStop(0, `rgba(190,210,255,${c.a})`);
+    g.addColorStop(1, 'rgba(190,210,255,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+/* ---- 汉字牌（敌机机身） ---- */
+function drawHanziPlate(s, accent, han) {
+  const r = s * 0.20;
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.lineWidth = Math.max(1.5, s * 0.028);
+  ctx.strokeStyle = accent;
+  ctx.stroke();
+  ctx.fillStyle = '#1b2547';
+  ctx.font = `800 ${s * 0.26}px "PingFang SC", "Microsoft YaHei", system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(han, 0, s * 0.012);
+}
+
+/* ---- 敌机（机头朝下，冲着玩家） ---- */
+function drawEnemyPlane(e, t) {
+  const pos = enemyDrawPos(e, t);
+  const s = pos.s;
+  ctx.save();
+  ctx.translate(pos.x, pos.y);
+  const dim = (state === STATE.CHALLENGE && e !== lockedEnemy) ? 0.55 : 1;
+  ctx.globalAlpha = dim;
+
+  if (e.type === 'fighter') drawFighterShape(s, e.body, e.accent, t);
+  else if (e.type === 'bomber') drawBomberShape(s, e.body, e.accent, t);
+  else drawHeliShape(s, e.body, e.accent, t);
+
+  drawHanziPlate(s, e.accent, e.han);
+  ctx.restore();
+}
+function drawFighterShape(s, body, accent, t) {
+  const fl = s * (0.18 + Math.random() * 0.10);
+  const fg = ctx.createLinearGradient(0, -s * 0.52, 0, -s * 0.52 - fl);
+  fg.addColorStop(0, 'rgba(120,190,255,.9)');
+  fg.addColorStop(1, 'rgba(120,190,255,0)');
+  ctx.fillStyle = fg;
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.05, -s * 0.50);
+  ctx.lineTo(0, -s * 0.50 - fl);
+  ctx.lineTo(s * 0.05, -s * 0.50);
+  ctx.closePath(); ctx.fill();
+
+  ctx.fillStyle = shade(body, -0.18);
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.06, -s * 0.05);
+  ctx.lineTo(-s * 0.40, -s * 0.42);
+  ctx.lineTo(-s * 0.40, -s * 0.28);
+  ctx.lineTo(-s * 0.06, s * 0.12);
+  ctx.closePath(); ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(s * 0.06, -s * 0.05);
+  ctx.lineTo(s * 0.40, -s * 0.42);
+  ctx.lineTo(s * 0.40, -s * 0.28);
+  ctx.lineTo(s * 0.06, s * 0.12);
+  ctx.closePath(); ctx.fill();
+
+  const g = ctx.createLinearGradient(-s * 0.08, 0, s * 0.08, 0);
+  g.addColorStop(0, shade(body, -0.25));
+  g.addColorStop(0.5, body);
+  g.addColorStop(1, shade(body, -0.25));
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(0, s * 0.52);
+  ctx.quadraticCurveTo(s * 0.09, 0, s * 0.07, -s * 0.42);
+  ctx.lineTo(-s * 0.07, -s * 0.42);
+  ctx.quadraticCurveTo(-s * 0.09, 0, 0, s * 0.52);
+  ctx.closePath(); ctx.fill();
+
+  ctx.fillStyle = 'rgba(30,40,70,.9)';
+  ctx.beginPath();
+  ctx.ellipse(0, s * 0.24, s * 0.05, s * 0.13, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#ff5c5c';
+  ctx.fillRect(-s * 0.41, -s * 0.34, s * 0.035, s * 0.05);
+  ctx.fillStyle = '#59ff9c';
+  ctx.fillRect(s * 0.375, -s * 0.34, s * 0.035, s * 0.05);
+}
+function drawBomberShape(s, body, accent, t) {
+  ctx.fillStyle = shade(body, -0.18);
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.07, -s * 0.06);
+  ctx.lineTo(-s * 0.46, -s * 0.14);
+  ctx.lineTo(-s * 0.46, s * 0.02);
+  ctx.lineTo(-s * 0.07, s * 0.12);
+  ctx.closePath(); ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(s * 0.07, -s * 0.06);
+  ctx.lineTo(s * 0.46, -s * 0.14);
+  ctx.lineTo(s * 0.46, s * 0.02);
+  ctx.lineTo(s * 0.07, s * 0.12);
+  ctx.closePath(); ctx.fill();
+
+  ctx.fillStyle = shade(body, -0.4);
+  for (const ex of [-s * 0.30, s * 0.30]) {
+    ctx.beginPath();
+    ctx.ellipse(ex, s * 0.10, s * 0.055, s * 0.13, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(230,240,255,.35)';
+    ctx.lineWidth = Math.max(1, s * 0.018);
+    ctx.beginPath();
+    ctx.ellipse(ex, s * 0.24, s * 0.10, s * 0.028, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  const g = ctx.createLinearGradient(-s * 0.11, 0, s * 0.11, 0);
+  g.addColorStop(0, shade(body, -0.25));
+  g.addColorStop(0.5, body);
+  g.addColorStop(1, shade(body, -0.25));
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(0, s * 0.50);
+  ctx.quadraticCurveTo(s * 0.13, s * 0.05, s * 0.11, -s * 0.40);
+  ctx.lineTo(-s * 0.11, -s * 0.40);
+  ctx.quadraticCurveTo(-s * 0.13, s * 0.05, 0, s * 0.50);
+  ctx.closePath(); ctx.fill();
+
+  ctx.fillStyle = shade(body, -0.45);
+  ctx.fillRect(-s * 0.16, -s * 0.52, s * 0.06, s * 0.14);
+  ctx.fillRect(s * 0.10, -s * 0.52, s * 0.06, s * 0.14);
+
+  ctx.fillStyle = 'rgba(30,40,70,.9)';
+  ctx.beginPath();
+  ctx.ellipse(0, s * 0.26, s * 0.055, s * 0.12, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+function drawHeliShape(s, body, accent, t) {
+  ctx.fillStyle = shade(body, -0.3);
+  ctx.fillRect(-s * 0.035, -s * 0.52, s * 0.07, s * 0.36);
+  ctx.strokeStyle = 'rgba(230,240,255,.5)';
+  ctx.lineWidth = Math.max(1, s * 0.02);
+  const ta = t * 18;
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.10 + Math.cos(ta) * s * 0.02, -s * 0.50 + Math.sin(ta) * s * 0.02);
+  ctx.lineTo( s * 0.10 - Math.cos(ta) * s * 0.02, -s * 0.50 - Math.sin(ta) * s * 0.02);
+  ctx.stroke();
+
+  const g = ctx.createLinearGradient(-s * 0.17, 0, s * 0.17, 0);
+  g.addColorStop(0, shade(body, -0.25));
+  g.addColorStop(0.5, body);
+  g.addColorStop(1, shade(body, -0.25));
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.ellipse(0, s * 0.06, s * 0.185, s * 0.235, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(30,40,70,.9)';
+  ctx.beginPath();
+  ctx.ellipse(0, s * 0.17, s * 0.11, s * 0.08, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = shade(body, -0.5);
+  ctx.lineWidth = Math.max(1.5, s * 0.03);
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.13, s * 0.30); ctx.lineTo(-s * 0.13, s * 0.34);
+  ctx.moveTo(s * 0.13, s * 0.30); ctx.lineTo(s * 0.13, s * 0.34);
+  ctx.moveTo(-s * 0.16, s * 0.34); ctx.lineTo(s * 0.16, s * 0.34);
+  ctx.stroke();
+
+  ctx.save();
+  ctx.translate(0, -s * 0.10);
+  ctx.fillStyle = 'rgba(220,235,255,.08)';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, s * 0.46, s * 0.14, 0, 0, Math.PI * 2);
+  ctx.fill();
+  const ra = t * 22;
+  ctx.strokeStyle = 'rgba(220,235,255,.65)';
+  ctx.lineWidth = Math.max(1.5, s * 0.028);
+  for (let k = 0; k < 3; k++) {
+    const a = ra + k * Math.PI * 2 / 3;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(a) * s * 0.46, Math.sin(a) * s * 0.14);
+    ctx.stroke();
+  }
+  ctx.fillStyle = shade(body, -0.5);
+  ctx.beginPath();
+  ctx.arc(0, 0, s * 0.045, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+/* ---- 锁定框 ---- */
+function drawReticle(e, t) {
+  const pos = enemyDrawPos(e, t);
+  const s = pos.s;
+  const R = s * 0.62 * (1 + 0.06 * Math.sin(t * 9));
+  ctx.save();
+  ctx.translate(pos.x, pos.y);
+  ctx.strokeStyle = 'rgba(255,122,0,.85)';
+  ctx.lineWidth = Math.max(1.5, s * 0.03);
+  ctx.setLineDash([Math.max(4, s * 0.09), Math.max(4, s * 0.09)]);
+  ctx.lineDashOffset = -t * s * 0.8;
+  ctx.beginPath();
+  ctx.arc(0, 0, R * 1.18, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  const L = R * 0.42;
+  ctx.strokeStyle = '#ff7a00';
+  ctx.lineWidth = Math.max(2, s * 0.045);
+  for (const pair of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+    const sx = pair[0], sy = pair[1];
+    ctx.beginPath();
+    ctx.moveTo(sx * R, sy * R - sy * L);
+    ctx.lineTo(sx * R, sy * R);
+    ctx.lineTo(sx * R - sx * L, sy * R);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/* ---- 玩家直升机（机头朝上） ---- */
+function drawPlayer(t) {
+  const pos = playerDrawPos(t);
+  const pop = growPop > 0 ? Math.sin(growPop * Math.PI) * 0.14 : 0;
+  const ss = pos.s * (1 + pop);
+  ctx.save();
+  ctx.translate(pos.x, pos.y);
+
+  // 引擎喷焰（朝下）
+  const boost = state === STATE.FIRING ? 1.5 : 1;
+  const fl = ss * (0.26 + Math.random() * 0.14) * boost;
+  const fg = ctx.createLinearGradient(0, ss * 0.50, 0, ss * 0.50 + fl);
+  fg.addColorStop(0, 'rgba(120,190,255,.95)');
+  fg.addColorStop(0.5, 'rgba(255,170,80,.6)');
+  fg.addColorStop(1, 'rgba(255,60,40,0)');
+  ctx.fillStyle = fg;
+  ctx.beginPath();
+  ctx.moveTo(-ss * 0.06, ss * 0.48);
+  ctx.lineTo(0, ss * 0.50 + fl);
+  ctx.lineTo(ss * 0.06, ss * 0.48);
+  ctx.closePath(); ctx.fill();
+
+  // 主旋翼（旋转叶片 + 模糊盘）
+  ctx.save();
+  ctx.translate(0, -ss * 0.18);
+  ctx.fillStyle = 'rgba(220,235,255,.08)';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, ss * 0.52, ss * 0.15, 0, 0, Math.PI * 2);
+  ctx.fill();
+  const ra = t * 26;
+  ctx.strokeStyle = 'rgba(220,235,255,.7)';
+  ctx.lineWidth = Math.max(1.5, ss * 0.03);
+  for (let k = 0; k < 3; k++) {
+    const a = ra + k * Math.PI * 2 / 3;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(a) * ss * 0.52, Math.sin(a) * ss * 0.15);
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#2f5fd0';
+  ctx.beginPath();
+  ctx.arc(0, 0, ss * 0.05, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // 尾梁（朝上）+ 尾桨
+  ctx.fillStyle = '#2f5fd0';
+  ctx.fillRect(-ss * 0.04, -ss * 0.52, ss * 0.08, ss * 0.34);
+  const ta = t * 20;
+  ctx.strokeStyle = 'rgba(230,240,255,.55)';
+  ctx.lineWidth = Math.max(1, ss * 0.022);
+  ctx.beginPath();
+  ctx.moveTo(-ss * 0.11 + Math.cos(ta) * ss * 0.02, -ss * 0.50 + Math.sin(ta) * ss * 0.02);
+  ctx.lineTo( ss * 0.11 - Math.cos(ta) * ss * 0.02, -ss * 0.50 - Math.sin(ta) * ss * 0.02);
+  ctx.stroke();
+
+  // 机身（圆胖座舱）
+  const g = ctx.createLinearGradient(-ss * 0.19, 0, ss * 0.19, 0);
+  g.addColorStop(0, '#2f5fd0');
+  g.addColorStop(0.5, '#4f8cff');
+  g.addColorStop(1, '#2f5fd0');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.ellipse(0, ss * 0.08, ss * 0.19, ss * 0.26, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 挡风玻璃
+  ctx.fillStyle = 'rgba(180,225,255,.92)';
+  ctx.beginPath();
+  ctx.ellipse(0, -ss * 0.06, ss * 0.115, ss * 0.10, 0, 0, Math.PI * 2);
+  ctx.fill();
+  const cg = ctx.createLinearGradient(0, -ss * 0.16, 0, ss * 0.04);
+  cg.addColorStop(0, 'rgba(255,255,255,.55)');
+  cg.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = cg;
+  ctx.beginPath();
+  ctx.ellipse(0, -ss * 0.06, ss * 0.115, ss * 0.10, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 滑橇
+  ctx.strokeStyle = '#2f5fd0';
+  ctx.lineWidth = Math.max(1.5, ss * 0.032);
+  ctx.beginPath();
+  ctx.moveTo(-ss * 0.13, ss * 0.32); ctx.lineTo(-ss * 0.13, ss * 0.40);
+  ctx.moveTo(ss * 0.13, ss * 0.32); ctx.lineTo(ss * 0.13, ss * 0.40);
+  ctx.moveTo(-ss * 0.18, ss * 0.40); ctx.lineTo(ss * 0.18, ss * 0.40);
+  ctx.stroke();
+
+  // 航行灯
+  ctx.fillStyle = '#ff5c5c';
+  ctx.beginPath(); ctx.arc(-ss * 0.50, ss * 0.315, ss * 0.028, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#59ff9c';
+  ctx.beginPath(); ctx.arc(ss * 0.50, ss * 0.315, ss * 0.028, 0, Math.PI * 2); ctx.fill();
+
+  ctx.restore();
+}
+
+/* ---- 导弹 ---- */
+function drawMissile() {
+  if (!missile || !lockedEnemy) return;
+  for (const p of puffs) {
+    ctx.globalAlpha = p.life * 0.4;
+    ctx.fillStyle = '#cdd8f0';
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r * (1.6 - p.life * 0.6), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  if (missile.trail.length > 1) {
+    ctx.strokeStyle = 'rgba(255,200,120,.4)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(missile.trail[0].x, missile.trail[0].y);
+    for (const q of missile.trail) ctx.lineTo(q.x, q.y);
+    ctx.stroke();
+  }
+  const pos = missilePos(Math.min(1, missile.t));
+  ctx.save();
+  ctx.translate(pos.x, pos.y);
+  ctx.rotate(pos.ang);
+  const L = Math.min(W, H) * 0.045;
+  const fg = ctx.createLinearGradient(-L * 0.6, 0, -L * 1.6, 0);
+  fg.addColorStop(0, 'rgba(255,190,80,.95)');
+  fg.addColorStop(1, 'rgba(255,60,40,0)');
+  ctx.fillStyle = fg;
+  ctx.beginPath();
+  ctx.moveTo(-L * 0.55, -L * 0.16);
+  ctx.lineTo(-L * 1.6, 0);
+  ctx.lineTo(-L * 0.55, L * 0.16);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#e8eeff';
+  ctx.beginPath();
+  ctx.moveTo(L * 0.8, 0);
+  ctx.quadraticCurveTo(L * 0.1, -L * 0.22, -L * 0.55, -L * 0.18);
+  ctx.lineTo(-L * 0.55, L * 0.18);
+  ctx.quadraticCurveTo(L * 0.1, L * 0.22, L * 0.8, 0);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#ff9c5c';
+  ctx.moveTo(-L * 0.1, -L * 0.18); ctx.lineTo(-L * 0.45, -L * 0.5); ctx.lineTo(-L * 0.45, -L * 0.18);
+  ctx.closePath(); ctx.fill();
+  ctx.moveTo(-L * 0.1, L * 0.18); ctx.lineTo(-L * 0.45, L * 0.5); ctx.lineTo(-L * 0.45, L * 0.18);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+/* ---- 识字进度条（顶部横幅，成长系统替代品） ---- */
+function drawLiteracyBar() {
+  if (state === STATE.START) return;
+  const bx = W * 0.5 - Math.min(W * 0.36, 300) / 2;
+  const by = 14, bw = Math.min(W * 0.36, 300), bh = 14;
+  ctx.save();
+  ctx.fillStyle = 'rgba(10,16,40,.72)';
+  ctx.strokeStyle = 'rgba(120,200,255,.35)';
+  ctx.lineWidth = 1;
+  roundRect(bx - 6, by - 4, bw + 12, bh + 8, 8);
+  ctx.fill(); ctx.stroke();
+  // 进度填充
+  const p = Math.min(1, literShow / KILL_TARGET);
+  const g = ctx.createLinearGradient(bx, 0, bx + bw, 0);
+  g.addColorStop(0, '#59d1ff');
+  g.addColorStop(0.5, '#7dffa1');
+  g.addColorStop(1, '#ffd35c');
+  ctx.fillStyle = g;
+  roundRect(bx, by, Math.max(2, bw * p), bh, 6);
+  ctx.fill();
+  // 关卡分隔标记（10 / 20）
+  ctx.fillStyle = 'rgba(255,255,255,.55)';
+  for (const frac of [PER_LEVEL / KILL_TARGET, 2 * PER_LEVEL / KILL_TARGET]) {
+    ctx.fillRect(bx + bw * frac - 1, by + 2, 2, bh - 4);
+  }
+  // 小火箭标记
+  ctx.fillStyle = '#ffd35c';
+  ctx.font = '800 16px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('🚀', bx + bw + 26, by + bh / 2);
+  ctx.restore();
+}
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arc(x + w - r, y + r, r, -Math.PI / 2, 0);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arc(x + w - r, y + h - r, r, 0, Math.PI / 2);
+  ctx.lineTo(x + r, y + h);
+  ctx.arc(x + r, y + h - r, r, Math.PI / 2, Math.PI);
+  ctx.lineTo(x, y + r);
+  ctx.arc(x + r, y + r, r, Math.PI, Math.PI * 1.5);
+  ctx.closePath();
+}
+
+/* ---- 冲击环 / 粒子 / 速度线 ---- */
+function drawEffects() {
+  for (const r of rings) {
+    if (r.t < 0) continue;
+    const k = r.t;
+    ctx.strokeStyle = `rgba(${r.color},${(1 - k) * 0.8})`;
+    ctx.lineWidth = Math.max(2, 10 * (1 - k));
+    ctx.beginPath();
+    ctx.arc(r.x, r.y, 14 + k * 70, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  for (const p of particles) {
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 2.5;
+  for (const s of streaks) {
+    ctx.globalAlpha = s.life * 0.16;
+    ctx.beginPath();
+    ctx.moveTo(s.x, s.y);
+    ctx.lineTo(s.x, s.y - 46);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  if (flashT > 0) {
+    ctx.fillStyle = `rgba(255,240,200,${flashT * 0.9})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+
+/* ---------------- 渲染 ---------------- */
+function render(t) {
+  ctx.save();
+  if (shake > 0) {
+    const m = shake * 14;
+    ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m);
+  }
+
+  drawBackground(t);
+
+  const sorted = [...enemies].sort((a, b) => a.y - b.y);
+  for (const e of sorted) drawEnemyPlane(e, t);
+
+  if ((state === STATE.CHALLENGE || state === STATE.FIRING) && lockedEnemy) {
+    drawReticle(lockedEnemy, t);
+  }
+
+  drawPlayer(t);
+  drawMissile();
+  drawEffects();
+  drawLiteracyBar();
+
+  ctx.restore();
+}
+
+/* ---------------- 帧循环 ---------------- */
+let lastT = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now;
+  update(dt, now / 1000);
+  render(now / 1000);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ---------------- 测试钩子 ---------------- */
+window.__testCandidates = () =>
+  (state === STATE.CHALLENGE && lockedEnemy)
+    ? candidateBtns.map(c => ({ id: c.text, text: c.text }))   // id 即字面（便于断言）
+    : [];                                                      // 仅挑战中返回候选
+window.__testPickHanzi = id => {
+  if (state !== STATE.CHALLENGE || !lockedEnemy) return false;
+  const c = candidateBtns.find(x => x.text === id);
+  if (!c) return false;
+  pickHanzi(c.text, c.btn);
+  return true;
+};
+window.__testState = () => state;
+window.__testProgress = () => ({
+  killCount, quizDone, streak, bestStreak, wrongTotal,
+  target: answerHanzi, targetPy: answerPy,
+  level: LEVELS[levelIndex()].tag,
+  enemies: enemies.length,
+  locked: lockedEnemy ? lockedEnemy.han : null,
+});
+
+/* ---------------- 开始 / 重开 ---------------- */
+$('btnStart').addEventListener('click', () => {
+  initAudio();
+  $('start').style.display = 'none';
+  state = STATE.RUNNING;
+  spawnDelay = 0.2;
+  speak('任务开始！听一听，找一找正确的汉字。');
+});
+
+$('btnRestart').addEventListener('click', () => {
+  $('result').classList.remove('show');
+  resetGame();
+  state = STATE.RUNNING;
+  spawnDelay = 0.2;
+  speak('新的任务开始！');
+});
+
+function resetGame() {
+  killCount = 0; streak = 0; bestStreak = 0; wrongTotal = 0;
+  enemies = []; particles = []; rings = []; puffs = []; streaks = [];
+  missile = null;
+  lockedEnemy = null;
+  answerHanzi = ''; answerPy = '';
+  shake = 0; flashT = 0; lastHanzi = null;
+  spawnDelay = 0.2; finishTimer = -1;
+  literProgress = 0; literShow = 0; growPop = 0;
+  quizDone = 0;
+  candidateBtns = [];
+  boardEl.innerHTML = '';
+  closeChallenge();
+  updateHUD();
+}
+</script>
+</body>
+</html>

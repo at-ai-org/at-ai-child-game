@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>红绿灯过马路 · Traffic Safety</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  body {
+    background: #87ceeb;
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+  }
+  #game { display: block; width: 100vw; height: 100vh; }
+  .hud { position: absolute; top: 46px; left: 14px; z-index: 10; display: flex; gap: 10px; flex-wrap: wrap; pointer-events: none; }
+  .hud-chip { background: rgba(20, 40, 60, .55); border: 1px solid rgba(255,255,255,.6); border-radius: 14px; color: #fff; padding: 7px 15px; font-size: 17px; font-weight: 700; box-shadow: 0 4px 18px rgba(0,0,0,.25); backdrop-filter: blur(6px); }
+  .hud-chip b { color: #ffd35c; font-size: 21px; }
+  #btnMute { position: absolute; top: 12px; right: 12px; z-index: 60; font-size: 20px; line-height: 1; padding: 9px 13px; border-radius: 12px; cursor: pointer; background: rgba(20,40,60,.55); border: 1px solid rgba(255,255,255,.6); color: #fff; }
+  #caption { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 15; background: rgba(255,255,255,.92); border: 2px solid #59d18a; border-radius: 18px; color: #143a14; padding: 10px 26px; font-size: 20px; font-weight: 800; letter-spacing: 1px; pointer-events: none; white-space: nowrap; max-width: 92vw; text-align: center; box-shadow: 0 6px 20px rgba(0,0,0,.2); }
+  #toast { position: absolute; left: 50%; top: 24%; transform: translate(-50%, -50%) scale(1); z-index: 30; font-size: 52px; font-weight: 800; color: #0d5c0d; text-shadow: 0 3px 12px rgba(255,255,255,.85); opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; white-space: nowrap; }
+  #toast.pop { opacity: 1; transform: translate(-50%, -58%) scale(1.12); }
+  #result { position: absolute; inset: 0; z-index: 40; background: rgba(16, 44, 24, .55); display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+  #result.show { display: flex; }
+  .result-card { text-align: center; color: #143a14; background: linear-gradient(160deg, #ffffff, #dff2e2); border: 2px solid #59d18a; border-radius: 26px; padding: 30px 44px; box-shadow: 0 20px 60px rgba(0,0,0,.3); max-width: 88vw; }
+  .result-card h1 { font-size: 38px; color: #0d5c0d; margin-bottom: 12px; }
+  .result-card p { font-size: 17px; color: #2c5c2c; margin: 6px 0 22px; line-height: 1.8; }
+  .result-card button { font-size: 20px; padding: 12px 42px; border-radius: 999px; border: none; cursor: pointer; background: linear-gradient(90deg, #37d67a, #59ff9c); color: #06331a; font-weight: 700; letter-spacing: 4px; box-shadow: 0 6px 20px rgba(55,214,122,.45); font-family: inherit; }
+  #start { position: absolute; inset: 0; z-index: 50; background: linear-gradient(180deg, #87ceeb 0%, #cdeeff 45%, #b8e986 75%); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #143a14; text-align: center; padding: 20px; }
+  #start h1 { font-size: clamp(38px, 8vw, 60px); letter-spacing: 6px; color: #0d5c0d; text-shadow: 0 2px 0 #fff; margin-bottom: 14px; }
+  #start p { font-size: 16px; color: #2c5c2c; line-height: 2; max-width: 560px; }
+  #start .rules { margin: 22px 0 28px; }
+  #start button { font-size: 21px; padding: 14px 56px; border-radius: 999px; border: none; cursor: pointer; background: linear-gradient(90deg, #ff9c5c, #ffd35c); color: #3a2200; font-weight: 800; letter-spacing: 6px; box-shadow: 0 8px 26px rgba(255,156,92,.5); font-family: inherit; }
+  #start button:active { transform: scale(.97); }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<button id="btnMute" title="声音开关">🔊</button>
+<div class="hud">
+  <div class="hud-chip">安全过街 <b id="hudCrossed">0</b> / 8 次</div>
+  <div class="hud-chip">红灯抢行 <b id="hudRushed">0</b> 次</div>
+</div>
+<div id="caption" style="display:none"></div>
+<div id="toast"></div>
+<div id="result">
+  <div class="result-card">
+    <h1 id="resultTitle">🚸 交通安全小卫士！</h1>
+    <p id="resultDesc"></p>
+    <button id="btnRestart">再玩一次</button>
+  </div>
+</div>
+<div id="start">
+  <h1>红绿灯过马路</h1>
+  <p class="rules">
+    小人要过马路去对面！看红绿灯：<br>
+    <b style="color:#c22">🔴 红灯停</b>——点了会被喇叭声叫回来哦；<br>
+    <b style="color:#0a0">🟢 绿灯行</b>——点击「过马路」按钮就走啦！<br>
+    绿灯时间很短，要抓紧！安全过街 <b>8 次</b>就通关～
+  </p>
+  <button id="btnStart">去过马路</button>
+</div>
+<script>
+/* =========================================================
+ * 红绿灯过马路 Traffic Safety —— 单文件 Canvas 小游戏（G13）
+ * 红灯 3s → 绿灯 4s 循环；绿灯点过街按钮走斑马线；
+ * 红灯点被喇叭制止（不撞人）；往返 8 次通关。
+ * ========================================================= */
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0;
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+window.addEventListener('resize', resize);
+resize();
+
+const STATE = { START: 0, RUNNING: 1, FINISH: 2 };
+let state = STATE.START;
+let crossed = 0;          // 成功过街次数
+let rushed = 0;           // 红灯抢行次数
+const CROSS_TARGET = 8;
+const RED_T = 3.0, GREEN_T = 4.0;
+let lightT = 0;           // 当前灯已亮秒数
+let light = 'red';        // 'red' | 'green'
+let walker = null;        // {x, targetX, dir, phase: 'idle'|'crossing'|'stopped'|'arrived', prog}
+let walkerSide = 0;      // 0 = 左侧, 1 = 右侧
+let cars = [];            // 横向车流
+let celebration = [];
+let shake = 0;
+
+const $ = id => document.getElementById(id);
+const captionEl = $('caption');
+const toastEl = $('toast');
+
+/* 语音 */
+const synth = window.speechSynthesis || null;
+let zhVoice = null;
+function pickVoice() {
+  if (!synth) return;
+  const vs = synth.getVoices();
+  zhVoice = vs.find(v => /zh[-_]CN/i.test(v.lang)) || vs.find(v => /^zh/i.test(v.lang)) || null;
+}
+if (synth) { pickVoice(); if (synth.onvoiceschanged !== undefined) synth.onvoiceschanged = pickVoice; }
+function speak(text) {
+  if (muted || !synth) return;
+  try {
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN'; if (zhVoice) u.voice = zhVoice; u.rate = 0.92;
+    synth.speak(u);
+  } catch (e) {}
+}
+function say(text) {
+  captionEl.style.display = 'block';
+  captionEl.textContent = text;
+  speak(text);
+}
+
+/* 音效 */
+let actx = null, muted = false;
+function initAudio() {
+  if (actx) { actx.resume && actx.resume(); return; }
+  try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+}
+function beep(freq, dur, type, vol, delay) {
+  if (!actx || muted) return;
+  const t0 = actx.currentTime + (delay || 0);
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type || 'sine'; o.frequency.value = freq;
+  g.gain.setValueAtTime(vol || 0.15, t0);
+  g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+  o.connect(g).connect(actx.destination);
+  o.start(t0); o.stop(t0 + dur + 0.02);
+}
+const sfxRight  = () => { beep(660, .1, 'sine', .18); beep(990, .14, 'sine', .18, .1); };
+const sfxHorn   = () => { beep(320, .35, 'square', .16); beep(260, .3, 'square', .13, .4); };
+const sfxWin    = () => { [523, 659, 784, 1047].forEach((f, i) => beep(f, .22, 'sine', .17, i * 0.13)); };
+const sfxHonk   = () => beep(440, .12, 'sawtooth', .1);
+
+$('btnMute').addEventListener('click', () => {
+  muted = !muted;
+  $('btnMute').textContent = muted ? '🔇' : '🔊';
+  if (muted && synth) synth.cancel();
+});
+
+function updateHUD() {
+  $('hudCrossed').textContent = crossed;
+  $('hudRushed').textContent = rushed;
+}
+let toastTimer = null;
+function toast(text, good) {
+  toastEl.textContent = text;
+  toastEl.style.color = good ? '#0d5c0d' : '#c22';
+  toastEl.classList.add('pop');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('pop'), 1000);
+}
+
+/* 车流 */
+function spawnCar() {
+  const fromLeft = Math.random() < 0.5;
+  const colors = ['#e05c5c', '#5c8ae0', '#e0b45c', '#8a5ce0', '#5ce0a8'];
+  cars.push({
+    x: fromLeft ? -120 : W + 120,
+    dir: fromLeft ? 1 : -1,
+    speed: 120 + Math.random() * 100,
+    color: colors[Math.floor(Math.random() * colors.length)],
+    y: H * 0.56 + (Math.random() < 0.5 ? 0 : 42),
+    stopped: false,
+  });
+}
+function crossButtonRect() {
+  const bw = Math.min(220, W * 0.5), bh = 66;
+  return { x: W / 2 - bw / 2, y: H - 118, w: bw, h: bh };
+}
+function zebraY() { return H * 0.60; }
+
+/* 点击过马路按钮 */
+function tryCross() {
+  if (state !== STATE.RUNNING) return;
+  if (walker && walker.phase === 'crossing') return;   // 正在走
+  if (walker && walker.phase === 'stopped') { walker.phase = 'back'; return; }  // 从半步退回后允许再走
+  if (light === 'green') {
+    // 绿灯：出发！
+    walker = {
+      phase: 'crossing',
+      prog: 0,
+      fromX: walkerSide === 0 ? W * 0.18 : W * 0.82,
+      toX: walkerSide === 0 ? W * 0.82 : W * 0.18,
+    };
+    sfxHonk();
+    say('绿灯亮啦，走斑马线！');
+  } else {
+    // 红灯：半步制止
+    rushed++;
+    shake = 0.35;
+    sfxHorn();
+    walker = {
+      phase: 'stopped',
+      prog: 0.12,
+      fromX: walkerSide === 0 ? W * 0.18 : W * 0.82,
+      toX: walkerSide === 0 ? W * 0.82 : W * 0.18,
+    };
+    toast('红灯停！🚗', false);
+    speak('红灯停！汽车还在开，要等绿灯才能过马路哦！');
+    updateHUD();
+    setTimeout(() => { if (walker && walker.phase === 'stopped') walker.phase = 'back'; }, 1200);
+  }
+}
+
+/* 主循环 */
+function update(dt, t) {
+  if (shake > 0) shake = Math.max(0, shake - dt);
+  /* 红绿灯计时 */
+  if (state === STATE.RUNNING) {
+    lightT += dt;
+    if (light === 'red' && lightT >= RED_T) {
+      light = 'green'; lightT = 0;
+      if (!walker || walker.phase === 'idle') say('绿灯亮啦！可以过马路了，点下面的按钮！');
+    } else if (light === 'green' && lightT >= GREEN_T) {
+      light = 'red'; lightT = 0;
+      if (!walker || walker.phase === 'idle') say('红灯亮了，等一等，绿灯再走！');
+    }
+  }
+  /* 车流（绿灯且有人在斑马线 → 停让；否则行驶） */
+  const zebraZone = walker && (walker.phase === 'crossing' || walker.phase === 'stopped');
+  const stopAll = light === 'green' && zebraZone;
+  if (state === STATE.RUNNING) {
+    if (cars.length < 4 && Math.random() < dt * 1.2) spawnCar();
+    for (const c of cars) {
+      const nearZebra = Math.abs(c.x - W / 2) < 260;
+      c.stopped = stopAll && nearZebra;
+      if (!c.stopped) c.x += c.dir * c.speed * dt;
+    }
+    cars = cars.filter(c => c.x > -200 && c.x < W + 200);
+  }
+  /* 小人状态机 */
+  if (walker) {
+    if (walker.phase === 'crossing') {
+      walker.prog += dt * 0.5;
+      if (walker.prog >= 1) {
+        walker.prog = 1;
+        walker.phase = 'arrived';
+        crossed++;
+        walkerSide = walkerSide === 0 ? 1 : 0;
+        sfxRight();
+        toast('安全过街！+1', true);
+        speak(['太棒了！安全过街！', '真不错，红灯停绿灯行！', '好厉害，安全到达！'][Math.floor(Math.random() * 3)]);
+        updateHUD();
+        if (crossed >= CROSS_TARGET) {
+          setTimeout(showResult, 1000);
+        } else {
+          setTimeout(() => { walker = null; }, 800);
+        }
+      }
+    } else if (walker.phase === 'back') {
+      walker.prog -= dt * 0.5;
+      if (walker.prog <= 0) walker = null;
+    }
+  }
+  /* 庆祝粒子 */
+  for (const p of celebration) { p.x += p.vx; p.y += p.vy; p.vy += 0.12; p.life -= dt * 1.1; }
+  celebration = celebration.filter(p => p.life > 0);
+}
+function showResult() {
+  let title, medal;
+  if (rushed === 0)      { title = '🥇 交通安全小卫士！'; medal = '金牌'; }
+  else if (rushed <= 2)  { title = '🥈 交通安全小卫士！'; medal = '银牌'; }
+  else                   { title = '🥉 交通安全小卫士！'; medal = '铜牌'; }
+  $('resultTitle').textContent = title;
+  $('resultDesc').innerHTML =
+    `安全过街 <b style="color:#0d5c0d">8</b> 次（${medal}）<br>` +
+    `红灯抢行 <b style="color:#c22">${rushed}</b> 次<br>` +
+    `记住啦：红灯停，绿灯行！`;
+  $('result').classList.add('show');
+  state = STATE.FINISH;
+  speak(`太棒了！你安全过街了${CROSS_TARGET}次，获得${medal}！红灯停绿灯行，记住咯！`);
+}
+
+/* 绘制 */
+function drawScene(t) {
+  /* 天空 */
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#87ceeb');
+  sky.addColorStop(0.42, '#cdeeff');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H * 0.42);
+  /* 太阳 */
+  ctx.fillStyle = '#ffd35c';
+  ctx.beginPath(); ctx.arc(W * 0.88, H * 0.1, 34, 0, Math.PI * 2); ctx.fill();
+  /* 楼房 */
+  const bl = [['#e8b98a', 0.06, 0.30, 0.16], ['#d8a88a', 0.25, 0.24, 0.14], ['#b8cad8a', 0.42, 0.34, 0.18], ['#e8ca9a', 0.63, 0.26, 0.13], ['#c8a8e8', 0.79, 0.32, 0.16]];
+  for (const [col, fx, fh, fw] of bl) {
+    ctx.fillStyle = col;
+    ctx.fillRect(W * fx, H * 0.42 - H * fh, W * fw, H * fh);
+    /* 窗户 */
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 3; c++) {
+        ctx.fillRect(W * fx + 12 + c * (W * fw - 24) / 3, H * 0.42 - H * fh + 14 + r * (H * fh - 28) / 3, 10, 12);
+      }
+    }
+  }
+  /* 人行道 */
+  ctx.fillStyle = '#c8b8a8';
+  ctx.fillRect(0, H * 0.42, W, H * 0.10);
+  ctx.strokeStyle = 'rgba(120,100,80,.4)'; ctx.lineWidth = 2;
+  for (let x = 20; x < W; x += 48) {
+    ctx.beginPath(); ctx.moveTo(x, H * 0.42); ctx.lineTo(x, H * 0.52); ctx.stroke();
+  }
+  /* 马路 */
+  const road = ctx.createLinearGradient(0, H * 0.52, 0, H * 0.82);
+  road.addColorStop(0, '#585868');
+  road.addColorStop(1, '#484858');
+  ctx.fillStyle = road;
+  ctx.fillRect(0, H * 0.52, W, H * 0.30);
+  /* 车道中线 */
+  ctx.fillStyle = '#ffd35c';
+  for (let x = 10; x < W; x += 70) ctx.fillRect(x, H * 0.665, 40, 5);
+  /* 斑马线（中央） */
+  ctx.fillStyle = 'rgba(255,255,255,.92)';
+  const zw = Math.max(180, W * 0.24);
+  for (let i = 0; i < 5; i++) {
+    ctx.fillRect(W / 2 - zw / 2 + i * (zw / 5) + 4, H * 0.55, zw / 5 - 8, H * 0.24);
+  }
+  /* 草地 */
+  ctx.fillStyle = '#8ed86a';
+  ctx.fillRect(0, H * 0.82, W, H * 0.18);
+  ctx.fillStyle = '#6cb84e';
+  for (let x = 0; x < W; x += 26) {
+    ctx.beginPath(); ctx.arc(x, H * 0.82, 9, Math.PI, 0); ctx.fill();
+  }
+}
+function drawLight(t) {
+  /* 红绿灯杆（右侧斑马线旁） */
+  const lx = W / 2 + Math.min(170, W * 0.22);
+  const ly = H * 0.52;
+  ctx.fillStyle = '#3a3a44';
+  ctx.fillRect(lx - 6, ly - 150, 12, 150);
+  /* 灯箱 */
+  ctx.fillStyle = '#222';
+  roundR(lx - 30, ly - 216, 60, 150, 14);
+  ctx.fill();
+  ctx.strokeStyle = '#444'; ctx.lineWidth = 3;
+  roundR(lx - 30, ly - 216, 60, 150, 14);
+  ctx.stroke();
+  /* 红灯 / 绿灯 */
+  const pulse = light === 'green' ? 1 + Math.sin(t * 8) * 0.06 : 1;
+  if (light === 'red') {
+    ctx.fillStyle = '#ff3c3c';
+    ctx.shadowColor = '#ff3c3c'; ctx.shadowBlur = 26;
+    ctx.beginPath(); ctx.arc(lx, ly - 180, 20, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = 'rgba(60,200,120,.25)';
+    ctx.beginPath(); ctx.arc(lx, ly - 110, 18, 0, Math.PI * 2); ctx.fill();
+  } else {
+    ctx.fillStyle = 'rgba(255,60,60,.25)';
+    ctx.beginPath(); ctx.arc(lx, ly - 180, 20, 0, Math.PI * 2); ctx.fill();
+    ctx.save();
+    ctx.translate(lx, ly - 110);
+    ctx.scale(pulse, pulse);
+    ctx.fillStyle = '#3cff7c';
+    ctx.shadowColor = '#3cff7c'; ctx.shadowBlur = 26;
+    ctx.beginPath(); ctx.arc(0, 0, 18, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    ctx.shadowBlur = 0;
+  }
+  /* 倒计时 */
+  const remain = Math.ceil(light === 'red' ? RED_T - lightT : GREEN_T - lightT);
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 30px system-ui, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(String(Math.max(0, remain)), lx, ly - 66 + 0);
+}
+function drawCars(t) {
+  for (const c of cars) {
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    if (c.dir < 0) ctx.scale(-1, 1);
+    /* 车身 */
+    ctx.fillStyle = c.color;
+    roundR(-52, -30, 104, 34, 10); ctx.fill();
+    /* 车窗 */
+    ctx.fillStyle = '#bfe3ff';
+    roundR(-24, -52, 52, 26, 8); ctx.fill();
+    /* 车灯 */
+    ctx.fillStyle = '#ffe9a0';
+    ctx.beginPath(); ctx.arc(48, -12, 5, 0, Math.PI * 2); ctx.fill();
+    /* 轮子 */
+    ctx.fillStyle = '#222';
+    ctx.beginPath(); ctx.arc(-30, 6, 11, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(30, 6, 11, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+}
+function drawWalker(t) {
+  if (!walker) {
+    /* 待机小人（当前侧） */
+    drawPerson(walkerSide === 0 ? W * 0.18 : W * 0.82, zebraY() - 40, t, false);
+    return;
+  }
+  const x = walker.fromX + (walker.toX - walker.fromX) * walker.prog;
+  drawPerson(x, zebraY() - 40, t, walker.phase === 'crossing');
+}
+function drawPerson(x, y, t, walking) {
+  ctx.save();
+  ctx.translate(x, y);
+  const swing = walking ? Math.sin(t * 10) * 0.5 : 0;
+  /* 头 */
+  ctx.fillStyle = '#ffd7b0';
+  ctx.beginPath(); ctx.arc(0, -34, 13, 0, Math.PI * 2); ctx.fill();
+  /* 身体 */
+  ctx.strokeStyle = '#5c8ae0'; ctx.lineWidth = 7; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(0, -20); ctx.lineTo(0, 6); ctx.stroke();
+  /* 手臂 */
+  ctx.beginPath(); ctx.moveTo(0, -14); ctx.lineTo(-10 + swing * 8, 4); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, -14); ctx.lineTo(10 - swing * 8, 4); ctx.stroke();
+  /* 腿 */
+  ctx.strokeStyle = '#3a5a9a'; ctx.lineWidth = 7;
+  ctx.beginPath(); ctx.moveTo(0, 6); ctx.lineTo(-8 + swing * 12, 26); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, 6); ctx.lineTo(8 - swing * 12, 26); ctx.stroke();
+  ctx.restore();
+}
+function drawCrossButton(t) {
+  if (state !== STATE.RUNNING) return;
+  const b = crossButtonRect();
+  const green = light === 'green';
+  const pulse = green ? 1 + Math.sin(t * 7) * 0.05 : 1;
+  ctx.save();
+  ctx.translate(b.x + b.w / 2, b.y + b.h / 2);
+  ctx.scale(pulse, pulse);
+  ctx.fillStyle = green ? 'rgba(20,120,60,.95)' : 'rgba(160,40,40,.95)';
+  roundR(-b.w / 2, -b.h / 2, b.w, b.h, 20); ctx.fill();
+  ctx.strokeStyle = green ? '#7dffa1' : '#ffb0a0'; ctx.lineWidth = 4;
+  roundR(-b.w / 2, -b.h / 2, b.w, b.h, 20); ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = `bold ${Math.min(30, b.w * 0.14)}px system-ui, sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const label = walkerSide === 1 ? '🚶 往回走' : '🚶 过马路';
+  ctx.fillText(green ? label + '（绿灯✓）' : label + '（红灯✗）', 0, 0);
+  ctx.restore();
+}
+function drawCelebration() {
+  for (const p of celebration) {
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+function roundR(x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function burst(x, y) {
+  const colors = ['#ffd35c', '#7dffa1', '#6bd5ff', '#ff9c8a'];
+  for (let i = 0; i < 24; i++) {
+    const a = Math.random() * Math.PI * 2, sp = 2 + Math.random() * 4;
+    celebration.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 2, life: 1, color: colors[i % 4], size: 4 + Math.random() * 3 });
+  }
+}
+
+function render(t) {
+  ctx.save();
+  if (shake > 0) {
+    const m = shake * 10;
+    ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m);
+  }
+  drawScene(t);
+  drawCars(t);
+  drawLight(t);
+  drawWalker(t);
+  drawCrossButton(t);
+  drawCelebration();
+  ctx.restore();
+}
+
+let lastT = 0;
+function frame(now) {
+  const dt = Math.min(0.05, lastT === 0 ? 0.016 : (now - lastT) / 1000);
+  lastT = now;
+  if (state === STATE.RUNNING) update(dt, now / 1000);
+  render(now / 1000);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* 点击：按钮 or 画布任意处也响应 */
+canvas.addEventListener('pointerdown', e => {
+  if (state !== STATE.RUNNING) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) * (W / rect.width);
+  const y = (e.clientY - rect.top) * (H / rect.height);
+  const b = crossButtonRect();
+  if (x >= b.x - 16 && x <= b.x + b.w + 16 && y >= b.y - 16 && y <= b.y + b.h + 16) {
+    tryCross();
+    return;
+  }
+  /* 点击小人也可触发 */
+  const wx = walker ? (walker.fromX + (walker.toX - walker.fromX) * walker.prog) : (walkerSide === 0 ? W * 0.18 : W * 0.82);
+  if (Math.hypot(x - wx, y - (zebraY() - 40)) < 60) tryCross();
+});
+
+/* 开始 / 重开 */
+$('btnStart').addEventListener('click', () => {
+  initAudio();
+  $('start').style.display = 'none';
+  resetGame();
+  state = STATE.RUNNING;
+  say('看看红绿灯！绿灯亮了才能过马路哦');
+});
+$('btnRestart').addEventListener('click', () => {
+  $('result').classList.remove('show');
+  resetGame();
+  state = STATE.RUNNING;
+  say('再来一次！红灯停，绿灯行');
+});
+function resetGame() {
+  crossed = 0; rushed = 0;
+  light = 'red'; lightT = 0;
+  walker = null; walkerSide = 0;
+  cars = []; celebration = [];
+  shake = 0;
+  captionEl.style.display = 'none';
+  updateHUD();
+}
+
+/* 测试钩子 */
+window.__testLight = () => light;
+window.__testCross = () => tryCross();
+window.__testState = () => ({ state, light, lightT, crossed, rushed, walkerPhase: walker ? walker.phase : null, side: walkerSide });
+</script>
+</body>
+</html>

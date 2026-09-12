@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>加法小怪兽 · Math Monster</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  body {
+    background: #0b1026;
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #game { display: block; width: 100vw; height: 100vh; }
+
+  /* ---------- HUD ---------- */
+  .hud {
+    position: absolute; top: 64px; left: 14px; z-index: 10;
+    display: flex; gap: 10px; flex-wrap: wrap; pointer-events: none;
+  }
+  .hud-chip {
+    background: rgba(10, 16, 40, .72);
+    border: 1px solid rgba(120, 200, 255, .35);
+    border-radius: 14px;
+    color: #dff2ff;
+    padding: 7px 15px;
+    font-size: 17px;
+    font-weight: 600;
+    box-shadow: 0 4px 18px rgba(0,0,0,.35);
+    backdrop-filter: blur(6px);
+  }
+  .hud-chip b { color: #ffd35c; font-size: 21px; }
+
+  /* ---------- 声音开关 ---------- */
+  #btnMute {
+    position: absolute; top: 12px; right: 12px; z-index: 60;
+    font-size: 20px; line-height: 1;
+    padding: 9px 13px; border-radius: 12px; cursor: pointer;
+    background: rgba(10, 16, 40, .72);
+    border: 1px solid rgba(120, 200, 255, .35);
+    color: #dff2ff;
+  }
+
+  /* ---------- 语音字幕条（顶部，不遮挡果树） ---------- */
+  #voiceBar {
+    position: absolute; top: 12px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 25;
+    background: rgba(10, 16, 40, .80);
+    border: 1px solid rgba(120, 200, 255, .35);
+    border-radius: 999px;
+    color: #ffe9b0;
+    font-size: 18px; font-weight: 700;
+    padding: 9px 24px;
+    max-width: 86vw;
+    text-align: center;
+    box-shadow: 0 4px 18px rgba(0,0,0,.35);
+    backdrop-filter: blur(6px);
+    transition: opacity .25s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #voiceBar.hide { opacity: 0; }
+
+  /* ---------- 反馈大字 ---------- */
+  #toast {
+    position: absolute; left: 50%; top: 30%;
+    transform: translate(-50%, -50%) scale(1);
+    z-index: 30;
+    font-size: 56px; font-weight: 800;
+    color: #ffd35c;
+    text-shadow: 0 4px 18px rgba(0,0,0,.6);
+    opacity: 0; pointer-events: none;
+    transition: opacity .25s, transform .25s;
+    white-space: nowrap;
+  }
+  #toast.pop {
+    opacity: 1;
+    transform: translate(-50%, -58%) scale(1.12);
+  }
+
+  /* ---------- 结算 ---------- */
+  #result {
+    position: absolute; inset: 0; z-index: 40;
+    background: rgba(4, 8, 22, .82);
+    display: none;
+    align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  #result.show { display: flex; }
+  .result-card {
+    text-align: center; color: #eaf4ff;
+    background: linear-gradient(160deg, #16224a, #0d1330);
+    border: 2px solid #4f8cff;
+    border-radius: 26px;
+    padding: 30px 44px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.55);
+    max-width: 88vw;
+  }
+  .result-card h1 { font-size: 38px; color: #ffd35c; margin-bottom: 12px; }
+  .result-card p { font-size: 17px; color: #b9cdf0; margin: 6px 0 22px; line-height: 1.8; }
+  .result-card button {
+    font-size: 20px; padding: 12px 42px; border-radius: 999px;
+    border: none; cursor: pointer;
+    background: linear-gradient(90deg, #4f8cff, #59d1ff);
+    color: #fff; font-weight: 700; letter-spacing: 4px;
+    box-shadow: 0 6px 20px rgba(79,140,255,.45);
+    font-family: inherit;
+  }
+  .result-card button:active { transform: scale(.97); }
+
+  /* ---------- 开始界面 ---------- */
+  #start {
+    position: absolute; inset: 0; z-index: 50;
+    background: radial-gradient(1200px 600px at 50% 30%, #17275e 0%, #0b1026 70%);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: #eaf4ff; text-align: center;
+    padding: 20px;
+  }
+  #start h1 {
+    font-size: clamp(38px, 8vw, 60px); letter-spacing: 6px;
+    background: linear-gradient(90deg, #ffd35c, #ff9c5c, #5cc8ff);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+    margin-bottom: 14px;
+  }
+  #start p { font-size: 16px; color: #9db4d8; line-height: 2; max-width: 560px; }
+  #start .rules { margin: 22px 0 28px; }
+  #start button {
+    font-size: 21px; padding: 14px 56px; border-radius: 999px;
+    border: none; cursor: pointer;
+    background: linear-gradient(90deg, #ff9c5c, #ffd35c);
+    color: #3a2200; font-weight: 800; letter-spacing: 6px;
+    box-shadow: 0 8px 26px rgba(255,180,70,.45);
+    font-family: inherit;
+  }
+  #start button:active { transform: scale(.97); }
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<button id="btnMute" title="声音开关">🔊</button>
+
+<!-- 语音字幕条 -->
+<div id="voiceBar">点击开始，喂饱小怪兽吧！</div>
+
+<!-- HUD -->
+<div class="hud">
+  <div class="hud-chip">第 <b id="hudLevel">1</b> / 8 关</div>
+  <div class="hud-chip">连对 <b id="hudStreak">0</b> 🔥</div>
+  <div class="hud-chip">肚子 <b id="hudBelly">0</b> / <b id="hudGoal">3</b> 🍎</div>
+</div>
+
+<!-- 结果反馈 -->
+<div id="toast"></div>
+
+<!-- 结算 -->
+<div id="result">
+  <div class="result-card">
+    <h1 id="resultTitle">🎉 全部喂饱啦！</h1>
+    <p id="resultDesc"></p>
+    <button id="btnRestart">再玩一次</button>
+  </div>
+</div>
+
+<!-- 开始 -->
+<div id="start">
+  <h1>加法小怪兽</h1>
+  <p class="rules">
+    小怪兽的肚子好饿呀！听一听它想吃几个苹果：<br>
+    🍎 点击果树上的苹果 → 掉进小怪兽嘴里（正好吃完最棒）<br>
+    😋 吃到想要的数量就满足打嗝；不小心点多了也没关系，它会吐出来再喂一次<br>
+    帮小怪兽吃饱 8 关，一起庆祝吧！
+  </p>
+  <button id="btnStart">开始喂它</button>
+</div>
+
+<script>
+/* =========================================================
+ * 加法小怪兽 Math Monster —— 单文件 Canvas 小游戏
+ *
+ * 玩法：画面中央是一只圆胖毛茸茸的饥饿小怪兽（嘴巴开合动画），
+ * 左右两棵果树上挂着苹果。语音提示目标数量："我要吃 3 个苹果！"
+ * 孩子点击苹果 → 苹果沿抛物线飞进小怪兽嘴里；
+ * 吃到目标数量 → 满足表情 + 打嗝 + 表扬，进入下一关（共 8 关）。
+ * 吃多（嘴已封）→ 苹果弹开 + 吐出语音"吃多啦，我只要 3 个"（无惩罚）。
+ * ========================================================= */
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+let W = 0, H = 0;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  layout();
+}
+window.addEventListener('resize', resize);
+
+/* ---------------- 常量 ---------------- */
+const STATE = { START: 0, RUNNING: 1, EATING: 2, LEVEL_UP: 3, FINISH: 4 };
+const TOTAL_LEVELS = 8;         // 8 关结算
+const TREE_LEFT_X  = 0.16;      // 左树中心横向比例
+const TREE_RIGHT_X = 0.84;      // 右树中心横向比例
+const TREE_TOP_Y   = 0.30;      // 树冠顶部
+const TREE_BOT_Y   = 0.52;      // 树冠底部（苹果分布区）
+const MONSTER_Y    = 0.62;      // 怪兽中心
+const FLY_TIME     = 0.6;       // 苹果飞行秒数
+const CHEER_TIME   = 1.3;       // 通关庆祝秒数
+const MAX_APPLES   = 14;        // 树上苹果总数（含备用，性能友好）
+
+/* ---------------- 状态 ---------------- */
+let state = STATE.START;
+let level = 1, goal = 3;              // 当前关 / 目标数量
+let eaten = 0;                        // 本关已吃
+let streak = 0, bestStreak = 0, wrongTotal = 0, cheerTotal = 0;
+let apples = [], flyers = [], rejected = [], bits = [], stars = [];
+let monsterMood = 'hungry';           // hungry / happy / full / oops
+let moodTimer = 0;
+let cheerTimer = -1;
+let mouthOpen = 1;                    // 嘴巴开合 0..1
+let wobble = 0;                       // 吃到时弹跳
+let burpT = -1;                       // 打嗝动画计时
+let treeSway = 0;
+
+/* ---------------- DOM ---------------- */
+const $ = id => document.getElementById(id);
+const voiceBar = $('voiceBar');
+const toastEl  = $('toast');
+let voiceTimer = null;
+
+/* ---------------- 语音播报 ---------------- */
+const synth = window.speechSynthesis || null;
+let zhVoice = null;
+function pickVoice() {
+  if (!synth) return;
+  const vs = synth.getVoices();
+  zhVoice = vs.find(v => /zh[-_]CN/i.test(v.lang)) ||
+            vs.find(v => /^zh/i.test(v.lang)) || null;
+}
+if (synth) {
+  pickVoice();
+  synth.onvoiceschanged = pickVoice;
+}
+function speak(text) {
+  if (muted || !synth) return;
+  try {
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN';
+    if (zhVoice) u.voice = zhVoice;
+    u.rate = 0.92;
+    synth.speak(u);
+  } catch (e) { /* 忽略 */ }
+}
+/* 语音 + 字幕条同步 */
+function say(text) {
+  voiceBar.textContent = text;
+  voiceBar.classList.remove('hide');
+  if (voiceTimer) clearTimeout(voiceTimer);
+  voiceTimer = setTimeout(() => voiceBar.classList.add('hide'), 3600);
+  speak(text);
+}
+
+/* ---------------- 音效 ---------------- */
+let actx = null, muted = false;
+function initAudio() {
+  if (actx) return;
+  try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+}
+function beep(freq, dur, type, vol, sweepTo) {
+  if (!actx || muted) return;
+  try {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(freq, actx.currentTime);
+    if (sweepTo) o.frequency.exponentialRampToValueAtTime(sweepTo, actx.currentTime + dur);
+    g.gain.setValueAtTime(vol || 0.15, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + dur);
+    o.connect(g).connect(actx.destination);
+    o.start();
+    o.stop(actx.currentTime + dur);
+  } catch (e) { /* 忽略 */ }
+}
+const sfxPick  = () => beep(520, .12, 'sine', .14, 780);          // 摘苹果
+const sfxRight = () => { beep(660, .09, 'sine', .16); beep(990, .14, 'sine', .16); };
+const sfxSpit  = () => beep(300, .25, 'sawtooth', .10, 120);      // 吐出（不惩罚）
+const sfxBurp  = () => { beep(140, .18, 'sawtooth', .18, 90); beep(110, .22, 'triangle', .15, 70); };
+const sfxCheer = () => { beep(523, .12, 'sine', .14); beep(659, .12, 'sine', .14); beep(784, .2, 'sine', .16); };
+$('btnMute').addEventListener('click', () => {
+  muted = !muted;
+  $('btnMute').textContent = muted ? '🔇' : '🔊';
+  if (muted && synth) synth.cancel();
+});
+
+/* ---------------- 布局 ---------------- */
+let mouthPos = { x: 0, y: 0 };
+function layout() {
+  mouthPos = { x: W * 0.5, y: H * MONSTER_Y + Math.min(W, H) * 0.02 };
+}
+resize();
+
+/* ---------------- 星空（固定分数坐标） ---------------- */
+for (let i = 0; i < 50; i++) {
+  stars.push({ fx: Math.random(), fy: Math.random() * 0.9, r: 0.5 + Math.random() * 1.1, p: Math.random() * 6.28 });
+}
+
+/* ---------------- 苹果 ---------------- */
+/* 树冠上第 idx 个槽位的世界坐标（含树摆动） */
+function appleSlot(idx, t) {
+  const side = idx < 7 ? TREE_LEFT_X : TREE_RIGHT_X;    // 左树 0-6，右树 7+
+  const k = idx % 7;                                    // 树内序号
+  const sway = Math.sin(t * 0.8 + k) * 4;
+  const cols = 4;
+  const col = k % cols, row = Math.floor(k / cols);
+  return {
+    x: W * side + (col - (cols - 1) / 2) * (Math.min(W, H) * 0.075) + sway,
+    y: H * (TREE_TOP_Y + 0.04) + row * (Math.min(W, H) * 0.085),
+  };
+}
+function spawnApples() {
+  apples = [];
+  const TOTAL = 14;                                      // 每关重铺 14 个苹果（视觉富余，点击选择自由）
+  for (let i = 0; i < TOTAL; i++) {
+    apples.push({
+      idx: i,
+      r: Math.max(22, Math.min(W, H) * 0.038),          // 热区直径 ≥ 44px
+      taken: false,
+      pop: 0,                                            // 点击弹跳动画
+      shine: Math.random() * 6.28,
+    });
+  }
+}
+/* 摘苹果（点击入口 / 测试钩子共用） */
+function pickApple(idx) {
+  if (state === STATE.RUNNING || state === STATE.EATING || state === STATE.LEVEL_UP) {
+    /* LEVEL_UP 庆祝窗口仍可点击（快速连点后一颗会在吃饱后到达 → 吐出） */
+  } else {
+    return false;
+  }
+  const a = apples.find(x => x.idx === idx && !x.taken);
+  if (!a) return false;
+  a.taken = true;
+  a.pop = 1;
+  const slot = appleSlot(idx, perfT());
+  flyers.push({ x: slot.x, y: slot.y, t: 0, spin: Math.random() * 6.28, size: a.r });
+  sfxPick();
+  if (state === STATE.RUNNING) state = STATE.EATING;
+  return true;
+}
+
+/* ---------------- 飞行 / 粒子 ---------------- */
+function burst(x, y, color, n) {
+  for (let i = 0; i < (n || 18); i++) {
+    const a = Math.random() * Math.PI * 2;
+    const sp = 2 + Math.random() * 4;
+    bits.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 2, life: 1, color, size: 3 + Math.random() * 3 });
+  }
+}
+function perfT() { return (window.performance ? performance.now() : 0) / 1000; }
+
+/* ---------------- HUD / Toast ---------------- */
+function updateHUD() {
+  $('hudLevel').textContent = String(level);
+  $('hudStreak').textContent = String(streak);
+  $('hudBelly').textContent  = String(eaten);
+  $('hudGoal').textContent   = String(goal);
+}
+let toastTimer = null;
+function toast(text, good) {
+  toastEl.textContent = text;
+  toastEl.style.color = good ? '#7dffa1' : '#ffcf6b';
+  toastEl.classList.add('pop');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('pop'), 900);
+}
+
+/* ---------------- 关卡流程 ---------------- */
+const PRAISES = ['太棒了', '好厉害', '真不错', '顶呱呱', '吃得真香'];
+const LEVEL_TARGETS = [];   // 固定 8 关目标序列（测试可复现）
+(function genTargets() {
+  let last = -1;
+  for (let i = 0; i < TOTAL_LEVELS; i++) {
+    let n;
+    do { n = 2 + Math.floor(Math.random() * 5); } while (n === last && TOTAL_LEVELS > 3);
+    last = n;
+    LEVEL_TARGETS.push(n);
+  }
+})();
+
+function startLevel() {
+  eaten = 0;
+  monsterMood = 'hungry';
+  goal = LEVEL_TARGETS[level - 1] || 3;
+  spawnApples();
+  flyers = [];
+  rejected = [];
+  state = STATE.RUNNING;
+  updateHUD();
+  say(`我要吃 ${goal} 个苹果！`);
+}
+
+function appleArrive() {
+  wobble = 1;
+  if (eaten >= goal) {
+    /* 吃多啦 —— 吐出来（不惩罚，语音温和提醒） */
+    wrongTotal++;
+    streak = 0;
+    monsterMood = 'oops';
+    moodTimer = 1.1;
+    burpT = 0;
+    rejected.push({ x: mouthPos.x, y: mouthPos.y, vx: (Math.random() - 0.5) * 4, vy: -5, spin: 0, life: 1, size: Math.max(22, Math.min(W, H) * 0.038) });
+    say(`吃多啦，我只要 ${goal} 个苹果`);
+    toast(`吃多啦！吐出一个`, false);
+    sfxSpit();
+    burst(mouthPos.x, mouthPos.y, '#9fb8ff', 12);
+    updateHUD();
+    return;
+  }
+  eaten++;
+  updateHUD();
+  if (eaten >= goal) {
+    /* 正好吃饱 → 满足 + 打嗝 + 表扬 */
+    streak++;
+    if (streak > bestStreak) bestStreak = streak;
+    monsterMood = 'happy';
+    burpT = 0;
+    sfxBurp();
+    const praise = PRAISES[Math.floor(Math.random() * PRAISES.length)];
+    if (level >= TOTAL_LEVELS) {
+      say(`${praise}！全部吃饱啦！`);
+      toast('🎉 全部吃饱啦！', true);
+      cheerTotal++;
+      cheerTimer = CHEER_TIME;
+      sfxCheer();
+      burst(W / 2, H * MONSTER_Y, '#ffd35c', 30);
+      burst(W / 2, H * MONSTER_Y, '#7dffa1', 20);
+      state = STATE.LEVEL_UP;    // 结算由 cheerTimer 接管 → showResult
+    } else {
+      say(`${praise}！吃到了 ${goal} 个苹果`);
+      toast(`${praise}！打嗝～`, true);
+      cheerTotal++;
+      cheerTimer = CHEER_TIME;
+      sfxCheer();
+      burst(W / 2, H * MONSTER_Y, '#ffd35c', 24);
+      state = STATE.LEVEL_UP;
+    }
+  } else {
+    /* 还没吃饱：嘴巴继续开合，语音数数 */
+    monsterMood = 'hungry';
+    say(`${eaten} 个啦，还要 ${goal - eaten} 个`);
+    toast(`吃了 ${eaten} 个`, true);
+  }
+}
+
+function showResult() {
+  let title, medal;
+  if (bestStreak >= 6)      { title = '🥇 金牌小饲养员！'; medal = '金牌'; }
+  else if (bestStreak >= 4) { title = '🥈 银牌小饲养员！'; medal = '银牌'; }
+  else if (bestStreak >= 2) { title = '🥉 铜牌小饲养员！'; medal = '铜牌'; }
+  else                      { title = '🎉 全部喂饱啦！';  medal = '参与奖'; }
+  $('resultTitle').textContent = title;
+  $('resultDesc').innerHTML =
+    `完成 <b style="color:#ffd35c">${TOTAL_LEVELS}</b> 关喂食（${medal}）<br>` +
+    `最佳连饱 <b style="color:#ffd35c">${bestStreak}</b> 关 · 吐出 <b style="color:#ffcf6b">${wrongTotal}</b> 次<br>` +
+    `小怪兽最喜欢你啦！`;
+  $('result').classList.add('show');
+  state = STATE.FINISH;
+  speak(`全部喂饱啦！获得${medal}！`);
+}
+
+/* ---------------- 点击（canvas 坐标，热区判定） ---------------- */
+function hitApple(x, y) {
+  for (const a of apples) {
+    if (a.taken) continue;
+    const slot = appleSlot(a.idx, perfT());
+    const r = Math.max(a.r, 26);
+    const dx = x - slot.x, dy = y - slot.y;
+    if (dx * dx + dy * dy <= r * r) return a.idx;
+  }
+  return -1;
+}
+canvas.addEventListener('pointerdown', e => {
+  if (state !== STATE.RUNNING && state !== STATE.EATING && state !== STATE.LEVEL_UP) return;
+  const rect = canvas.getBoundingClientRect();
+  const idx = hitApple(e.clientX - rect.left, e.clientY - rect.top);
+  if (idx >= 0) pickApple(idx);
+});
+
+/* ---------------- 主循环 ---------------- */
+function update(dt, t) {
+  if (wobble > 0) wobble = Math.max(0, wobble - dt * 2.5);
+  if (moodTimer > 0) {
+    moodTimer -= dt;
+    if (moodTimer <= 0 && monsterMood === 'oops') monsterMood = 'hungry';
+  }
+  if (burpT >= 0) {
+    burpT += dt;
+    if (burpT > 0.6) burpT = -1;
+  }
+  treeSway = t;
+
+  /* 嘴巴开合：吃多封嘴时闭合，其余自然开合 */
+  const wantOpen = (monsterMood === 'oops' || (eaten >= goal && state !== STATE.RUNNING)) ? 0.12 : 0.55 + 0.45 * Math.sin(t * 3.2);
+  mouthOpen += (wantOpen - mouthOpen) * Math.min(1, dt * 8);
+
+  /* 苹果抛物线飞行进嘴（庆祝窗口也继续飞，迟到苹果触发吐出） */
+  if (state === STATE.EATING || state === STATE.LEVEL_UP) {
+    for (let i = flyers.length - 1; i >= 0; i--) {
+      const f = flyers[i];
+      f.t += dt / FLY_TIME;
+      if (f.t >= 1) {
+        flyers.splice(i, 1);
+        burst(mouthPos.x, mouthPos.y, '#ff6b6b', 10);
+        appleArrive();
+      }
+    }
+    if (flyers.length === 0 && state === STATE.EATING) state = STATE.RUNNING;
+  }
+
+  /* 通关庆祝 → 下一关 / 结算 */
+  if (state === STATE.LEVEL_UP) {
+    if (cheerTimer > 0) {
+      cheerTimer -= dt;
+      if (cheerTimer <= 0) {
+        cheerTimer = -1;
+        if (level >= TOTAL_LEVELS) {
+          showResult();
+        } else {
+          level++;
+          startLevel();
+        }
+      }
+    }
+  }
+
+  /* 点击小弹跳动画 */
+  for (const a of apples) {
+    if (a.pop > 0) a.pop = Math.max(0, a.pop - dt * 3);
+  }
+
+  /* 吐出的苹果（弹开坠落） */
+  for (const r of rejected) {
+    r.x += r.vx; r.y += r.vy; r.vy += 0.18;
+    r.spin += 0.25;
+    r.life -= dt * 0.8;
+  }
+  rejected = rejected.filter(r => r.life > 0 && r.y < H + 80);
+
+  /* 粒子 */
+  for (const p of bits) {
+    p.x += p.vx; p.y += p.vy; p.vy += 0.12;
+    p.life -= dt * 1.3;
+  }
+  bits = bits.filter(p => p.life > 0);
+}
+
+/* ---------------- 绘制 ---------------- */
+function drawBackground(t) {
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#070d26');
+  sky.addColorStop(0.55, '#0d1637');
+  sky.addColorStop(1, '#12224e');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H);
+
+  for (const s of stars) {
+    const a = 0.3 + 0.35 * (0.5 + 0.5 * Math.sin(t * 2 + s.p));
+    ctx.globalAlpha = a;
+    ctx.fillStyle = '#dceaff';
+    ctx.beginPath();
+    ctx.arc(s.fx * W, s.fy * H, s.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  /* 地面草地 */
+  const gr = ctx.createLinearGradient(0, H * 0.78, 0, H);
+  gr.addColorStop(0, '#1c4a2e');
+  gr.addColorStop(1, '#0f2e1c');
+  ctx.fillStyle = gr;
+  ctx.fillRect(0, H * 0.78, W, H * 0.22);
+}
+
+/* ---- 果树 ---- */
+function drawTree(cx, t) {
+  const s = Math.min(W, H);
+  const x = W * cx + Math.sin(t * 0.8) * 3;
+  /* 树干 */
+  ctx.fillStyle = '#5a3a1e';
+  ctx.beginPath();
+  ctx.moveTo(x - s * 0.022, H * 0.62);
+  ctx.quadraticCurveTo(x - s * 0.012, H * 0.56, x - s * 0.014, H * 0.50);
+  ctx.lineTo(x + s * 0.014, H * 0.50);
+  ctx.quadraticCurveTo(x + s * 0.012, H * 0.56, x + s * 0.022, H * 0.62);
+  ctx.closePath();
+  ctx.fill();
+  /* 三团圆树冠 */
+  const g1 = ctx.createRadialGradient(x, H * 0.34, s * 0.02, x, H * 0.38, s * 0.22);
+  g1.addColorStop(0, '#3f8f4f');
+  g1.addColorStop(1, '#1d5e30');
+  ctx.fillStyle = g1;
+  ctx.beginPath(); ctx.arc(x, H * 0.36, s * 0.15, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x - s * 0.10, H * 0.42, s * 0.11, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x + s * 0.10, H * 0.42, s * 0.11, 0, Math.PI * 2); ctx.fill();
+}
+
+function drawApple(x, y, r, shine, pop) {
+  const rr = r * (1 + pop * 0.25);
+  ctx.save();
+  ctx.translate(x, y);
+  /* 果身 */
+  const g = ctx.createRadialGradient(-rr * 0.3, -rr * 0.35, rr * 0.1, 0, 0, rr * 1.15);
+  g.addColorStop(0, '#ff8f66');
+  g.addColorStop(0.55, '#e8403a');
+  g.addColorStop(1, '#b02428');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(0, 0, rr, 0, Math.PI * 2);
+  ctx.fill();
+  /* 高光 */
+  ctx.fillStyle = 'rgba(255,255,255,.5)';
+  ctx.beginPath();
+  ctx.ellipse(-rr * 0.32, -rr * 0.38, rr * 0.22, rr * 0.13, -0.6, 0, Math.PI * 2);
+  ctx.fill();
+  /* 果柄 + 叶 */
+  ctx.strokeStyle = '#5a3a1e';
+  ctx.lineWidth = Math.max(2, rr * 0.12);
+  ctx.beginPath();
+  ctx.moveTo(0, -rr * 0.85);
+  ctx.quadraticCurveTo(rr * 0.08, -rr * 1.15, rr * 0.18, -rr * 1.25);
+  ctx.stroke();
+  ctx.fillStyle = '#3f9f4f';
+  ctx.beginPath();
+  ctx.ellipse(rr * 0.34, -rr * 1.18, rr * 0.28, rr * 0.13, -0.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+/* ---- 小怪兽（纯 Canvas：椭圆身体 + 大眼 + 嘴巴开合） ---- */
+function drawMonster(t) {
+  const s = Math.min(W, H);
+  const bounce = wobble > 0 ? Math.sin(wobble * Math.PI) * s * 0.02 : 0;
+  const cx = W * 0.5, cy = H * MONSTER_Y - bounce;
+  const bodyR = s * 0.16;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  /* 肚子（椭圆身体） */
+  const bodyG = ctx.createRadialGradient(-bodyR * 0.35, -bodyR * 0.45, bodyR * 0.1, 0, 0, bodyR * 1.25);
+  if (monsterMood === 'happy') {
+    bodyG.addColorStop(0, '#b091ff');
+    bodyG.addColorStop(0.6, '#8f5fe8');
+    bodyG.addColorStop(1, '#6a3fc0');
+  } else if (monsterMood === 'oops') {
+    bodyG.addColorStop(0, '#9fb8ff');
+    bodyG.addColorStop(0.6, '#6f8fe0');
+    bodyG.addColorStop(1, '#4a63b0');
+  } else {
+    bodyG.addColorStop(0, '#a48cff');
+    bodyG.addColorStop(0.6, '#7c58dd');
+    bodyG.addColorStop(1, '#5836b8');
+  }
+  ctx.fillStyle = bodyG;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, bodyR * 1.05, bodyR * 1.15, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  /* 肚皮浅色块 + 吃掉的苹果数（计数显示） */
+  ctx.fillStyle = 'rgba(255,240,220,.85)';
+  ctx.beginPath();
+  ctx.ellipse(0, bodyR * 0.42, bodyR * 0.62, bodyR * 0.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#3a2a6a';
+  ctx.font = `800 ${Math.max(16, s * 0.036)}px system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(`${eaten} / ${goal}`, 0, bodyR * 0.42);
+  ctx.font = `600 ${Math.max(11, s * 0.02)}px system-ui, sans-serif`;
+  ctx.fillText('肚子里', 0, bodyR * 0.68);
+
+  /* 小手 */
+  ctx.fillStyle = '#6a48cf';
+  ctx.beginPath(); ctx.ellipse(-bodyR * 1.02, bodyR * 0.1, bodyR * 0.22, bodyR * 0.16, 0.4, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse( bodyR * 1.02, bodyR * 0.1, bodyR * 0.22, bodyR * 0.16, -0.4, 0, Math.PI * 2); ctx.fill();
+  /* 小脚 */
+  ctx.beginPath(); ctx.ellipse(-bodyR * 0.42, bodyR * 1.12, bodyR * 0.24, bodyR * 0.15, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse( bodyR * 0.42, bodyR * 1.12, bodyR * 0.24, bodyR * 0.15, 0, 0, Math.PI * 2); ctx.fill();
+
+  /* 大眼（跟随飞行苹果方向看） */
+  const look = flyers.length ? 0.25 : Math.sin(t * 1.1) * 0.12;
+  for (const ex of [-bodyR * 0.42, bodyR * 0.42]) {
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.ellipse(ex, -bodyR * 0.35, bodyR * 0.26, bodyR * 0.3, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#1b1b33';
+    if (monsterMood === 'happy') {
+      /* 满足眯眯眼 ^ ^ */
+      ctx.strokeStyle = '#1b1b33';
+      ctx.lineWidth = Math.max(2.5, bodyR * 0.09);
+      ctx.beginPath();
+      ctx.arc(ex, -bodyR * 0.3, bodyR * 0.16, Math.PI * 1.15, Math.PI * 1.85);
+      ctx.stroke();
+    } else if (monsterMood === 'oops') {
+      ctx.beginPath();
+      ctx.ellipse(ex + look * bodyR, -bodyR * 0.35, bodyR * 0.07, bodyR * 0.1, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#1b1b33';
+      ctx.lineWidth = Math.max(2, bodyR * 0.07);
+      ctx.beginPath();
+      ctx.moveTo(ex - bodyR * 0.14, -bodyR * 0.62);
+      ctx.lineTo(ex + bodyR * 0.14, -bodyR * 0.52);
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.arc(ex + look * bodyR, -bodyR * 0.33, bodyR * 0.1, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  /* 嘴巴：开合动画；打嗝时张大吐个泡 */
+  const mo = burpT >= 0 ? Math.max(mouthOpen, 0.3 + Math.sin(burpT * 20) * 0.25) : mouthOpen;
+  const mw = bodyR * 1.05, mh = bodyR * 0.55 * (0.25 + mo * 0.9);
+  ctx.fillStyle = '#3d1250';
+  ctx.beginPath();
+  ctx.ellipse(0, bodyR * 0.02, mw * 0.5, Math.max(4, mh), 0, 0, Math.PI * 2);
+  ctx.fill();
+  /* 舌头 */
+  ctx.fillStyle = '#ff7f9f';
+  ctx.beginPath();
+  ctx.ellipse(0, bodyR * 0.02 + mh * 0.35, mw * 0.3, Math.max(3, mh * 0.35), 0, 0, Math.PI * 2);
+  ctx.fill();
+  /* 两颗小牙 */
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(-mw * 0.28, bodyR * 0.02 - mh, mw * 0.12, Math.max(3, mh * 0.3));
+  ctx.fillRect( mw * 0.16, bodyR * 0.02 - mh, mw * 0.12, Math.max(3, mh * 0.3));
+
+  /* 角 + 耳朵毛 */
+  ctx.strokeStyle = '#5836b8';
+  ctx.lineWidth = Math.max(2.5, bodyR * 0.08);
+  for (const hx of [-bodyR * 0.5, bodyR * 0.5]) {
+    ctx.beginPath();
+    ctx.moveTo(hx, -bodyR * 0.85);
+    ctx.quadraticCurveTo(hx * 1.3, -bodyR * 1.3, hx * 0.75, -bodyR * 1.28);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+
+  /* 头顶目标气泡 */
+  const bx = cx, by = cy - bodyR * 1.85;
+  ctx.fillStyle = 'rgba(10, 16, 40, .72)';
+  ctx.strokeStyle = 'rgba(120, 200, 255, .35)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(bx, by, Math.max(24, s * 0.05), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#ffe9b0';
+  ctx.font = `800 ${Math.max(14, s * 0.032)}px system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(`🍎${goal}`, bx, by);
+}
+
+/* ---- 飞行中的苹果（抛物线） ---- */
+function drawFlyers() {
+  for (const f of flyers) {
+    const u = Math.min(1, f.t);
+    const x0 = f.x, y0 = f.y;
+    const x2 = mouthPos.x, y2 = mouthPos.y;
+    const x1 = (x0 + x2) / 2;
+    const y1 = Math.min(y0, y2) - Math.min(W, H) * 0.18;
+    const uu = 1 - u;
+    const px = uu * uu * x0 + 2 * uu * u * x1 + u * u * x2;
+    const py = uu * uu * y0 + 2 * uu * u * y1 + u * u * y2;
+    drawApple(px, py, f.size * (1 - u * 0.25), f.spin + u * 5, 0);
+  }
+  /* 吐出的苹果 */
+  for (const r of rejected) {
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, r.life);
+    ctx.translate(r.x, r.y);
+    ctx.rotate(r.spin);
+    drawApple(0, 0, r.size, r.spin, 0);
+    ctx.restore();
+  }
+}
+
+function drawEffects() {
+  for (const p of bits) {
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function render(t) {
+  drawBackground(t);
+  drawTree(TREE_LEFT_X, t);
+  drawTree(TREE_RIGHT_X, t);
+  /* 树上苹果 */
+  for (const a of apples) {
+    if (a.taken) continue;
+    const slot = appleSlot(a.idx, t);
+    drawApple(slot.x, slot.y, a.r, a.shine, a.pop);
+  }
+  drawFlyers();
+  drawMonster(t);
+  drawEffects();
+}
+
+/* ---------------- 帧循环 ---------------- */
+let lastT = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now;
+  update(dt, now / 1000);
+  render(now / 1000);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ---------------- 开始 / 重开 ---------------- */
+$('btnStart').addEventListener('click', () => {
+  initAudio();
+  $('start').style.display = 'none';
+  resetGame();
+  startLevel();
+});
+
+$('btnRestart').addEventListener('click', () => {
+  $('result').classList.remove('show');
+  resetGame();
+  startLevel();
+});
+
+function resetGame() {
+  level = 1; goal = 3; eaten = 0;
+  streak = 0; bestStreak = 0; wrongTotal = 0; cheerTotal = 0;
+  apples = []; flyers = []; rejected = []; bits = [];
+  monsterMood = 'hungry'; moodTimer = 0;
+  burpT = -1; wobble = 0; cheerTimer = -1;
+  mouthOpen = 1;
+  updateHUD();
+}
+
+/* ---------------- 测试钩子（规范允许挂载） ---------------- */
+window.__testPick = idx => pickApple(idx);
+window.__testState = () => state;
+window.__testProgress = () => ({
+  level, goal, eaten, streak, bestStreak, wrongTotal, cheerTotal,
+  applesLeft: apples.filter(a => !a.taken).length,
+  flyers: flyers.length,
+});
+window.__testTargets = () => LEVEL_TARGETS.slice();
+</script>
+</body>
+</html>

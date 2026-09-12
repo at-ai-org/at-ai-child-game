@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>拼音气球雨 · Pinyin Balloon Rain</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  body {
+    background: #0b1026;
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #game { display: block; width: 100vw; height: 100vh; }
+
+  /* ---------- HUD ---------- */
+  .hud {
+    position: absolute; top: 46px; left: 14px; z-index: 10;
+    display: flex; gap: 10px; flex-wrap: wrap; pointer-events: none;
+  }
+  .hud-chip {
+    background: rgba(10, 16, 40, .72);
+    border: 1px solid rgba(120, 200, 255, .35);
+    border-radius: 14px;
+    color: #dff2ff;
+    padding: 7px 15px;
+    font-size: 17px;
+    font-weight: 600;
+    box-shadow: 0 4px 18px rgba(0,0,0,.35);
+    backdrop-filter: blur(6px);
+  }
+  .hud-chip b { color: #ffd35c; font-size: 21px; }
+
+  /* ---------- 声音开关 ---------- */
+  #btnMute {
+    position: absolute; top: 12px; right: 12px; z-index: 60;
+    font-size: 20px; line-height: 1;
+    padding: 9px 13px; border-radius: 12px; cursor: pointer;
+    background: rgba(10, 16, 40, .72);
+    border: 1px solid rgba(120, 200, 255, .35);
+    color: #dff2ff;
+    min-width: 44px; min-height: 44px;
+  }
+
+  /* ---------- 语音字幕条 ---------- */
+  #captionBar {
+    position: absolute; left: 50%; top: 74px;
+    transform: translateX(-50%);
+    z-index: 25;
+    max-width: 92vw;
+    background: rgba(10, 16, 40, .78);
+    border: 1px solid rgba(255, 211, 92, .5);
+    border-radius: 16px;
+    padding: 10px 22px;
+    font-size: 18px; font-weight: 600;
+    color: #ffe9ad;
+    text-align: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .25s;
+    box-shadow: 0 6px 22px rgba(0,0,0,.4);
+    white-space: nowrap;
+  }
+  #captionBar.show { opacity: 1; }
+
+  /* ---------- 目标字牌 ---------- */
+  #targetCard {
+    position: absolute; left: 50%; top: 15%;
+    transform: translateX(-50%);
+    z-index: 18;
+    text-align: center;
+    pointer-events: none;
+  }
+  #targetCard .word {
+    display: inline-block;
+    min-width: 92px;
+    padding: 10px 18px;
+    font-size: 56px; font-weight: 800;
+    color: #ffd35c;
+    background: linear-gradient(160deg, #16224a, #0d1330);
+    border: 2px solid rgba(255, 211, 92, .65);
+    border-radius: 20px;
+    text-shadow: 0 4px 14px rgba(0,0,0,.5);
+    box-shadow: 0 10px 30px rgba(0,0,0,.45);
+    line-height: 1.2;
+  }
+  #targetCard .hint { margin-top: 7px; font-size: 15px; font-weight: 600; color: #9db4d8; letter-spacing: 1px; }
+
+  /* ---------- 反馈大字 ---------- */
+  #toast {
+    position: absolute; left: 50%; top: 30%;
+    transform: translate(-50%, -50%) scale(1);
+    z-index: 30;
+    font-size: 62px; font-weight: 800;
+    color: #ffd35c;
+    text-shadow: 0 4px 18px rgba(0,0,0,.6);
+    opacity: 0; pointer-events: none;
+    transition: opacity .25s, transform .25s;
+    white-space: nowrap;
+  }
+  #toast.pop {
+    opacity: 1;
+    transform: translate(-50%, -58%) scale(1.12);
+  }
+
+  /* ---------- 结算 ---------- */
+  #result {
+    position: absolute; inset: 0; z-index: 40;
+    background: rgba(4, 8, 22, .82);
+    display: none;
+    align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  #result.show { display: flex; }
+  .result-card {
+    text-align: center; color: #eaf4ff;
+    background: linear-gradient(160deg, #16224a, #0d1330);
+    border: 2px solid #4f8cff;
+    border-radius: 26px;
+    padding: 30px 44px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.55);
+    max-width: 88vw;
+  }
+  .result-card h1 { font-size: 38px; color: #ffd35c; margin-bottom: 12px; }
+  .result-card p { font-size: 17px; color: #b9cdf0; margin: 6px 0 22px; line-height: 1.8; }
+  .result-card button {
+    font-size: 20px; padding: 12px 42px; border-radius: 999px;
+    border: none; cursor: pointer;
+    background: linear-gradient(90deg, #4f8cff, #59d1ff);
+    color: #fff; font-weight: 700; letter-spacing: 4px;
+    box-shadow: 0 6px 20px rgba(79,140,255,.45);
+    font-family: inherit;
+    min-height: 48px;
+  }
+  .result-card button:active { transform: scale(.97); }
+
+  /* ---------- 开始界面 ---------- */
+  #start {
+    position: absolute; inset: 0; z-index: 50;
+    background: radial-gradient(1200px 600px at 50% 30%, #17275e 0%, #0b1026 70%);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: #eaf4ff; text-align: center;
+    padding: 20px;
+  }
+  #start h1 {
+    font-size: clamp(38px, 8vw, 60px); letter-spacing: 6px;
+    background: linear-gradient(90deg, #ffd35c, #ff9c5c, #5cc8ff);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+    margin-bottom: 14px;
+  }
+  #start p { font-size: 16px; color: #9db4d8; line-height: 2; max-width: 560px; }
+  #start .rules { margin: 22px 0 28px; }
+  #start button {
+    font-size: 21px; padding: 14px 56px; border-radius: 999px;
+    border: none; cursor: pointer;
+    background: linear-gradient(90deg, #ff9c5c, #ffd35c);
+    color: #3a2200; font-weight: 800; letter-spacing: 6px;
+    box-shadow: 0 8px 26px rgba(255,180,70,.45);
+    font-family: inherit;
+    min-height: 52px;
+  }
+  #start button:active { transform: scale(.97); }
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<button id="btnMute" title="声音开关">🔊</button>
+
+<!-- HUD -->
+<div class="hud">
+  <div class="hud-chip">得分 <b id="hudScore">0</b></div>
+  <div class="hud-chip">连对 <b id="hudStreak">0</b> 🔥</div>
+  <div class="hud-chip">剩余 <b id="hudLeft">12</b> 题</div>
+</div>
+
+<!-- 语音字幕条 -->
+<div id="captionBar"></div>
+
+<!-- 目标字牌 -->
+<div id="targetCard">
+  <div class="word" id="targetWord">？</div>
+  <div class="hint" id="targetHint">听一听，找一找</div>
+</div>
+
+<!-- 结果反馈 -->
+<div id="toast"></div>
+
+<!-- 结算 -->
+<div id="result">
+  <div class="result-card">
+    <h1 id="resultTitle">🎉 全部接住啦！</h1>
+    <p id="resultDesc"></p>
+    <button id="btnRestart">再玩一次</button>
+  </div>
+</div>
+
+<!-- 开始 -->
+<div id="start">
+  <h1>拼音气球雨</h1>
+  <p class="rules">
+    下雨的夜晚，挂拼音的气球从天上慢慢飘下来～<br>
+    听一听目标汉字的读音，点一点写对拼音的气球：<br>
+    ✅ 点对 → 气球砰的一声爆开，蹦出汉字宝宝　　❌ 点错 → 语音告诉你正确拼音，再试一次<br>
+    接住 12 个气球就通关！
+  </p>
+  <button id="btnStart">开始游戏</button>
+</div>
+
+<script>
+/* =========================================================
+ * 拼音气球雨 Pinyin Balloon Rain —— 单文件 Canvas 小游戏
+ *
+ * 玩法：雨夜天空里，挂着拼音音节的气球从顶部徐徐飘落。
+ * 上方亮出目标汉字并语音朗读（"爸爸的爸"），
+ * 孩子点击读音正确的音节气球 → 气球爆开弹出汉字 + 表扬；
+ * 点错 → 语音播报正确音节，气球继续飘，直到点对为止。
+ * 完成 12 题结算庆祝，按连对颁发奖牌。
+ * ========================================================= */
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+let W = 0, H = 0;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+/* ---------------- 常量 ---------------- */
+const STATE = { START: 0, RUNNING: 1, FINISH: 2 };
+const QUIZ_TOTAL = 12;          // 12 题结算
+const OPTION_COUNT = 4;         // 每题 4 个候选音节
+const FALL_V = 0.055;           // 气球下落速度（H/秒）
+const SWAY_A = 0.06;            // 横向摆动幅度（W）
+const EXPL_TIME = 0.55;         // 爆炸动画时长（秒）
+const NEXT_DELAY = 0.55;        // 换题间隔（秒）
+const RAIN_COUNT = 90;          // 雨丝数量（性能友好）
+
+/* ---------------- 词库（设计文档 G6）----------------
+ * 字 → 拼音 + 组词提示；干扰项从共享声母/韵母池里选。 */
+const WORDS = [
+  { han: '爸', py: 'ba', tip: '爸爸的爸' },
+  { han: '妈', py: 'ma', tip: '妈妈的妈' },
+  { han: '我', py: 'wo', tip: '你我的我' },
+  { han: '天', py: 'tian', tip: '天空的天' },
+  { han: '大', py: 'da', tip: '大小的大' },
+  { han: '地', py: 'di', tip: '土地的地' },
+  { han: '上', py: 'shang', tip: '上下的上' },
+  { han: '马', py: 'ma', tip: '小马的马' },
+  { han: '石', py: 'shi', tip: '石头的石' },
+  { han: '头', py: 'tou', tip: '石头的头' },
+  { han: '日', py: 'ri', tip: '日子的日' },
+  { han: '月', py: 'yue', tip: '月亮的月' },
+  { han: '水', py: 'shui', tip: '喝水的水' },
+  { han: '火', py: 'huo', tip: '火车的火' },
+  { han: '山', py: 'shan', tip: '大山的山' },
+];
+/* 干扰音节池：与词库读音错开（同声母/同韵母制造迷惑但不错） */
+const DISTRACTORS = ['bo', 'po', 'fa', 'fo', 'mo', 'tu', 'fu', 'lu',
+  'yi', 'li', 'xi', 'bi', 'pi', 'mi', 'he', 'ke', 'le', 'ye', 'se',
+  'zu', 'cu', 'su', 'bu', 'pu', 'mu', 'nu', 'du', 'gu', 'ku', 'hu',
+  'ji', 'qi', 'na', 'sha', 'xia', 'bai', 'pei', 'fei', 'mei', 'dei'];
+
+/* ---------------- 状态 ---------------- */
+let state = STATE.START;
+let quizIndex = 0;             // 已完成题数（0-12）
+let score = 0, streak = 0, bestStreak = 0, wrongTotal = 0;
+let target = null;              // 当前目标 {han, py, tip}
+let balloons = [];              // 场上音节气球
+let ghosts = [];                // 离场气球（答对后剩余的加速飘走）
+let booms = [];                 // 爆炸动画（气球碎片 + 弹出的汉字）
+let particles = [];             // 彩带粒子（结算庆祝）
+let raindrops = [];             // 雨丝
+let nextTimer = 0;              // 换题倒计时（<=0 出下一题）
+let shake = 0, flashT = 0;
+let askedWords = [];            // 本轮已出过的字（12 题不重复）
+let lastDistractors = [];       // 上一题用过的干扰项（尽量不复用）
+
+/* ---------------- DOM ---------------- */
+const $ = id => document.getElementById(id);
+const captionBar = $('captionBar');
+const toastEl = $('toast');
+const targetWordEl = $('targetWord');
+const targetHintEl = $('targetHint');
+
+/* ---------------- 语音播报 ---------------- */
+const synth = window.speechSynthesis || null;
+let zhVoice = null;
+function pickVoice() {
+  if (!synth) return;
+  const vs = synth.getVoices();
+  zhVoice = vs.find(v => /zh[-_]CN/i.test(v.lang)) ||
+            vs.find(v => /^zh/i.test(v.lang)) || null;
+}
+if (synth) {
+  pickVoice();
+  synth.onvoiceschanged = pickVoice;
+}
+function speak(text) {
+  if (muted || !synth) return;
+  try {
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN';
+    if (zhVoice) u.voice = zhVoice;
+    u.rate = 0.92;
+    synth.speak(u);
+  } catch (e) { /* 忽略 */ }
+}
+
+/* ---------------- 字幕条 ---------------- */
+let captionTimer = null;
+function caption(text) {
+  captionBar.textContent = text;
+  captionBar.classList.add('show');
+  if (captionTimer) clearTimeout(captionTimer);
+  captionTimer = setTimeout(() => captionBar.classList.remove('show'), 2600);
+}
+
+/* ---------------- 音效 ---------------- */
+let actx = null, muted = false;
+let rainOsc = null, rainGain = null;
+function initAudio() {
+  if (actx) return;
+  try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+  // 雨夜白噪声（低音量沙沙声）
+  try {
+    const bufferSize = 4096;
+    const buffer = actx.createBuffer(1, bufferSize, actx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * 0.5;
+    const noise = actx.createBufferSource();
+    noise.buffer = buffer; noise.loop = true;
+    const filt = actx.createBiquadFilter();
+    filt.type = 'lowpass'; filt.frequency.value = 900;
+    rainGain = actx.createGain();
+    rainGain.gain.value = muted ? 0 : 0.018;
+    noise.connect(filt).connect(rainGain).connect(actx.destination);
+    noise.start();
+  } catch (e) { /* 音效可选 */ }
+}
+function beep(freq, dur, type, vol, sweepTo) {
+  if (!actx || muted) return;
+  try {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(freq, actx.currentTime);
+    if (sweepTo) o.frequency.exponentialRampToValueAtTime(sweepTo, actx.currentTime + dur);
+    g.gain.setValueAtTime(vol || 0.15, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + dur);
+    o.connect(g).connect(actx.destination);
+    o.start();
+    o.stop(actx.currentTime + dur);
+  } catch (e) { /* 忽略 */ }
+}
+/* 正确音：上行双音 660→990Hz */
+const sfxRight = () => { beep(660, .09, 'sine', .16); beep(990, .16, 'sine', .16); };
+/* 错误音：低频 180Hz 锯齿波 */
+const sfxWrong = () => beep(180, .25, 'sawtooth', .07);
+/* 气球爆炸：砰 + 纸屑 */
+const sfxBoom = () => { beep(300, .18, 'square', .14, 60); sfxRight(); };
+const PRAISES = ['太棒了', '好厉害', '真不错', '顶呱呱', '接住啦'];
+
+$('btnMute').addEventListener('click', () => {
+  muted = !muted;
+  $('btnMute').textContent = muted ? '🔇' : '🔊';
+  if (muted) {
+    if (synth) synth.cancel();
+    if (rainGain) rainGain.gain.value = 0;
+  } else if (rainGain) {
+    rainGain.gain.value = 0.018;
+  }
+});
+
+/* ---------------- 出题 ---------------- */
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function pickWord() {
+  const pool = WORDS.filter(w => askedWords.indexOf(w.han) < 0);
+  const src = pool.length ? pool : WORDS;
+  return src[Math.floor(Math.random() * src.length)];
+}
+function pickDistractors(py) {
+  const pool = DISTRACTORS.filter(d =>
+    d !== py && lastDistractors.indexOf(d) < 0);
+  const src = pool.length >= OPTION_COUNT - 1 ? pool :
+    DISTRACTORS.filter(d => d !== py);
+  return shuffle(src).slice(0, OPTION_COUNT - 1);
+}
+
+const BALLOON_COLORS = [
+  { body: '#ff6b81', hi: '#ffd3dc' },
+  { body: '#4fc3f7', hi: '#cdefff' },
+  { body: '#ffd35c', hi: '#fff3c4' },
+  { body: '#7dffb1', hi: '#ddffe9' },
+  { body: '#c792ff', hi: '#ecdcff' },
+  { body: '#ff9c5c', hi: '#ffe2cc' },
+];
+
+function spawnQuiz() {
+  target = pickWord();
+  askedWords.push(target.han);
+  const distractors = pickDistractors(target.py);
+  lastDistractors = distractors.slice();
+
+  const syllables = shuffle([target.py].concat(distractors));
+  balloons = [];
+  ghosts = [];
+  const cols = 4, margin = 0.09, span = (1 - margin * 2) / cols;
+  syllables.forEach((syl, i) => {
+    const color = BALLOON_COLORS[(quizIndex + i) % BALLOON_COLORS.length];
+    balloons.push({
+      id: 'opt' + quizIndex + '_' + i,
+      syl,
+      correct: syl === target.py,
+      fx: margin + span * (i + 0.5),
+      fy: -0.14 - Math.random() * 0.10,
+      phase: Math.random() * 6.28,
+      spd: 0.9 + Math.random() * 0.25,
+      r: Math.min(W, H) * 0.088,
+      color,
+      pop: 0,                   // 点击缩放反馈
+      wrongShake: 0,
+    });
+  });
+
+  targetWordEl.textContent = target.han;
+  targetHintEl.textContent = target.tip + ' · 找它的拼音';
+  speak(target.tip + '，找对它的拼音');
+  caption('🔈 ' + target.tip + ' → 点对的拼音气球');
+  updateHUD();
+}
+
+/* ---------------- 点击判定 ---------------- */
+function balloonAt(x, y) {
+  for (let i = balloons.length - 1; i >= 0; i--) {
+    const b = balloons[i];
+    const pos = balloonPos(b, perfT());
+    const dx = x - pos.x, dy = (y - pos.y) / 0.86;   // 热区椭圆（球体）
+    const r2 = b.r * 1.14;                            // 热区放大 14%，儿童好点
+    if (dx * dx + dy * dy <= r2 * r2) return b;
+  }
+  return null;
+}
+function pickSyllable(id) {
+  if (state !== STATE.RUNNING) return;
+  const b = balloons.find(x => x.id === id);
+  if (!b) return;
+  judge(b);
+}
+canvas.addEventListener('pointerdown', e => {
+  if (state !== STATE.RUNNING) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left, y = e.clientY - rect.top;
+  const b = balloonAt(x, y);
+  if (b) judge(b);
+});
+
+function judge(b) {
+  if (state !== STATE.RUNNING || !target) return;
+  if (b.correct) {
+    /* ---- 答对：爆开出字 ---- */
+    const bp = balloonPos(b, perfT());
+    booms.push({
+      x: bp.x,
+      y: bp.y,
+      t: 0,
+      han: target.han,
+      color: b.color,
+    });
+    // 碎片粒子
+    for (let i = 0; i < 18; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = 1.5 + Math.random() * 4.5;
+      particles.push({
+        x: bp.x, y: bp.y,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 2,
+        life: 1, color: Math.random() < 0.5 ? b.color.body : b.color.hi,
+        size: 2.5 + Math.random() * 3.5,
+      });
+    }
+    balloons = balloons.filter(x => x.id !== b.id);
+    // 剩余干扰气球加速飘走离场
+    for (const g of balloons) ghosts.push(g);
+    balloons = [];
+    sfxBoom();
+    shake = 0.30; flashT = 0.14;
+
+    score += 10;
+    streak++;
+    if (streak > bestStreak) bestStreak = streak;
+    quizIndex++;
+    const praise = PRAISES[Math.floor(Math.random() * PRAISES.length)];
+    toast(praise + '！是 ' + target.py, true);
+    if (quizIndex >= QUIZ_TOTAL) {
+      speak(praise + '！' + target.han + '，' + target.py);
+      updateHUD();
+      nextTimer = 1.0;               // 看完爆炸再结算
+      state = STATE.FINISH;          // 收尾仍可飘落渲染
+      target = null;
+      targetWordEl.textContent = '🎆';
+      targetHintEl.textContent = '全部完成！';
+      caption('🎆 太厉害了，全部接住啦！');
+    } else {
+      speak(praise + '！' + target.han + '，' + target.py);
+      nextTimer = NEXT_DELAY;
+      updateHUD();
+    }
+  } else {
+    /* ---- 答错：不惩罚，播报正确答案 ---- */
+    wrongTotal++;
+    streak = 0;
+    b.wrongShake = 0.5;
+    sfxWrong();
+    toast('再试一次', false);
+    speak('答错了，正确的拼音是 ' + spellOut(target.py) + '，' + target.tip + '，再点一次');
+    caption('🔈 正确的拼音是 ' + target.py + '，再找一找');
+    updateHUD();
+  }
+}
+
+/* 拼读播报：ba → "b a"（逐字母，方便听清） */
+function spellOut(py) {
+  return py.split('').join(' ');
+}
+
+/* ---------------- 测试钩子 ---------------- */
+window.__testOptions = () =>
+  balloons.map(b => ({ id: b.id, syllable: b.syl }));
+window.__testPickSyllable = id => pickSyllable(id);
+window.__testState = () => state;
+window.__testProgress = () => ({
+  quizIndex, score, streak, bestStreak, wrongTotal,
+  target: target ? target.py : null,
+  targetHan: target ? target.han : null,
+  balloons: balloons.length,
+});
+
+/* ---------------- HUD / Toast ---------------- */
+function updateHUD() {
+  $('hudScore').textContent = String(score);
+  $('hudStreak').textContent = String(streak);
+  $('hudLeft').textContent = String(Math.max(0, QUIZ_TOTAL - quizIndex));
+}
+let toastTimer = null;
+function toast(text, good) {
+  toastEl.textContent = text;
+  toastEl.style.color = good ? '#7dffa1' : '#ff9d9d';
+  toastEl.classList.add('pop');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('pop'), 900);
+}
+function perfT() { return (window.performance ? performance.now() : 0) / 1000; }
+
+/* ---------------- 结算 ---------------- */
+function showResult() {
+  let title, medal;
+  if (bestStreak >= 9)       { title = '🥇 金牌拼音王！'; medal = '金牌'; }
+  else if (bestStreak >= 6)  { title = '🥈 银牌拼音王！'; medal = '银牌'; }
+  else if (bestStreak >= 3)  { title = '🥉 铜牌拼音王！'; medal = '铜牌'; }
+  else                       { title = '🎉 全部接住啦！'; medal = '继续加油'; }
+  $('resultTitle').textContent = title;
+  $('resultDesc').innerHTML =
+    `完成 <b style="color:#ffd35c">${quizIndex}</b> / ${QUIZ_TOTAL} 题（${medal}）<br>` +
+    `最佳连对 <b style="color:#ffd35c">${bestStreak}</b> 次 · 答错 <b style="color:#ff9d9d">${wrongTotal}</b> 次<br>` +
+    `一共得了 <b style="color:#7dffa1">${score}</b> 分，拼音越念越准啦！`;
+  $('result').classList.add('show');
+  speak(`游戏完成！获得${medal}！`);
+  // 庆祝彩带
+  for (let i = 0; i < 60; i++) {
+    particles.push({
+      x: Math.random() * W, y: -20 - Math.random() * H * 0.3,
+      vx: (Math.random() - 0.5) * 2, vy: 1.5 + Math.random() * 3,
+      life: 1, color: BALLOON_COLORS[i % BALLOON_COLORS.length].body,
+      size: 3 + Math.random() * 4,
+    });
+  }
+}
+
+/* ---------------- 位置计算 ---------------- */
+function balloonPos(b, t) {
+  return {
+    x: W * b.fx + Math.sin(t * 0.8 + b.phase) * W * SWAY_A,
+    y: H * b.fy,
+  };
+}
+
+/* ---------------- 主循环 ---------------- */
+function update(dt, t) {
+  if (shake > 0) shake = Math.max(0, shake - dt);
+  if (flashT > 0) flashT = Math.max(0, flashT - dt);
+
+  // 雨丝（START 也下，做背景氛围）
+  for (const r of raindrops) {
+    r.y += r.v * dt;
+    if (r.y > H + 20) { r.y = -30 - Math.random() * 40; r.x = Math.random() * W; }
+  }
+
+  // 气球飘落（答对后剩余气球进入 ghosts 快速离场，不参与判定）
+  if (state === STATE.RUNNING || state === STATE.FINISH) {
+    for (const b of balloons) {
+      b.fy += FALL_V * b.spd * dt;
+      if (b.pop > 0) b.pop = Math.max(0, b.pop - dt * 5);
+      if (b.wrongShake > 0) b.wrongShake = Math.max(0, b.wrongShake - dt);
+      // 掉出画面底部 → 拉回顶部继续飘（无失败，永远可点）
+      if (b.fy > 1.16) b.fy = -0.12 - Math.random() * 0.06;
+    }
+  }
+  for (const g of ghosts) g.fy += FALL_V * 4.5 * g.spd * dt;
+  ghosts = ghosts.filter(g => g.fy < 1.3);
+
+  // 爆炸动画推进
+  for (const bo of booms) bo.t += dt / EXPL_TIME;
+  booms = booms.filter(bo => bo.t < 1.6);
+
+  // 粒子
+  for (const p of particles) {
+    p.x += p.vx; p.y += p.vy; p.vy += 0.10;
+    p.life -= dt * 0.9;
+  }
+  particles = particles.filter(p => p.life > 0);
+  if (particles.length > 120) particles.splice(0, particles.length - 120);
+
+  // 换题 / 结算（倒计时驱动，与气球离场解耦）
+  if (state === STATE.RUNNING && nextTimer > 0) {
+    nextTimer -= dt;
+    if (nextTimer <= 0) spawnQuiz();
+  }
+  if (state === STATE.FINISH && nextTimer > 0) {
+    nextTimer -= dt;
+    if (nextTimer <= 0) showResult();
+  }
+}
+
+/* ---------------- 绘制 ---------------- */
+function drawBackground(t) {
+  // 雨夜天空
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#070d22');
+  sky.addColorStop(0.55, '#0d1738');
+  sky.addColorStop(1, '#1b2c5e');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H);
+
+  // 远处城市剪影（暖窗灯光）
+  const seedRand = i => {
+    const x = Math.sin(i * 12.9898) * 43758.5453;
+    return x - Math.floor(x);
+  };
+  const baseY = H * 0.96;
+  ctx.fillStyle = '#0a1229';
+  for (let i = 0; i < 14; i++) {
+    const bw = W * (0.05 + seedRand(i) * 0.05);
+    const bh = H * (0.06 + seedRand(i + 30) * 0.16);
+    const bx = (i / 14) * W + seedRand(i + 7) * W * 0.03;
+    ctx.fillRect(bx, baseY - bh, bw, bh);
+    // 暖窗
+    ctx.fillStyle = 'rgba(255, 200, 110, .32)';
+    for (let wy = 0; wy < 3; wy++) {
+      for (let wx = 0; wx < 2; wx++) {
+        if (seedRand(i * 9 + wy * 3 + wx) > 0.45) {
+          ctx.fillRect(bx + bw * (0.22 + wx * 0.36),
+            baseY - bh + bh * (0.16 + wy * 0.26),
+            bw * 0.14, bh * 0.14);
+        }
+      }
+    }
+    ctx.fillStyle = '#0a1229';
+  }
+  // 地面水光
+  const gr = ctx.createLinearGradient(0, H * 0.96, 0, H);
+  gr.addColorStop(0, 'rgba(90, 130, 220, .20)');
+  gr.addColorStop(1, 'rgba(120, 170, 255, .05)');
+  ctx.fillStyle = gr;
+  ctx.fillRect(0, H * 0.96, W, H * 0.04);
+
+  // 雨丝
+  ctx.strokeStyle = 'rgba(150, 180, 255, .30)';
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  for (const r of raindrops) {
+    ctx.moveTo(r.x, r.y);
+    ctx.lineTo(r.x - r.len * 0.18, r.y + r.len);
+  }
+  ctx.stroke();
+
+  // 湿地面涟漪光斑（低对比装饰）
+  for (let i = 0; i < 6; i++) {
+    const rx = (0.08 + seedRand(i + 40) * 0.84) * W;
+    const ry = H * (0.965 + seedRand(i + 50) * 0.025);
+    const rr = 14 + seedRand(i + 60) * 30 + Math.sin(t * 1.5 + i) * 4;
+    ctx.strokeStyle = 'rgba(130, 170, 255, .14)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.ellipse(rx, ry, rr, rr * 0.22, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
+function drawBalloon(b, t) {
+  const pos = balloonPos(b, t);
+  const r = b.r;
+  ctx.save();
+  ctx.translate(pos.x, pos.y);
+
+  // 点击反馈 / 答错抖动
+  if (b.pop > 0) ctx.scale(1 + Math.sin(b.pop * Math.PI) * 0.12, 1 + Math.sin(b.pop * Math.PI) * 0.12);
+  if (b.wrongShake > 0) {
+    ctx.translate(Math.sin(b.wrongShake * 40) * r * 0.10, 0);
+  }
+
+  // 绳结 + 垂线（随风摆）
+  ctx.strokeStyle = 'rgba(230, 240, 255, .55)';
+  ctx.lineWidth = Math.max(1, r * 0.03);
+  ctx.beginPath();
+  ctx.moveTo(0, r * 1.06);
+  ctx.quadraticCurveTo(r * 0.10, r * 1.45, -r * 0.06, r * 1.85);
+  ctx.stroke();
+
+  // 气球主体（上圆下结的椭圆）
+  const g = ctx.createLinearGradient(-r, -r, r * 0.6, r);
+  g.addColorStop(0, b.color.hi);
+  g.addColorStop(0.45, b.color.body);
+  g.addColorStop(1, shade(b.color.body, -0.30));
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(0, r * 1.08);
+  ctx.bezierCurveTo(-r * 1.12, r * 0.55, -r * 1.10, -r * 0.95, 0, -r);
+  ctx.bezierCurveTo(r * 1.10, -r * 0.95, r * 1.12, r * 0.55, 0, r * 1.08);
+  ctx.fill();
+
+  // 高光
+  ctx.fillStyle = 'rgba(255,255,255,.55)';
+  ctx.beginPath();
+  ctx.ellipse(-r * 0.36, -r * 0.44, r * 0.20, r * 0.32, -0.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 拼音音节牌（白底圆角牌，保证可读）
+  const pw = r * 1.30, ph = r * 0.52;
+  ctx.fillStyle = 'rgba(255, 255, 255, .94)';
+  roundRect(-pw / 2, -ph / 2, pw, ph, ph * 0.32);
+  ctx.fill();
+  ctx.strokeStyle = shade(b.color.body, -0.35);
+  ctx.lineWidth = Math.max(1.5, r * 0.035);
+  ctx.stroke();
+  ctx.fillStyle = '#1b2547';
+  ctx.font = `800 ${r * 0.40}px system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(b.syl, 0, r * 0.015);
+
+  ctx.restore();
+}
+function roundRect(x, y, w, h, rad) {
+  ctx.beginPath();
+  ctx.moveTo(x + rad, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rad);
+  ctx.arcTo(x + w, y + h, x, y + h, rad);
+  ctx.arcTo(x, y + h, x, y, rad);
+  ctx.arcTo(x, y, x + w, y, rad);
+  ctx.closePath();
+}
+function shade(hex, amt) {
+  const n = parseInt(hex.slice(1), 16);
+  let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  r = Math.round(Math.min(255, Math.max(0, r + r * amt)));
+  g = Math.round(Math.min(255, Math.max(0, g + g * amt)));
+  b = Math.round(Math.min(255, Math.max(0, b + b * amt)));
+  return `rgb(${r},${g},${b})`;
+}
+
+/* ---- 爆炸：碎片飞散 + 弹出大汉字 ---- */
+function drawBoom(bo) {
+  const t = bo.t;                       // 0 → 1.6
+  // 光环
+  if (t < 1) {
+    ctx.strokeStyle = `rgba(255, 230, 150, ${(1 - t) * 0.9})`;
+    ctx.lineWidth = Math.max(2, 12 * (1 - t));
+    ctx.beginPath();
+    ctx.arc(bo.x, bo.y, 20 + t * 80, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  // 弹出的汉字（放大上浮再定住）
+  const scale = t < 0.35 ? 0.5 + t / 0.35 * 0.5 : 1;
+  const float = Math.min(t * 60, 44);
+  const alpha = t > 1.2 ? Math.max(0, 1 - (t - 1.2) / 0.4) : 1;
+  if (alpha > 0) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(bo.x, bo.y - float);
+    ctx.scale(scale, scale);
+    ctx.fillStyle = '#fff';
+    ctx.font = '800 76px "PingFang SC", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(255, 211, 92, .9)';
+    ctx.shadowBlur = 22;
+    ctx.fillText(bo.han, 0, 0);
+    ctx.restore();
+  }
+}
+
+/* ---- 粒子 ---- */
+function drawEffects() {
+  for (const p of particles) {
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  if (flashT > 0) {
+    ctx.fillStyle = `rgba(255, 240, 200, ${flashT * 0.7})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+
+/* ---------------- 渲染 ---------------- */
+function render(t) {
+  ctx.save();
+  if (shake > 0) {
+    const m = shake * 12;
+    ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m);
+  }
+
+  drawBackground(t);
+
+  // 爆炸光环 + 弹出汉字
+  for (const bo of booms) drawBoom(bo);
+
+  // 气球（在场 + 离场）
+  for (const g of ghosts) drawBalloon(g, t);
+  for (const b of balloons) drawBalloon(b, t);
+
+  drawEffects();
+
+  ctx.restore();
+}
+
+/* ---------------- 帧循环 ---------------- */
+for (let i = 0; i < RAIN_COUNT; i++) {
+  raindrops.push({
+    x: Math.random() * W, y: Math.random() * H,
+    v: 620 + Math.random() * 320,
+    len: 14 + Math.random() * 16,
+  });
+}
+let lastT = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now;
+  update(dt, now / 1000);
+  render(now / 1000);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ---------------- 开始 / 重开 ---------------- */
+$('btnStart').addEventListener('click', () => {
+  initAudio();
+  $('start').style.display = 'none';
+  resetGame();
+  state = STATE.RUNNING;
+  spawnQuiz();
+  speak('下雨啦，气球来啦！听一听，点一点');
+});
+
+$('btnRestart').addEventListener('click', () => {
+  $('result').classList.remove('show');
+  resetGame();
+  state = STATE.RUNNING;
+  spawnQuiz();
+  speak('新的气球雨开始啦！');
+});
+
+function resetGame() {
+  quizIndex = 0; score = 0; streak = 0; bestStreak = 0; wrongTotal = 0;
+  balloons = []; ghosts = []; booms = []; particles = [];
+  nextTimer = 0; shake = 0; flashT = 0;
+  askedWords = []; lastDistractors = [];
+  target = null;
+  updateHUD();
+}
+</script>
+</body>
+</html>

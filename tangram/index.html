@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>七巧板 · Tangram</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  body {
+    background: #0b1026;
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #game { display: block; width: 100vw; height: 100vh; }
+
+  /* ---------- HUD ---------- */
+  .hud {
+    position: absolute; top: 46px; left: 14px; z-index: 10;
+    display: flex; gap: 10px; flex-wrap: wrap; pointer-events: none;
+  }
+  .hud-chip {
+    background: rgba(10, 16, 40, .72);
+    border: 1px solid rgba(120, 200, 255, .35);
+    border-radius: 14px;
+    color: #dff2ff;
+    padding: 7px 15px;
+    font-size: 17px;
+    font-weight: 600;
+    box-shadow: 0 4px 18px rgba(0,0,0,.35);
+    backdrop-filter: blur(6px);
+  }
+  .hud-chip b { color: #ffd35c; font-size: 21px; }
+
+  /* ---------- 声音开关 ---------- */
+  #btnMute {
+    position: absolute; top: 12px; right: 12px; z-index: 60;
+    font-size: 20px; line-height: 1;
+    padding: 9px 13px; border-radius: 12px; cursor: pointer;
+    background: rgba(10, 16, 40, .72);
+    border: 1px solid rgba(120, 200, 255, .35);
+    color: #dff2ff;
+  }
+
+  /* ---------- 语音字幕条（点击类低幼，无挑战弹窗） ---------- */
+  #caption {
+    position: absolute; left: 50%; top: 64px;
+    transform: translate(-50%, -50%) scale(.9);
+    z-index: 30;
+    max-width: 86vw;
+    background: rgba(10, 16, 40, .78);
+    border: 1px solid rgba(120, 200, 255, .35);
+    border-radius: 999px;
+    color: #dff2ff;
+    padding: 9px 22px;
+    font-size: 16.5px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    opacity: 0; pointer-events: none;
+    transition: opacity .25s, transform .25s;
+    white-space: nowrap;
+    box-shadow: 0 4px 18px rgba(0,0,0,.35);
+    backdrop-filter: blur(6px);
+  }
+  #caption.show {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  /* ---------- 反馈大字 ---------- */
+  #toast {
+    position: absolute; left: 50%; top: 22%;
+    transform: translate(-50%, -50%) scale(1);
+    z-index: 30;
+    font-size: 56px; font-weight: 800;
+    color: #ffd35c;
+    text-shadow: 0 4px 18px rgba(0,0,0,.6);
+    opacity: 0; pointer-events: none;
+    transition: opacity .25s, transform .25s;
+    white-space: nowrap;
+  }
+  #toast.pop {
+    opacity: 1;
+    transform: translate(-50%, -58%) scale(1.12);
+  }
+
+  /* ---------- 结算 ---------- */
+  #result {
+    position: absolute; inset: 0; z-index: 40;
+    background: rgba(4, 8, 22, .82);
+    display: none;
+    align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  #result.show { display: flex; }
+  .result-card {
+    text-align: center; color: #eaf4ff;
+    background: linear-gradient(160deg, #16224a, #0d1330);
+    border: 2px solid #4f8cff;
+    border-radius: 26px;
+    padding: 30px 44px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.55);
+    max-width: 88vw;
+  }
+  .result-card h1 { font-size: 38px; color: #ffd35c; margin-bottom: 12px; }
+  .result-card p { font-size: 17px; color: #b9cdf0; margin: 6px 0 22px; line-height: 1.8; }
+  .result-card button {
+    font-size: 20px; padding: 12px 42px; border-radius: 999px;
+    border: none; cursor: pointer;
+    background: linear-gradient(90deg, #4f8cff, #59d1ff);
+    color: #fff; font-weight: 700; letter-spacing: 4px;
+    box-shadow: 0 6px 20px rgba(79,140,255,.45);
+    font-family: inherit;
+  }
+  .result-card button:active { transform: scale(.97); }
+
+  /* ---------- 开始界面 ---------- */
+  #start {
+    position: absolute; inset: 0; z-index: 50;
+    background: radial-gradient(1200px 600px at 50% 30%, #17275e 0%, #0b1026 70%);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: #eaf4ff; text-align: center;
+    padding: 20px;
+  }
+  #start h1 {
+    font-size: clamp(38px, 8vw, 60px); letter-spacing: 6px;
+    background: linear-gradient(90deg, #ffd35c, #ff9c5c, #5cc8ff);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+    margin-bottom: 14px;
+  }
+  #start p { font-size: 16px; color: #9db4d8; line-height: 2; max-width: 560px; }
+  #start .rules { margin: 22px 0 28px; }
+  #start button {
+    font-size: 21px; padding: 14px 56px; border-radius: 999px;
+    border: none; cursor: pointer;
+    background: linear-gradient(90deg, #ff9c5c, #ffd35c);
+    color: #3a2200; font-weight: 800; letter-spacing: 6px;
+    box-shadow: 0 8px 26px rgba(255,180,70,.45);
+    font-family: inherit;
+  }
+  #start button:active { transform: scale(.97); }
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<button id="btnMute" title="声音开关">🔊</button>
+
+<!-- HUD -->
+<div class="hud">
+  <div class="hud-chip">第 <b id="hudLevel">1</b> / 4 关</div>
+  <div class="hud-chip">已拼 <b id="hudPlaced">0</b> / 7</div>
+  <div class="hud-chip">连对 <b id="hudStreak">0</b> 🔥</div>
+</div>
+
+<!-- 语音字幕条 -->
+<div id="caption"></div>
+
+<!-- 结果反馈 -->
+<div id="toast"></div>
+
+<!-- 结算 -->
+<div id="result">
+  <div class="result-card">
+    <h1 id="resultTitle">🎉 全部拼好啦！</h1>
+    <p id="resultDesc"></p>
+    <button id="btnRestart">再玩一次</button>
+  </div>
+</div>
+
+<!-- 开始 -->
+<div id="start">
+  <h1>七巧板</h1>
+  <p class="rules">
+    七块彩色小拼板，拼出可爱的小猫、房子、小船和火箭！<br>
+    点击选中一块拼板，再点击左边的影子轮廓把它放进去：<br>
+    放错了也没关系，换个位置再试试；选中的拼板还可以点 <b>「旋转」</b> 变换方向<br>
+    全部 7 块拼好，就完成一关！
+  </p>
+  <button id="btnStart">开始拼图</button>
+</div>
+
+<script>
+/* =========================================================
+ * 七巧板 Tangram —— 单文件 Canvas 小游戏（G10）
+ *
+ * 玩法：右侧散落 7 块彩色七巧板（大三角×2、中三角、小三角×2、
+ * 正方形、平行四边形），左侧是目标轮廓（小猫/房子/小船/火箭 4 关）。
+ * 点击拼块 → 选中高亮；再点击画布内位置 → 放置到轮廓内（吸附）；
+ * 点击已放置拼块 → 拿回。选中后可点「旋转」按钮 90° 步进。
+ * 全部 7 块放置正确 → 轮廓填充彩色 + 庆祝 + 下一关；4 关结算。
+ * ========================================================= */
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+let W = 0, H = 0;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+/* ---------------- 常量 ---------------- */
+const STATE = { START: 0, RUNNING: 1, FINISH: 2 };
+const LEVEL_TARGET = 4;          // 4 关结算
+const SNAP_DIST = 30;           // 吸附距离阈值（px）
+const SLOT_DONE_T = 0.5;        // 槽位落位动画时长（秒）
+const WIN_T = 2.4;              // 过关庆祝时长（秒）
+
+/* 七巧板七件套：形状 + 经典七色（索引固定：0 大三角A / 1 大三角B /
+ * 2 中三角 / 3 小三角A / 4 小三角B / 5 正方形 / 6 平行四边形） */
+const PIECE_DEFS = [
+  { name: '大三角', color: '#ff8a5c', pts: [[-1, -1], [1, -1], [-1, 1]] },
+  { name: '大三角', color: '#59d1ff', pts: [[-1, -1], [1, -1], [-1, 1]] },
+  { name: '中三角', color: '#ffd35c', pts: [[-1, -1], [1, -1], [-1, 1]] },
+  { name: '小三角', color: '#a78bfa', pts: [[-1, -1], [1, -1], [-1, 1]] },
+  { name: '小三角', color: '#4ade80', pts: [[-1, -1], [1, -1], [-1, 1]] },
+  { name: '正方形', color: '#ff5c8a', pts: [[-1, -1], [1, -1], [1, 1], [-1, 1]] },
+  { name: '平四边', color: '#5eead4', pts: [[-0.5, -1], [0.5, -1], [1, 1], [0, 1]] },
+];
+
+/* 每关布局：槽位（拼块索引、位置、旋转）、底图装饰绘制函数、关卡语音 */
+const LEVELS = [
+  { name: '小猫', greeting: '先来拼一只可爱的小猫吧！',
+    pieces: [0, 5], slots: [
+      { p: 0, x: -0.28, y: -0.20, r: 0 },
+      { p: 5, x: 0.12, y: -0.20, r: 0 },
+    ],
+    deco: drawCatDeco },
+  { name: '房子', greeting: '拼一座漂亮的小房子！',
+    pieces: [5, 6], slots: [
+      { p: 5, x: -0.18, y: 0.16, r: 0 },
+      { p: 6, x: 0.14, y: -0.16, r: 0 },
+    ],
+    deco: drawHouseDeco },
+  { name: '小船', greeting: '拼一艘出海的小船！',
+    pieces: [0, 1], slots: [
+      { p: 0, x: -0.14, y: -0.18, r: 0 },
+      { p: 1, x: 0.14, y: 0.18, r: 0 },
+    ],
+    deco: drawBoatDeco },
+  { name: '火箭', greeting: '最后拼一枚升空的火箭！',
+    pieces: [0, 6], slots: [
+      { p: 0, x: 0, y: -0.22, r: 0 },
+      { p: 6, x: 0, y: 0.20, r: 0 },
+    ],
+    deco: drawRocketDeco },
+];
+
+/* ---------------- 状态 ---------------- */
+let state = STATE.START;
+let level = 0, streak = 0, bestStreak = 0, wrongTotal = 0;
+let pieces = [], slots = [];
+let selected = -1;              // 选中拼块索引
+let showHint = 0;               // 提示按钮闪烁计时
+let rotAnim = 0;                // 旋转动画条
+let placedCount = 0;            // 当前关已放好块数
+let winT = -1;                  // 过关庆祝计时
+let winLevel = -1;              // 慢速结算的关卡索引（触发结算用）
+let confetti = [];              // 庆祝彩纸粒子
+let toastT = 0;
+let hoverIdx = -1;
+let rotateHintT = 0;             // 旋转按钮可点提示
+let nextLevelT = -1;            // 过关到下一关的延迟计时
+let log = null;                  // 语音字幕管理器（在下方赋值）
+let slotsInitDone = false;
+
+/* ---------------- DOM ---------------- */
+const $ = id => document.getElementById(id);
+const captionEl = $('caption');
+const toastEl = $('toast');
+
+/* ---------------- 语音字幕条（替代挑战弹窗） ---------------- */
+let captionTimer = null;
+function caption(text) {
+  captionEl.textContent = text;
+  captionEl.classList.add('show');
+  if (captionTimer) clearTimeout(captionTimer);
+  captionTimer = setTimeout(() => captionEl.classList.remove('show'), 3600);
+}
+log = caption;
+
+/* ---------------- 语音播报 ---------------- */
+const synth = window.speechSynthesis || null;
+let zhVoice = null;
+function pickVoice() {
+  if (!synth) return;
+  const vs = synth.getVoices();
+  zhVoice = vs.find(v => /zh[-_]CN/i.test(v.lang)) ||
+            vs.find(v => /^zh/i.test(v.lang)) || null;
+}
+if (synth) {
+  pickVoice();
+  synth.onvoiceschanged = pickVoice;
+}
+function speak(text) {
+  if (muted || !synth) return;
+  try {
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN';
+    if (zhVoice) u.voice = zhVoice;
+    u.rate = 0.92;
+    synth.speak(u);
+  } catch (e) { /* 忽略 */ }
+}
+/* 字幕 + 语音一体播报 */
+function say(text) {
+  caption(text);
+  speak(text);
+}
+
+/* ---------------- 音效 ---------------- */
+let actx = null, muted = false;
+function initAudio() {
+  if (actx) return;
+  try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+}
+function beep(freq, dur, type, vol, sweepTo) {
+  if (!actx || muted) return;
+  try {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(freq, actx.currentTime);
+    if (sweepTo) o.frequency.exponentialRampToValueAtTime(sweepTo, actx.currentTime + dur);
+    g.gain.setValueAtTime(vol || 0.15, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + dur);
+    o.connect(g).connect(actx.destination);
+    o.start();
+    o.stop(actx.currentTime + dur);
+  } catch (e) { /* 忽略 */ }
+}
+const sfxPick = () => beep(520, .07, 'sine', .14);
+const sfxRight = () => { beep(660, .09, 'sine', .16); beep(880, .14, 'sine', .16); };
+const sfxWrong = () => beep(210, .20, 'square', .08);
+const sfxSnap = () => beep(990, .10, 'triangle', .16, 660);
+const sfxWin = () => {
+  beep(523, .12, 'sine', .16); setTimeout(() => beep(659, .12, 'sine', .16), 120);
+  setTimeout(() => beep(784, .12, 'sine', .16), 240);
+  setTimeout(() => beep(1047, .2, 'sine', .18), 360);
+};
+$('btnMute').addEventListener('click', () => {
+  muted = !muted;
+  $('btnMute').textContent = muted ? '🔇' : '🔊';
+  if (muted && synth) synth.cancel();
+});
+
+/* ---------------- 关卡装饰（纯绘制背景，非拼块） ---------------- */
+function drawCatDeco(g, cx, cy, s) {
+  /* 猫耳、胡须、尾巴、眼睛鼻嘴 —— 纯装饰 */
+  g.fillStyle = 'rgba(80, 56, 34, .8)';
+  /* 耳朵 */
+  g.beginPath();
+  g.moveTo(cx - s * 0.58, cy - s * 0.72);
+  g.lineTo(cx - s * 0.50, cy - s * 0.98);
+  g.lineTo(cx - s * 0.30, cy - s * 0.76);
+  g.closePath();
+  g.fill();
+  g.beginPath();
+  g.moveTo(cx + s * 0.58, cy - s * 0.72);
+  g.lineTo(cx + s * 0.50, cy - s * 0.98);
+  g.lineTo(cx + s * 0.30, cy - s * 0.76);
+  g.closePath();
+  g.fill();
+  /* 眼睛 */
+  g.fillStyle = '#2c2418';
+  g.beginPath(); g.arc(cx - s * 0.20, cy - s * 0.10, s * 0.05, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.arc(cx + s * 0.20, cy - s * 0.10, s * 0.05, 0, Math.PI * 2); g.fill();
+  /* 鼻子嘴 */
+  g.fillStyle = '#ff5c8a';
+  g.beginPath();
+  g.moveTo(cx - s * 0.03, cy + s * 0.02);
+  g.lineTo(cx + s * 0.03, cy + s * 0.02);
+  g.lineTo(cx, cy + s *  0.07);
+  g.closePath();
+  g.fill();
+  g.strokeStyle = '#2c2418';
+  g.lineWidth = Math.max(1.5, s * 0.015);
+  g.beginPath();
+  g.moveTo(cx, cy + s * 0.07); g.lineTo(cx, cy + s *  0.11);
+  g.moveTo(cx - s * 0.05, cy + s * 0.11); g.lineTo(cx + s * 0.05, cy + s * 0.11);
+  g.stroke();
+  /* 胡须 */
+  g.strokeStyle = 'rgba(60, 48, 30, .85)';
+  g.beginPath();
+  for (let i = -1; i <= 1; i++) {
+    g.moveTo(cx - s * 0.40, cy + i * s * 0.05);
+    g.lineTo(cx - s * 0.62, cy + i * s * 0.07);
+    g.moveTo(cx + s * 0.40, cy + i * s * 0.05);
+    g.lineTo(cx + s * 0.42 + s * 0.20, cy + i * s * 0.07);
+  }
+  g.stroke();
+}
+function drawHouseDeco(g, cx, cy, s) {
+  /* 门 */
+  g.fillStyle = 'rgba(92, 64, 38, .85)';
+  g.beginPath();
+  g.moveTo(cx - s * 0.08, cy + s * 0.60);
+  g.lineTo(cx - s * 0.70, cy + s * 0.60);
+  g.closePath();
+  g.fill();
+  g.fillRect(cx - s * 0.16, cy + s * 0.24, s * 0.32, s * 0.36);
+  /* 门把手 */
+  g.fillStyle = '#ffd35c';
+  g.beginPath(); g.arc(cx + s * 0.08, cy + s * 0.44, s * 0.025, 0, Math.PI * 2); g.fill();
+  /* 窗户 */
+  g.fillStyle = 'rgba(189, 228, 255, .85)';
+  g.fillRect(cx - s * 0.42, cy + s * 0.30, s * 0.20, s * 0.20);
+  g.fillRect(cx + s * 0.22, cy + s * 0.30, s * 0.20, s * 0.20);
+  /* 烟囱 */
+  g.fillStyle = 'rgba(92, 64, 38, .85)';
+  g.fillRect(cx + s * 0.34, cy - s * 0.62, s * 0.12, s * 0.24);
+  /* 屋檐线 */
+  g.strokeStyle = 'rgba(60, 48, 30, .5)';
+  g.lineWidth = Math.max(1.5, s * 0.012);
+  g.strokeRect(cx - s * 0.42, cy + s * 0.30, s * 0.20, s * 0.20);
+}
+function drawBoatDeco(g, cx, cy, s) {
+  /* 水面 */
+  g.fillStyle = 'rgba(72, 126, 170, .30)';
+  g.fillRect(cx - s * 1.20, cy + s * 0.58, s * 2.40, s * 0.40);
+  /* 波浪线 */
+  g.strokeStyle = 'rgba(180, 222, 255, .45)';
+  g.lineWidth = Math.max(2, s * 0.018);
+  g.beginPath();
+  for (let i = 0; i < 4; i++) {
+    const wy = cy + s * (0.66 + i * 0.10);
+    g.moveTo(cx - s * 1.10, wy);
+    g.quadraticCurveTo(cx - s * 0.55, wy - s * 0.05, cx, wy);
+    g.quadraticCurveTo(cx + s * 0.55, wy + s * 0.05, cx + s * 1.10, wy);
+  }
+  g.stroke();
+}
+function drawRocketDeco(g, cx, cy, s) {
+  /* 尾焰（上 = 尾部朝下） */
+  g.fillStyle = 'rgba(255, 170, 60, .9)';
+  g.beginPath();
+  g.moveTo(cx - s * 0.14, cy + s * 0.74);
+  g.lineTo(cx, cy + s * 1.05);
+  g.lineTo(cx + s * 0.14, cy + s * 0.74);
+  g.closePath();
+  g.fill();
+  g.fillStyle = 'rgba(255, 224, 130, .95)';
+  g.beginPath();
+  g.moveTo(cx - s * 0.07, cy + s * 0.74);
+  g.lineTo(cx, cy + s * 0.92);
+  g.lineTo(cx + s * 0.07, cy + s * 0.74);
+  g.closePath();
+  g.fill();
+  /* 旁边小星星 */
+  g.fillStyle = 'rgba(255, 235, 170, .8)';
+  const stars = [[-0.9, -0.5], [0.85, -0.35], [-0.7, 0.6], [0.8, 0.75]];
+  for (const [fx, fy] of stars) {
+    g.beginPath();
+    g.arc(cx + fx * s, cy + fy * s, s * 0.03, 0, Math.PI * 2);
+    g.fill();
+  }
+}
+
+/* ---------------- 工具 ---------------- */
+function makeRotate(r) { return Math.PI / 2 * r; }
+function rotStep(cw) { return cw ? 1 : 3; }
+function fillStyleDark(hex, amt) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.round(((n >> 16) & 255) * amt);
+  const g = Math.round(((n >> 8) & 255) * amt);
+  const b = Math.round((n & 255) * amt);
+  return `rgb(${r},${g},${b})`;
+}
+function piecePoints(piece, forSlot) {
+  const S = forSlot ? piece.slotSize : piece.size;
+  return PIECE_DEFS[piece.def].pts.map(p => ({
+    x: piece.x + p[0] * S, y: piece.y + p[1] * S,
+  }));
+}
+function polygonArea(pts) {
+  let a = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const q = pts[(i + 1) % pts.length];
+    a += pts[i].x * q.y - q.x * pts[i].y;
+  }
+  return Math.abs(a) / 2;
+}
+function centroidsMatch(a, b, tol) {
+  const dx = a.x - b.x, dy = a.y - b.y;
+  return Math.hypot(dx, dy) <= tol;
+}
+function pieceCentroid(piece, forSlot) {
+  const pts = piecePoints(piece, forSlot);
+  let x = 0, y = 0;
+  for (const p of pts) { x += p.x; y += p.y; }
+  return { x: x / pts.length, y: y / pts.length };
+}
+/* 点到多边形（画布绝对坐标）是否在内部（含边界容差 tol） */
+function pointInPolygon(px, py, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i].x, yi = poly[i].y, xj = poly[j].x, yj = poly[j].y;
+    if ((yi > py) !== (yj > py) &&
+        px < (xj - xi) * (py - yi) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+function dist(x1, y1, x2, y2) { return Math.hypot(x2 - x1, y2 - y1); }
+
+/* ---------------- 关卡构建 ---------------- */
+function layoutPositions() {
+  /* 左侧目标轮廓区 / 右侧拼块托盘区（按窗口大小自适应） */
+  boardCX = Math.min(W * 0.32, W / 2 - H * 0.36);
+  boardCY = H * 0.52;
+  unit = Math.min(H * 0.30, W * 0.15, boardCX * 0. + H * 0.30);
+  unit = Math.min(H * 0.30, W * 0.16);
+  trayX = Math.max(W * 0.5 + H * 0.22, W * 0.62);
+  trayY = H * 0.50;
+}
+let boardCX = 0, boardCY = 0, unit = 40, trayX = 0, trayY = 0;
+function buildLevel(idx) {
+  slotsInitDone = false;
+  const def = LEVELS[idx];
+  slots = [];
+  pieces = [];
+  selected = -1;
+  winT = -1;
+  nextLevelT = -1;
+  hoverIdx = -1;
+  rotAnim = 0;
+  placedCount = 0;
+  layoutPositions();
+  def.slots.forEach((sl, i) => {
+    slots.push({
+      idx: i,
+      piece: sl.p,
+      x: boardCX + sl.x * unit * 2,
+      y: boardCY + sl.y * unit * 2,
+      rot: sl.r,
+      done: false, doneT: 0,
+    });
+  });
+  def.pieces.forEach((pIdx, i) => {
+    const angs = [(-72 + i * 35) * Math.PI / 180, (i * 53 - 24) * Math.PI / 180];
+    const rr = unit * (1.5 + (i % 3) * 0.42);
+    pieces.push({
+      def: pIdx,
+      trayIndex: i,
+      x: trayX + Math.cos(angs[0]) * rr,
+      y: trayY + Math.sin(angs[1]) * rr,
+      size: (pIdx === 2 ? 0.707 : 1) * unit,
+      slotSize: 0,                 /* 占位，resolveSlot 时按面积相容计算 */
+      rot: 0,
+      placedSlot: -1,
+      pop: 0,
+      hintT: 0,
+      wiggle: 0,
+    });
+  });
+  resolveSlotSizes();
+  slotsInitDone = true;
+}
+function resolveSlotSizes() {
+  /* 按面积相容 + 首槽优先：每块拼块恰好可放入面积相容且未被占用的槽位 */
+  const areaTol = 0.15;
+  for (const sl of slots) {
+    if (sl.piece === undefined) continue;
+    /* 槽位基础尺寸 = unit（与大三角一致），不同拼块按面积缩放 */
+    const slotPiece = { def: sl.piece, x: sl.x, y: sl.y, size: unit };
+    const base = polygonArea(piecePoints(slotPiece, false));
+    for (const pc of pieces) {
+      if (pc.placedSlot >= 0) continue;
+      const defsEq = PIECE_DEFS[pc.def].name === PIECE_DEFS[sl.piece].name;
+      if (!defsEq) continue;
+      const pcArea = polygonArea(piecePoints(pc, false));
+      if (Math.abs(pcArea - base) <= base * areaTol) {
+        /* 尺寸已建时确保 slotSize 合适 */
+        pc.slotSize = unit;
+        break;
+      }
+    }
+  }
+}
+
+/* ---------------- HUD / 反馈 ---------------- */
+function updateHUD() {
+  $('hudLevel').textContent = level + 1;
+  $('hudPlaced').textContent = placedCount;
+  $('hudStreak').textContent = streak;
+}
+let toastTimer = null;
+function toast(text, good) {
+  toastEl.textContent = text;
+  toastEl.style.color = good ? '#7dffa1' : '#ff9d9d';
+  toastEl.classList.add('pop');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('pop'), 900);
+}
+
+/* ---------------- 交互 ---------------- */
+function pieceAt(px, py) {
+  /* 从最上层（后画的）往下找：遍历反序 */
+  for (let i = pieces.length - 1; i >= 0; i--) {
+    const poly = rotatedPoly(i, 1);
+    if (pointInPolygon(px, py, poly)) return i;
+  }
+  return -1;
+}
+function rotatedPoly(i, scaleKind) {
+  const pc = pieces[i];
+  const pts = piecePoints(pc, false);
+  return rotatePolyAbout(pts, pc.x, pc.y, pc.rot * Math.PI / 2);
+}
+function rotatePolyAbout(pts, ox, oy, ang) {
+  const c = Math.cos(ang), s = Math.sin(ang);
+  return pts.map(p => ({
+    x: ox + (p.x - ox) * c - (p.y - oy) * s,
+    y: oy + (p.x - ox) * s + (p.y - oy) * c,
+  }));
+}
+function canvasPoint(ev) {
+  return { x: ev.clientX, y: ev.clientY };
+}
+function firstFreeSlotFor(pc, px, py) {
+  /* 吸附规则：距离槽位 < 30px 的中心点且类型相同 */
+  const cand = [];
+  for (const sl of slots) {
+    if (sl.done) continue;
+    const sameType = PIECE_DEFS[sl.piece].name === PIECE_DEFS[pc.def].name;
+    if (!sameType) continue;
+    const d = dist(px, py, sl.x, sl.y);
+    if (d <= SNAP_DIST) cand.push({ sl, d });
+  }
+  cand.sort((a, b) => a.d - b.d);
+  return cand[0] ? cand[0].sl : null;
+}
+const PRAISES = ['太棒了', '好厉害', '真不错', '顶呱呱', '拼得真好'];
+function randomPraise() {
+  return PRAISES[Math.floor(Math.random() * PRAISES.length)];
+}
+
+/* canvas 点击：选中 / 放置 / 拿回 */
+canvas.addEventListener('click', ev => {
+  if (state !== STATE.RUNNING) return;
+  const pt = canvasPoint(ev);
+  const hit = pieceAt(pt.x, pt.y);
+  if (hit >= 0) {
+    const pc = pieces[hit];
+    if (pc.placedSlot >= 0) {
+      /* 已放置 → 拿回托盘（不惩罚） */
+      const sl = slots[pc.placedSlot];
+      sl.done = false; sl.doneT = 0;
+      pc.placedSlot = -1;
+      placedCount--;
+      selected = hit;
+      pc.pop = 1;
+      sfxPick();
+      caption('把拼块拿回来啦，再选个位置试试！');
+      updateHUD();
+    } else {
+      selected = (selected === hit) ? -1 : hit;
+      if (selected >= 0) {
+        pieces[hit].pop = 1;
+        sfxPick();
+        caption(`已选中「${PIECE_DEFS[pc.def].name}」，点击左边轮廓里的影子来放置`);
+      }
+    }
+    return;
+  }
+  /* 点击空白：若有选中块，尝试放置到附近槽位 */
+  if (selected >= 0) {
+    tryPlaceSelected(pt.x, pt.y);
+  }
+});
+
+function tryPlaceSelected(px, py) {
+  const pc = pieces[selected];
+  const cand = firstFreeSlotFor(pc, px, py);
+  if (!cand) {
+    wrongTotal++;
+    streak = 0;
+    pc.wiggle = 0.5;
+    const sl0 = firstHintSlotFor(pc);
+    const hintPos = sl0 ? `${PIECE_DEFS[sl0.piece].name}的影子` : '轮廓里的影子';
+    say(`这里放不进去哦，放到${hintPos}再试试！`);
+    sfxWrong();
+    updateHUD();
+    return;
+    }
+  placePiece(selected, cand.idx);
+}
+function firstHintSlotFor(pc) {
+  for (const sl of slots) {
+    if (!sl.done && PIECE_DEFS[sl.piece].name === PIECE_DEFS[pc.def].name) return sl;
+  }
+  return null;
+}
+function placePiece(pieceIdx, slotIdx) {
+  const pc = pieces[pieceIdx];
+  const sl = slots[slotIdx];
+  pc.placedSlot = slotIdx;
+  sl.done = true;
+  sl.doneT = 0.001;   // 启动落位动画
+  pc.x = sl.x; pc.y = sl.y;
+  pc.rot = sl.rot;
+  pc.pop = 1;
+  placedCount++;
+  selected = -1;
+  sfxSnap();
+  const praise = randomPraise();
+  toast(praise, true);
+  say(`${praise}！${PIECE_DEFS[pc.def].name}放好啦`);
+  updateHUD();
+  if (placedCount >= slots.length) {
+    winT = WIN_T;
+    winLevel = level;
+    streak++;
+    if (streak > bestStreak) bestStreak = streak;
+    sfxWin();
+    spawnConfetti();
+    say(`${LEVELS[level].name}拼好啦！${praise}！`);
+    nextLevelT = WIN_T + 0.2;
+  }
+}
+
+/* 旋转按钮 */
+function rotateButtonRect() {
+  const bs = Math.min(56, W * 0.09);
+  const pad = 12;
+  return { x: W - bs - pad - 14, y: H - bs - pad - 16, w: bs, h: bs };
+}
+function inRotateButton(px, py) {
+  const r = rotateButtonRect();
+  return px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h;
+}
+canvas.addEventListener('pointerdown', ev => {
+  if (state !== STATE.RUNNING) return;
+  const pt = canvasPoint(ev);
+  if (inRotateButton(pt.x, pt.y)) {          /* 修复：原代码 px/py 未定义 */
+    rotateHintT = 1;
+    if (selected < 0) {
+      say('先点选一块拼板，再点旋转哦');
+      return;
+    }
+    const pc = pieces[selected];
+    pc.rot = (pc.rot + 1) % 4;
+    pc.pop = 1;
+    rotAnim = 0.5;
+    sfxPick();
+    caption('转了个方向！');
+    return;
+  }
+});
+
+/* ---------------- 渲染 ---------------- */
+function spawnConfetti() {
+  for (let i = 0; i < 90; i++) {
+    const a = Math.random() * Math.PI * 2, sp = 2 + Math.random() * 5;
+    confetti.push({
+      x: boardCX, y: boardCY,
+      vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 3,
+      rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 0.3,
+      color: PIECE_DEFS[Math.floor(Math.random() * 7)].color,
+      size: 5 + Math.random() * 5, life: 1,
+    });
+  }
+}
+function drawSlotShadow(sl) {
+  const pts = piecePoints({ def: sl.piece, x: sl.x, y: sl.y, size: unit, slotSize: unit }, false);
+  const poly = rotatePolyAbout(pts, sl.x, sl.y, makeRotate(sl.rot));
+  ctx.save();
+  if (sl.done) {
+    ctx.fillStyle = 'rgba(120,255,170,.10)';
+    ctx.strokeStyle = 'rgba(120,255,170,.75)';
+    ctx.lineWidth = 3;
+  } else {
+    ctx.fillStyle = 'rgba(255,255,255,.05)';
+    ctx.strokeStyle = 'rgba(255,255,255,.45)';
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([7, 6]);
+  }
+  ctx.beginPath();
+  poly.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  ctx.restore();
+}
+function drawPieceAt(i, t) {
+  const pc = pieces[i];
+  const def = PIECE_DEFS[pc.def];
+  const sc = 1 + (pc.pop > 0 ? Math.sin(pc.pop * Math.PI) * 0.08 : 0);
+  const poly = rotatePolyAbout(piecePoints(pc, false), pc.x, pc.y, makeRotate(pc.rot));
+  ctx.save();
+  /* 阴影 */
+  ctx.fillStyle = 'rgba(0,0,0,.35)';
+  ctx.beginPath();
+  poly.forEach((p, k) => k === 0 ? ctx.moveTo(p.x + 4, p.y + 6) : ctx.lineTo(p.x + 4, p.y + 6));
+  ctx.closePath(); ctx.fill();
+  /* 主体 */
+  ctx.fillStyle = def.color;
+  if (i === selected) {
+    ctx.shadowColor = '#ffd35c'; ctx.shadowBlur = 22;
+  }
+  ctx.beginPath();
+  poly.forEach((p, k) => k === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+  ctx.closePath(); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(15,23,45,.55)';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+  ctx.restore();
+}
+function drawBoard(t) {
+  /* 底板 */
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#20263c');
+  g.addColorStop(1, '#141a2c');
+  ctx.fillStyle = g;
+  roundR(boardCX - unit * 2.6, boardCY - unit * 2.6, unit * 5.2, unit * 5.2, 18);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(140,180,255,.25)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  /* 关卡装饰 */
+  if (LEVELS[level] && LEVELS[level].deco) {
+    LEVELS[level].deco(ctx, boardCX, boardCY, unit * 1.1);
+  }
+  /* 槽位影子 */
+  slots.forEach(sl => drawSlotShadow(sl));
+  /* 托盘标签 */
+  ctx.fillStyle = 'rgba(220,235,255,.55)';
+  ctx.font = '15px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('拼 板 托 盘', trayX, trayY - unit * 1.7);
+}
+function drawTray(t) {
+  pieces.forEach((pc, i) => {
+    if (pc.placedSlot >= 0) return;
+    drawPieceAt(i, t);
+  });
+}
+function drawPlaced(t) {
+  slots.forEach((sl, i) => {
+    if (!sl.done) return;
+    const pc = pieces.find(p => p.placedSlot === i);
+    if (!pc) return;
+    drawPieceAt(pieces.indexOf(pc), t);
+  });
+}
+function drawRotateButton(t) {
+  const r = rotateButtonRect();
+  ctx.save();
+  ctx.fillStyle = 'rgba(30,40,70,.92)';
+  roundR(r.x, r.y, r.w, r.h, 14);
+  ctx.fill();
+  ctx.strokeStyle = rotateHintT > 0 ? '#ffd35c' : 'rgba(140,180,255,.5)';
+  ctx.lineWidth = rotateHintT > 0 ? 3 : 2;
+  ctx.stroke();
+  ctx.fillStyle = '#eaf4ff';
+  ctx.font = 'bold 26px system-ui, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('⟳', r.x + r.w / 2, r.y + r.h / 2 + 1);
+  ctx.font = '12px system-ui, sans-serif';
+  ctx.fillText('旋转', r.x + r.w / 2, r.y + r.h - 8);
+  ctx.restore();
+}
+function drawConfetti(t) {
+  for (const c of confetti) {
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, c.life);
+    ctx.translate(c.x, c.y);
+    ctx.rotate(c.rot);
+    ctx.fillStyle = c.color;
+    ctx.fillRect(-c.size / 2, -c.size / 4, c.size, c.size / 2);
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+}
+function roundR(x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function render(t) {
+  /* 深夜背景 + 星点 */
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#101a3c');
+  bg.addColorStop(1, '#0b1026');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = 'rgba(220,235,255,.5)';
+  for (let i = 0; i < 36; i++) {
+    const x = (i * 137.5) % W, y = (i * 89.3) % (H * 0.35);
+    ctx.globalAlpha = 0.15 + 0.25 * (0.5 + 0.5 * Math.sin(t + i));
+    ctx.fillRect(x, y, 2, 2);
+  }
+  ctx.globalAlpha = 1;
+
+  drawBoard(t);
+  drawPlaced(t);
+  drawTray(t);
+  if (state === STATE.RUNNING) drawRotateButton(t);
+  drawConfetti(t);
+
+  /* 过关横幅 */
+  if (winT > 0) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, winT / 0.4);
+    ctx.font = 'bold 46px system-ui, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ffd35c';
+    ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 12;
+    ctx.fillText(`${LEVELS[winLevel] ? LEVELS[winLevel].name : ''} 拼好啦！`, W / 2, H * 0.30);
+    ctx.restore();
+  }
+}
+function update(dt, t) {
+  /* 动画计时衰减 */
+  pieces.forEach(pc => {
+    if (pc.pop > 0) pc.pop = Math.max(0, pc.pop - dt * 2.4);
+    if (pc.wiggle > 0) pc.wiggle = Math.max(0, pc.wiggle - dt * 2);
+    if (pc.hintT > 0) pc.hintT = Math.max(0, pc.hintT - dt);
+  });
+  if (rotAnim > 0) rotAnim = Math.max(0, rotAnim - dt);
+  if (rotateHintT > 0) rotateHintT = Math.max(0, rotateHintT - dt * 0.4);
+  if (showHint > 0) showHint = Math.max(0, showHint - dt);
+  slots.forEach(sl => { if (sl.doneT > 0) sl.doneT = Math.min(SLOT_DONE_T, sl.doneT + dt); });
+  /* 彩纸物理 */
+  for (const c of confetti) {
+    c.x += c.vx; c.y += c.vy; c.vy += 0.12; c.rot += c.vr; c.life -= dt * 0.5;
+  }
+  confetti = confetti.filter(c => c.life > 0);
+  /* 过关庆祝 → 下一关 / 结算 */
+  if (winT > 0) {
+    winT -= dt;
+    if (winT <= 0) {
+      winT = -1;
+      if (level + 1 >= LEVELS.length) {
+        showResult();
+      } else {
+        level++;
+        buildLevel(level);
+        say(`${LEVELS[level].greeting}`);
+      }
+    }
+  }
+}
+function showResult() {
+  let title, medal;
+  if (bestStreak >= 4)      { title = '🥇 七巧板大师！'; medal = '金牌'; }
+  else if (bestStreak >= 2) { title = '🥈 七巧板高手！'; medal = '银牌'; }
+  else if (bestStreak >= 1) { title = '🥉 七巧板新手！'; medal = '铜牌'; }
+  else                      { title = '🎉 拼完啦！';     medal = '参与'; }
+  $('resultTitle').textContent = title;
+  $('resultDesc').innerHTML =
+    `闯过 <b style="color:#ffd35c">${LEVELS.length}</b> 关（${medal}）<br>` +
+    `最佳连对 <b style="color:#medal">${bestStreak}</b> 次 · 放错 <b style="color:#ff9d9d">${wrongTotal}</b> 次<br>` +
+    `七巧板都被你拼好啦！`;
+  $('result').classList.add('show');
+  state = STATE.FINISH;
+  say(`全部拼好啦！你闯过了${LEVELS.length}关，获得${medal}！`);
+}
+
+/* 主循环 */
+let lastT = 0;
+function frame(now) {
+  const dt = Math.min(0.05, lastT === 0 ? 0.016 : (now - lastT) / 1000);
+  lastT = now;
+  if (state === STATE.RUNNING) update(dt, now / 1000);
+  render(now / 1000);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ---------------- 开始 / 重开 ---------------- */
+$('btnStart').addEventListener('click', () => {
+  initAudio();
+  $('start').style.display = 'none';
+  resetGame();
+  state = STATE.RUNNING;
+  say(LEVELS[0].greeting);
+});
+$('btnRestart').addEventListener('click', () => {
+  $('result').classList.remove('show');
+  resetGame();
+  state = STATE.RUNNING;
+  say(LEVELS[0].greeting);
+});
+function resetGame() {
+  level = 0; streak = 0; bestStreak = 0; wrongTotal = 0;
+  selected = -1; confetti = [];
+  winT = -1; winLevel = -1; nextLevelT = -1;
+  buildLevel(0);
+  updateHUD();
+}
+
+/* ---------------- 测试钩子 ---------------- */
+window.__testPieces = () => pieces.map((p, i) => ({ idx: i, def: p.def, name: PIECE_DEFS[p.def].name, rot: p.rot, placed: p.placedSlot }));
+window.__testSlots = () => slots.map((s, i) => ({ idx: i, piece: s.piece, done: s.done }));
+window.__testState = () => ({ state, level, placed: placedCount, total: slots.length, streak, bestStreak, wrong: wrongTotal });
+window.__testPlace = (pieceIdx, slotIdx) => {
+  const pc = pieces[pieceIdx];
+  if (!pc || pc.placedSlot >= 0) return false;
+  const sl = slots[slotIdx];
+  if (!sl || sl.done) return false;
+  if (PIECE_DEFS[pc.def].name !== PIECE_DEFS[sl.piece].name) return false;
+  placePiece(pieceIdx, slotIdx);
+  return true;
+};
+window.__testRotate = pieceIdx => {
+  const pc = pieces[pieceIdx];
+  pc.rot = (pc.rot + 1) % 4;
+  return pc.rot;
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>数字小火车 · Number Train</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  body {
+    background: #7ec8ff;
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+  }
+  #game { display: block; width: 100vw; height: 100vh; }
+  .hud { position: absolute; top: 46px; left: 14px; z-index: 10; display: flex; gap: 10px; flex-wrap: wrap; pointer-events: none; }
+  .hud-chip { background: rgba(30, 60, 30, .35); border: 1px solid rgba(255,255,255,.55); border-radius: 14px; color: #143a14; padding: 7px 15px; font-size: 17px; font-weight: 700; box-shadow: 0 4px 18px rgba(0,0,0,.18); backdrop-filter: blur(6px); }
+  .hud-chip b { color: #0d5c0d; font-size: 21px; }
+  #btnMute { position: absolute; top: 12px; right: 12px; z-index: 60; font-size: 20px; line-height: 1; padding: 9px 13px; border-radius: 12px; cursor: pointer; background: rgba(30,60,30,.35); border: 1px solid rgba(255,255,255,.55); color: #143a14; }
+  #caption { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 15; background: rgba(255,255,255,.9); border: 2px solid #59d18a; border-radius: 18px; color: #0d5c0d; padding: 10px 26px; font-size: 21px; font-weight: 800; letter-spacing: 1px; pointer-events: none; white-space: nowrap; max-width: 92vw; text-align: center; box-shadow: 0 6px 20px rgba(0,0,0,.2); }
+  #toast { position: absolute; left: 50%; top: 26%; transform: translate(-50%, -50%) scale(1); z-index: 30; font-size: 54px; font-weight: 800; color: #0d5c0d; text-shadow: 0 3px 12px rgba(255,255,255,.8); opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; white-space: nowrap; }
+  #toast.pop { opacity: 1; transform: translate(-50%, -58%) scale(1.12); }
+  #result { position: absolute; inset: 0; z-index: 40; background: rgba(20, 58, 20, .55); display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+  #result.show { display: flex; }
+  .result-card { text-align: center; color: #143a14; background: linear-gradient(160deg, #ffffff, #dff2e2); border: 2px solid #59d18a; border-radius: 26px; padding: 30px 44px; box-shadow: 0 20px 60px rgba(0,0,0,.3); max-width: 88vw; }
+  .result-card h1 { font-size: 38px; color: #0d5c0d; margin-bottom: 12px; }
+  .result-card p { font-size: 17px; color: #2c5c2c; margin: 6px 0 22px; line-height: 1.8; }
+  .result-card button { font-size: 20px; padding: 12px 42px; border-radius: 999px; border: none; cursor: pointer; background: linear-gradient(90deg, #37d67a, #59ff9c); color: #06331a; font-weight: 700; letter-spacing: 4px; box-shadow: 0 6px 20px rgba(55,214,122,.45); font-family: inherit; }
+  #start { position: absolute; inset: 0; z-index: 50; background: linear-gradient(180deg, #7ec8ff 0%, #b8e986 70%); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #143a14; text-align: center; padding: 20px; }
+  #start h1 { font-size: clamp(38px, 8vw, 60px); letter-spacing: 6px; color: #0d5c0d; text-shadow: 0 2px 0 #fff; margin-bottom: 14px; }
+  #start p { font-size: 16px; color: #2c5c2c; line-height: 2; max-width: 560px; }
+  #start .rules { margin: 22px 0 28px; }
+  #start button { font-size: 21px; padding: 14px 56px; border-radius: 999px; border: none; cursor: pointer; background: linear-gradient(90deg, #ff9c5c, #ffd35c); color: #3a2200; font-weight: 800; letter-spacing: 6px; box-shadow: 0 8px 26px rgba(255,156,92,.5); font-family: inherit; }
+  #start button:active { transform: scale(.97); }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<button id="btnMute" title="声音开关">🔊</button>
+<div class="hud">
+  <div class="hud-chip">第 <b id="hudLevel">1</b> / 8 关</div>
+  <div class="hud-chip">连对 <b id="hudStreak">0</b> 🔥</div>
+  <div class="hud-chip">已挂 <b id="hudCoupled">0</b> / <b id="hudTotal">3</b> 节</div>
+</div>
+<div id="caption" style="display:none"></div>
+<div id="toast"></div>
+<div id="result">
+  <div class="result-card">
+    <h1 id="resultTitle">🚂 全线通车！</h1>
+    <p id="resultDesc"></p>
+    <button id="btnRestart">再玩一次</button>
+  </div>
+</div>
+<div id="start">
+  <h1>数字小火车</h1>
+  <p class="rules">
+    车站的月台上停着好多车厢，上面写着数字。<br>
+    听语音提示，<b>按顺序</b> 1 → 2 → 3 点击车厢，把它们挂到火车上！<br>
+    挂满整列火车就会呜呜地开走，一共 <b>8 站</b>哦～
+  </p>
+  <button id="btnStart">发车！</button>
+</div>
+<script>
+/* =========================================================
+ * 数字小火车 Number Train —— 单文件 Canvas 小游戏（G2）
+ * 月台散乱车厢，按 1..N 顺序点击挂车；挂满开走，8 关递增。
+ * ========================================================= */
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0;
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+window.addEventListener('resize', resize);
+resize();
+
+const STATE = { START: 0, RUNNING: 1, FINISH: 2 };
+let state = STATE.START;
+let level = 1, streak = 0, bestStreak = 0, wrongTotal = 0;
+let cars = [];                 // 月台车厢 [{num, x, y, hit, wiggle}]
+let coupled = [];              // 已挂车厢号（按序）
+let coupledTarget = 3;
+let smoke = [];                // 烟囱粒子
+let trainX = 0;                // 火车水平位置（开走动画）
+let departT = -1;              // 开走计时
+let nextT = -1;                // 进下一关延迟
+let flyingCar = null;          // 飞行中车厢 {car, t, from, to}
+let carHits = [];
+let shake = 0;
+
+const CAR_COLORS = ['#ff8a5c', '#6bd5ff', '#ffd35c', '#a78bfa', '#ff6b8a', '#4ade80', '#5eead4', '#f0a5ff'];
+
+const $ = id => document.getElementById(id);
+const captionEl = $('caption');
+const toastEl = $('toast');
+
+/* 语音 */
+const synth = window.speechSynthesis || null;
+let zhVoice = null;
+function pickVoice() {
+  if (!synth) return;
+  const vs = synth.getVoices();
+  zhVoice = vs.find(v => /zh[-_]CN/i.test(v.lang)) || vs.find(v => /^zh/i.test(v.lang)) || null;
+}
+if (synth) { pickVoice(); if (synth.onvoiceschanged !== undefined) synth.onvoiceschanged = pickVoice; }
+function speak(text) {
+  if (muted || !synth) return;
+  try {
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN'; if (zhVoice) u.voice = zhVoice; u.rate = 0.92;
+    synth.speak(u);
+  } catch (e) {}
+}
+function say(text) { caption(text); speak(text); }
+function caption(text) {
+  captionEl.style.display = 'block';
+  captionEl.textContent = text;
+}
+
+/* 音效 */
+let actx = null, muted = false;
+function initAudio() {
+  if (actx) { actx.resume && actx.resume(); return; }
+  try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+}
+function beep(freq, dur, type, vol, delay, sweepTo) {
+  if (!actx || muted) return;
+  const t0 = actx.currentTime + (delay || 0);
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type || 'sine';
+  o.frequency.setValueAtTime(freq, t0);
+  if (sweepTo) o.frequency.exponentialRampToValueAtTime(sweepTo, t0 + dur);
+  g.gain.setValueAtTime(vol || 0.15, t0);
+  g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+  o.connect(g).connect(actx.destination);
+  o.start(t0); o.stop(t0 + dur + 0.02);
+}
+const sfxPick  = () => beep(520, .08, 'sine', .15);
+const sfxRight = () => { beep(660, .1, 'sine', .18); beep(880, .14, 'sine', .18, .1); };
+const sfxWrong = () => beep(190, .22, 'sawtooth', .1);
+const sfxWhistle = () => { beep(880, .5, 'square', .12, 0, 660); beep(660, .4, 'square', .1, .5, 880); };
+const sfxChug = () => beep(140, .1, 'square', .08);
+const sfxWin = () => { [523, 659, 784, 1047].forEach((f, i) => beep(f, .22, 'sine', .17, i * 0.13)); };
+
+$('btnMute').addEventListener('click', () => {
+  muted = !muted;
+  $('btnMute').textContent = muted ? '🔇' : '🔊';
+  if (muted && synth) synth.cancel();
+});
+
+/* HUD / 提示 */
+function updateHUD() {
+  $('hudLevel').textContent = level;
+  $('hudStreak').textContent = streak;
+  $('hudCoupled').textContent = coupled.length;
+  $('hudTotal').textContent = coupledTarget;
+}
+let toastTimer = null;
+function toast(text, good) {
+  toastEl.textContent = text;
+  toastEl.style.color = good ? '#0d5c0d' : '#c22';
+  toastEl.classList.add('pop');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('pop'), 900);
+}
+
+/* 关卡生成：月台随机摆 coupledTarget 节车厢（数字 1..N 乱序） */
+function buildLevel() {
+  coupledTarget = Math.min(3 + level - 1, 8);
+  coupled = [];
+  const nums = [];
+  for (let i = 1; i <= coupledTarget; i++) nums.push(i);
+  for (let i = nums.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [nums[i], nums[j]] = [nums[j], nums[i]];
+  }
+  cars = [];
+  const cw = Math.min(110, (W - 80) / coupledTarget);
+  nums.forEach((n, i) => {
+    const col = i % Math.min(4, coupledTarget);
+    const row = Math.floor(i / 4);
+    const x = 60 + col * (cw + 24) + (Math.random() - 0.5) * 16;
+    const y = H * 0.52 + row * (cw * 0.85 + 24) + (Math.random() - 0.5) * 10;
+    cars.push({
+      num: n, x, y, w: cw, h: cw * 0.82,
+      wiggle: 0, bob: Math.random() * 6.28,
+      color: CAR_COLORS[(n - 1) % CAR_COLORS.length],
+    });
+  });
+  trainX = Math.min(140, W * 0.14);
+  departT = -1; nextT = -1;
+  updateHUD();
+  say(`第${level}站！按顺序挂车厢，先挂 1 号`);
+}
+
+/* 点击车厢 */
+function clickCar(car) {
+  if (state !== STATE.RUNNING || flyingCar || departT >= 0) return;
+  const need = coupled.length + 1;
+  if (car.num === need) {
+    // 正确：飞到火车尾
+    sfxRight();
+    coupled.push(car.num);
+    flyingCar = {
+      car,
+      from: { x: car.x, y: car.y },
+      t: 0,
+    };
+    cars = cars.filter(c => c !== car);
+    toast(`挂上 ${car.num} 号！`, true);
+    if (coupled.length >= coupledTarget) {
+      // 全挂上：开走
+      streak++;
+      if (streak > bestStreak) bestStreak = streak;
+    } else {
+      say(`挂上 ${car.num} 号啦！接下来挂 ${need + 1} 号`);
+    }
+  } else {
+    // 错误：车厢抖动 + 报该数字
+    wrongTotal++;
+    streak = 0;
+    car.wiggle = 0.6;
+    shake = 0.25;
+    sfxWrong();
+    toast(`这是 ${car.num} 号车厢`);
+    speak(`这是${car.num}号车厢，现在要挂${need}号哦，再找找看！`);
+    updateHUD();
+  }
+}
+
+/* 主循环 */
+function update(dt, t) {
+  if (shake > 0) shake = Math.max(0, shake - dt);
+  cars.forEach(c => {
+    if (c.wiggle > 0) c.wiggle = Math.max(0, c.wiggle - dt);
+  });
+  // 烟囱粒子
+  if (departT >= 0 || state === STATE.RUNNING) {
+    if (Math.random() < 0.3) {
+      smoke.push({ x: trainX + 34, y: H * 0.46 - 70, vx: -0.5 - Math.random(), vy: -0.8 - Math.random(), r: 6 + Math.random() * 8, life: 1 });
+    }
+  }
+  for (const s of smoke) { s.x += s.vx; s.y += s.vy; s.r += 0.15; s.life -= dt * 0.8; }
+  smoke = smoke.filter(s => s.life > 0);
+
+  // 飞行车厢动画
+  if (flyingCar) {
+    flyingCar.t += dt * 2.2;
+    if (flyingCar.t >= 1) {
+      flyingCar = null;
+      if (coupled.length >= coupledTarget) {
+        // 挂满：火车开走
+        departT = 0;
+        sfxWhistle();
+        say(`全部挂好啦！火车开走喽！`);
+      }
+    }
+  }
+  // 开走动画
+  if (departT >= 0) {
+    departT += dt;
+    trainX -= (120 + departT * 260) * dt;
+    if (Math.random() < 0.4) sfxChug();
+    if (departT > 2.6) {
+      departT = -1;
+      if (level >= 8) {
+        showResult();
+      } else {
+        nextT = 0.4;
+        speak('下一站到啦！');
+      }
+    }
+  }
+  if (nextT >= 0) {
+    nextT -= dt;
+    if (nextT <= 0) {
+      nextT = -1;
+      level++;
+      buildLevel();
+    }
+  }
+}
+
+/* 绘制 */
+function drawTrain(t) {
+  /* 轨道 */
+  const ry = H * 0.50;
+  ctx.fillStyle = '#a8825a';
+  ctx.fillRect(0, ry + 44, W, 10);
+  ctx.fillStyle = '#7a5a38';
+  for (let x = -20; x < W + 40; x += 28) {
+    ctx.fillRect(x, ry + 42, 14, 16);
+  }
+  /* 已挂车厢 */
+  const cw = Math.min(96, (W * 0.5) / coupledTarget);
+  const headW = Math.max(86, cw);
+  let x = trainX;
+  /* 火车头 */
+  drawLoco(x, ry, headW, t);
+  x += headW + 8;
+  coupled.forEach((n, i) => {
+    drawWagon(x, ry, cw, n, CAR_COLORS[(n - 1) % CAR_COLORS.length], t);
+    x += cw + 6;
+  });
+  /* 飞行中的车厢：从月台飞到火车尾 */
+  if (flyingCar) {
+    const fc = flyingCar;
+    const k = fc.t;
+    const targetX = x + 4;
+    const from = fc.from;
+    const toX = targetX, toY = ry;
+    const bx = from.x + (toX - from.x) * k;
+    const by = from.y + (toY - from.y) * k - Math.sin(k * Math.PI) * 120;
+    drawWagon(bx, by, cw, fc.car.num, fc.car.color, t, true);
+  }
+}
+function drawLoco(x, y, w, t) {
+  ctx.save();
+  ctx.translate(x, y);
+  /* 车身 */
+  ctx.fillStyle = '#e05c5c';
+  roundR(0, -58, w, 58, 8); ctx.fill();
+  ctx.fillStyle = '#b03c3c';
+  roundR(0, -30, w * 0.55, 30, 6); ctx.fill();
+  /* 驾驶室 */
+  ctx.fillStyle = '#c94a4a';
+  roundR(w * 0.55, -84, w * 0.45, 62, 8); ctx.fill();
+  ctx.fillStyle = '#bfe3ff';
+  roundR(w * 0.62, -78, w * 0.3, 26, 4); ctx.fill();
+  /* 烟囱 */
+  ctx.fillStyle = '#3a3a3a';
+  ctx.fillRect(w * 0.16, -92, 16, 34);
+  ctx.fillStyle = '#222';
+  ctx.fillRect(w * 0.12, -96, 24, 10);
+  /* 车轮 */
+  wheel(w * 0.25, 0, t); wheel(w * 0.75, 0, t);
+  ctx.restore();
+}
+function drawWagon(x, y, w, num, color, t, flying) {
+  ctx.save();
+  ctx.translate(x, y);
+  if (!flying) { /* 在轨 */ }
+  ctx.fillStyle = color;
+  roundR(0, -52, w, 48, 8); ctx.fill();
+  ctx.strokeStyle = 'rgba(30,30,30,.35)'; ctx.lineWidth = 3;
+  roundR(0, -52, w, 48, 8); ctx.stroke();
+  /* 大数字牌 */
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(w / 2, -28, Math.min(22, w * 0.26), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#1a2a55';
+  ctx.font = `bold ${Math.min(30, w * 0.34)}px system-ui, sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(String(num), w / 2, -27);
+  /* 车轮 */
+  wheel(w * 0.22, 0, t); wheel(w * 0.78, 0, t);
+  ctx.restore();
+}
+function wheel(x, y, t) {
+  ctx.fillStyle = '#2a2a2a';
+  ctx.beginPath(); ctx.arc(x, y, 11, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#888';
+  ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
+}
+function drawCars(t) {
+  cars.forEach(c => {
+    const bobY = Math.sin(t * 2 + c.bob) * 4;
+    const wig = c.wiggle > 0 ? Math.sin(t * 40) * c.wiggle * 14 : 0;
+    ctx.save();
+    ctx.translate(c.x + wig, c.y + bobY);
+    /* 热区底光 */
+    ctx.fillStyle = 'rgba(255,255,255,.5)';
+    roundR(-6, -6, c.w + 12, c.h + 12, 12); ctx.fill();
+    /* 车厢 */
+    ctx.fillStyle = c.color;
+    roundR(0, 0, c.w, c.h, 10); ctx.fill();
+    ctx.strokeStyle = 'rgba(20,40,20,.4)'; ctx.lineWidth = 3;
+    roundR(0, 0, c.w, c.h, 10); ctx.stroke();
+    /* 数字牌 */
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(c.w / 2, c.h * 0.46, c.w * 0.24, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#1a2a55';
+    ctx.font = `bold ${c.w * 0.3}px system-ui, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(c.num), c.w / 2, c.h * 0.47);
+    /* 小轮子 */
+    ctx.fillStyle = '#2a2a2a';
+    ctx.beginPath(); ctx.arc(c.w * 0.22, c.h + 8, 8, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(c.w * 0.78, c.h + 8, 8, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    c.hitX = c.x + wig; c.hitY = c.y + bobY;
+  });
+}
+function drawSmoke() {
+  for (const s of smoke) {
+    ctx.globalAlpha = s.life * 0.55;
+    ctx.fillStyle = '#eef2f7';
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+function drawScene(t) {
+  /* 天空 */
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#7ec8ff');
+  sky.addColorStop(0.55, '#cdeeff');
+  sky.addColorStop(0.56, '#b8e986');
+  sky.addColorStop(1, '#8ed86a');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H);
+  /* 太阳 */
+  ctx.fillStyle = '#ffd35c';
+  ctx.beginPath(); ctx.arc(W * 0.85, H * 0.12, 40, 0, Math.PI * 2); ctx.fill();
+  /* 云 */
+  cloud(W * 0.18, H * 0.10, 1); cloud(W * 0.55, H * 0.16, 0.7); cloud(W * 0.75, H * 0.08, 0.5);
+  /* 远山 */
+  ctx.fillStyle = '#7db48a';
+  ctx.beginPath();
+  ctx.moveTo(0, H * 0.52);
+  for (let x = 0; x <= W; x += 30) ctx.lineTo(x, H * 0.52 - Math.sin(x * 0.01 + 1) * 26 - 14);
+  ctx.lineTo(W, H * 0.56);
+  ctx.lineTo(0, H * 0.56);
+  ctx.closePath(); ctx.fill();
+  /* 车站棚 */
+  const sx = 24, sy = H * 0.50;
+  ctx.fillStyle = '#e05c5c';
+  ctx.beginPath();
+  ctx.moveTo(sx - 14, sy - 8);
+  ctx.lineTo(sx + 180, sy - 8);
+  ctx.lineTo(sx + 160, sy - 34);
+  ctx.lineTo(sx + 6, sy - 34);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#9a3c3c';
+  ctx.fillRect(sx + 20, sy - 8, 10, 46);
+  ctx.fillRect(sx + 130, sy - 8, 10, 46);
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 16px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('车站', sx + 92, sy - 15);
+}
+function cloud(x, y, s) {
+  ctx.fillStyle = 'rgba(255,255,255,.92)';
+  ctx.beginPath();
+  ctx.arc(x, y, 22 * s, 0, Math.PI * 2);
+  ctx.arc(x + 26 * s, y - 8 * s, 18 * s, 0, Math.PI * 2);
+  ctx.arc(x + 52 * s, y, 16 * s, 0, Math.PI * 2);
+  ctx.arc(x + 26 * s, y + 8 * s, 20 * s, 0, Math.PI * 2);
+  ctx.fill();
+}
+function roundR(x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function render(t) {
+  ctx.save();
+  if (shake > 0) {
+    const m = shake * 8;
+    ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m);
+  }
+  drawScene(t);
+  drawSmoke();
+  drawTrain(t);
+  drawCars(t);
+  ctx.restore();
+}
+
+let lastT = 0;
+function frame(now) {
+  const dt = Math.min(0.05, lastT === 0 ? 0.016 : (now - lastT) / 1000);
+  lastT = now;
+  if (state === STATE.RUNNING) update(dt, now / 1000);
+  render(now / 1000);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* 点击 */
+canvas.addEventListener('pointerdown', e => {
+  if (state !== STATE.RUNNING) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) * (W / rect.width);
+  const y = (e.clientY - rect.top) * (H / rect.height);
+  for (const c of cars) {
+    const hx = c.hitX || c.x, hy = c.hitY || c.y;
+    if (x >= hx - 8 && x <= hx + c.w + 8 && y >= hy - 8 && y <= hy + c.h + 16) {
+      clickCar(c);
+      return;
+    }
+  }
+});
+
+/* 开始 / 重开 */
+$('btnStart').addEventListener('click', () => {
+  initAudio();
+  $('start').style.display = 'none';
+  resetGame();
+  state = STATE.RUNNING;
+});
+$('btnRestart').addEventListener('click', () => {
+  $('result').classList.remove('show');
+  resetGame();
+  state = STATE.RUNNING;
+});
+function resetGame() {
+  level = 1; streak = 0; bestStreak = 0; wrongTotal = 0;
+  cars = []; coupled = []; smoke = [];
+  flyingCar = null; departT = -1; nextT = -1;
+  captionEl.style.display = 'none';
+  buildLevel();
+}
+
+function showResult() {
+  let title, medal;
+  if (bestStreak >= 6)      { title = '🥇 金牌小司机！'; medal = '金牌'; }
+  else if (bestStreak >= 4)  { title = '🥈 银牌小司机！'; medal = '银牌'; }
+  else if (bestStreak >= 2)  { title = '🥉 铜牌小司机！'; medal = '铜牌'; }
+  else                       { title = '🚂 全线通车！';  medal = '继续加油'; }
+  $('resultTitle').textContent = title;
+  $('resultDesc').innerHTML =
+    `跑完 <b style="color:#0d5c0d">8</b> 站（${medal}）<br>` +
+    `最佳连挂 <b style="color:#0d5c0d">${bestStreak}</b> 站 · 挂错 <b style="color:#c22">${wrongTotal}</b> 次<br>` +
+    `数字顺序 1 到 8 全记住啦！`;
+  $('result').classList.add('show');
+  state = STATE.FINISH;
+  say(`全线通车！你连续挂对了${bestStreak}站，获得${medal}！`);
+}
+
+/* 测试钩子 */
+window.__testCars = () => cars.map((c, i) => ({ idx: i, id: 'car' + c.num, num: c.num }));
+window.__testClickCar = id => {
+  const c = cars.find(x => 'car' + x.num === id);
+  if (!c) return false;
+  clickCar(c);
+  return true;
+};
+window.__testState = () => ({ state, level, coupled: coupled.length, target: coupledTarget, streak, bestStreak, wrong: wrongTotal });
+</script>
+</body>
+</html>

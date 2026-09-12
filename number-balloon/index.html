@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>数字打气球 · Number Balloon Pop</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  body {
+    background: #0b1026;
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #game { display: block; width: 100vw; height: 100vh; }
+
+  /* ---------- HUD ---------- */
+  .hud {
+    position: absolute; top: 46px; left: 14px; z-index: 10;
+    display: flex; gap: 10px; flex-wrap: wrap; pointer-events: none;
+  }
+  .hud-chip {
+    background: rgba(10, 16, 40, .72);
+    border: 1px solid rgba(120, 200, 255, .35);
+    border-radius: 14px;
+    color: #dff2ff;
+    padding: 7px 15px;
+    font-size: 17px;
+    font-weight: 600;
+    box-shadow: 0 4px 18px rgba(0,0,0,.35);
+    backdrop-filter: blur(6px);
+  }
+  .hud-chip b { color: #ffd35c; font-size: 21px; }
+
+  /* ---------- 声音开关 ---------- */
+  #btnMute {
+    position: absolute; top: 12px; right: 12px; z-index: 60;
+    font-size: 20px; line-height: 1;
+    padding: 9px 13px; border-radius: 12px; cursor: pointer;
+    background: rgba(10, 16, 40, .72);
+    border: 1px solid rgba(120, 200, 255, .35);
+    color: #dff2ff;
+    min-width: 44px; min-height: 44px;
+  }
+
+  /* ---------- 语音字幕条（替代挑战弹窗，不遮挡气球） ---------- */
+  #captionBar {
+    position: absolute; left: 50%; top: 74px;
+    transform: translateX(-50%);
+    z-index: 25;
+    max-width: 92vw;
+    background: rgba(10, 16, 40, .78);
+    border: 1px solid rgba(255, 211, 92, .5);
+    border-radius: 16px;
+    padding: 10px 22px;
+    font-size: 18px; font-weight: 600;
+    color: #ffe9ad;
+    text-align: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .25s;
+    box-shadow: 0 6px 22px rgba(0,0,0,.4);
+    white-space: nowrap;
+  }
+  #captionBar.show { opacity: 1; }
+
+  /* ---------- 目标数字牌 ---------- */
+  #targetCard {
+    position: absolute; left: 50%; top: 13%;
+    transform: translateX(-50%);
+    z-index: 18;
+    text-align: center;
+    pointer-events: none;
+  }
+  #targetCard .word {
+    display: inline-block;
+    min-width: 92px;
+    padding: 8px 20px;
+    font-size: 52px; font-weight: 800;
+    color: #ffd35c;
+    background: linear-gradient(160deg, #16224a, #0d1330);
+    border: 2px solid rgba(255, 211, 92, .65);
+    border-radius: 20px;
+    text-shadow: 0 4px 14px rgba(0,0,0,.5);
+    box-shadow: 0 10px 30px rgba(0,0,0,.45);
+    line-height: 1.2;
+  }
+  #targetCard .hint { margin-top: 7px; font-size: 15px; font-weight: 600; color: #9db4d8; letter-spacing: 1px; }
+
+  /* ---------- 反馈大字 ---------- */
+  #toast {
+    position: absolute; left: 50%; top: 30%;
+    transform: translate(-50%, -50%) scale(1);
+    z-index: 30;
+    font-size: 62px; font-weight: 800;
+    color: #ffd35c;
+    text-shadow: 0 4px 18px rgba(0,0,0,.6);
+    opacity: 0; pointer-events: none;
+    transition: opacity .25s, transform .25s;
+    white-space: nowrap;
+  }
+  #toast.pop {
+    opacity: 1;
+    transform: translate(-50%, -58%) scale(1.12);
+  }
+
+  /* ---------- 结算 ---------- */
+  #result {
+    position: absolute; inset: 0; z-index: 40;
+    background: rgba(4, 8, 22, .82);
+    display: none;
+    align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  #result.show { display: flex; }
+  .result-card {
+    text-align: center; color: #eaf4ff;
+    background: linear-gradient(160deg, #16224a, #0d1330);
+    border: 2px solid #4f8cff;
+    border-radius: 26px;
+    padding: 30px 44px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.55);
+    max-width: 88vw;
+  }
+  .result-card h1 { font-size: 38px; color: #ffd35c; margin-bottom: 12px; }
+  .result-card p { font-size: 17px; color: #b9cdf0; margin: 6px 0 22px; line-height: 1.8; }
+  .result-card button {
+    font-size: 20px; padding: 12px 42px; border-radius: 999px;
+    border: none; cursor: pointer;
+    background: linear-gradient(90deg, #4f8cff, #59d1ff);
+    color: #fff; font-weight: 700; letter-spacing: 4px;
+    box-shadow: 0 6px 20px rgba(79,140,255,.45);
+    font-family: inherit;
+    min-height: 48px;
+  }
+  .result-card button:active { transform: scale(.97); }
+
+  /* ---------- 开始界面 ---------- */
+  #start {
+    position: absolute; inset: 0; z-index: 50;
+    background: radial-gradient(1200px 600px at 50% 30%, #17275e 0%, #0b1026 70%);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: #eaf4ff; text-align: center;
+    padding: 20px;
+  }
+  #start h1 {
+    font-size: clamp(38px, 8vw, 60px); letter-spacing: 6px;
+    background: linear-gradient(90deg, #ffd35c, #ff9c5c, #5cc8ff);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+    margin-bottom: 14px;
+  }
+  #start p { font-size: 16px; color: #9db4d8; line-height: 2; max-width: 560px; }
+  #start .rules { margin: 22px 0 28px; }
+  #start button {
+    font-size: 21px; padding: 14px 56px; border-radius: 999px;
+    border: none; cursor: pointer;
+    background: linear-gradient(90deg, #ff9c5c, #ffd35c);
+    color: #3a2200; font-weight: 800; letter-spacing: 6px;
+    box-shadow: 0 8px 26px rgba(255,180,70,.45);
+    font-family: inherit;
+    min-height: 52px;
+  }
+  #start button:active { transform: scale(.97); }
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<button id="btnMute" title="声音开关">🔊</button>
+
+<!-- HUD -->
+<div class="hud">
+  <div class="hud-chip">得分 <b id="hudScore">0</b></div>
+  <div class="hud-chip">连对 <b id="hudStreak">0</b> 🔥</div>
+  <div class="hud-chip">还差 <b id="hudLeft">10</b> 个</div>
+</div>
+
+<!-- 语音字幕条 -->
+<div id="captionBar"></div>
+
+<!-- 目标数字牌 -->
+<div id="targetCard">
+  <div class="word" id="targetWord">？</div>
+  <div class="hint" id="targetHint">听一听，找一找</div>
+</div>
+
+<!-- 结果反馈 -->
+<div id="toast"></div>
+
+<!-- 结算 -->
+<div id="result">
+  <div class="result-card">
+    <h1 id="resultTitle">🎉 全部打爆啦！</h1>
+    <p id="resultDesc"></p>
+    <button id="btnRestart">再玩一次</button>
+  </div>
+</div>
+
+<!-- 开始 -->
+<div id="start">
+  <h1>数字打气球</h1>
+  <p class="rules">
+    夜空中飘着写有 <b>0-9</b> 大数字的彩色气球～<br>
+    听一听要找的数字，点一点写对数字的气球：<br>
+    ✅ 点对 → 气球砰的一声爆开，纸屑飞舞　　❌ 点错 → 气球晃一晃，告诉你正确数字，再点一次<br>
+    打爆 10 个气球就通关！
+  </p>
+  <button id="btnStart">开始游戏</button>
+</div>
+
+<script>
+/* =========================================================
+ * 数字打气球 Number Balloon Pop —— 单文件 Canvas 小游戏
+ *
+ * 玩法（设计文档 G1 · 2-4 岁 · 点击）：彩色气球从屏幕底部
+ * 缓缓升起，身上写着大数字 0-9。语音播报"戳数字 7！"，
+ * 孩子点击正确数字的气球 → 爆炸纸屑 + 表扬；
+ * 点错 → 气球晃一下，语音"这是数字 3，找找 7 吧"。
+ * 答对 10 题结算庆祝，按连对颁发奖牌。
+ * ========================================================= */
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+let W = 0, H = 0;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+/* ---------------- 常量 ---------------- */
+const STATE = { START: 0, RUNNING: 1, FINISH: 2 };
+const QUIZ_TOTAL = 10;          // 答对 10 题结算
+const RISE_V = 60 / 650;        // 上升速度约 60px/s（按 650px 高度基准的 H/秒）
+const SWAY_A = 0.05;            // 横向摆动幅度（W 比例）
+const RISE_SLOW = 0.30;         // 气球进入可点区后减速到 30%（停留 6 秒以上）
+const EXPL_TIME = 0.5;          // 爆炸动画时长（秒）
+const NEXT_DELAY = 0.7;         // 换题间隔（秒）
+const ESCAPE_V = 0.5;           // 答对后干扰气球加速离场（H/秒）
+const STAR_COUNT = 60;
+
+/* ---------------- 状态 ---------------- */
+let state = STATE.START;
+let quizIndex = 0;             // 已完成题数（0-10）
+let score = 0, streak = 0, bestStreak = 0, wrongTotal = 0;
+let targetNum = null;           // 当前目标数字（字符串 '0'-'9'）
+let balloons = [];              // 场上气球
+let booms = [];                 // 爆炸动画
+let particles = [];             // 彩色纸屑
+let stars = [];
+let nextTimer = 0;              // 换题倒计时（>0 等待换题）
+let shake = 0, flashT = 0;
+let lastTarget = null;
+
+/* ---------------- DOM ---------------- */
+const $ = id => document.getElementById(id);
+const captionBar = $('captionBar');
+const targetWordEl = $('targetWord');
+const targetHintEl = $('targetHint');
+const toastEl = $('toast');
+
+/* ---------------- 语音播报 ---------------- */
+const synth = window.speechSynthesis || null;
+let zhVoice = null;
+function pickVoice() {
+  if (!synth) return;
+  const vs = synth.getVoices();
+  zhVoice = vs.find(v => /zh[-_]CN/i.test(v.lang)) ||
+            vs.find(v => /^zh/i.test(v.lang)) || null;
+}
+if (synth) {
+  pickVoice();
+  synth.onvoiceschanged = pickVoice;
+}
+function speak(text) {
+  if (muted || !synth) return;
+  try {
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN';
+    if (zhVoice) u.voice = zhVoice;
+    u.rate = 0.92;
+    synth.speak(u);
+  } catch (e) { /* 忽略 */ }
+}
+
+/* ---------------- 音效 ---------------- */
+let actx = null, muted = false;
+function initAudio() {
+  if (actx) return;
+  try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+}
+function beep(freq, dur, type, vol, sweepTo) {
+  if (!actx || muted) return;
+  try {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(freq, actx.currentTime);
+    if (sweepTo) o.frequency.exponentialRampToValueAtTime(sweepTo, actx.currentTime + dur);
+    g.gain.setValueAtTime(vol || 0.15, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + dur);
+    o.connect(g).connect(actx.destination);
+    o.start();
+    o.stop(actx.currentTime + dur);
+  } catch (e) { /* 忽略 */ }
+}
+const sfxRight = () => { beep(660, .09, 'sine', .16); beep(990, .14, 'sine', .16); };
+const sfxWrong = () => beep(180, .22, 'sawtooth', .08);
+const sfxPop = () => {
+  beep(320, .06, 'square', .12, 980);
+  beep(150, .30, 'sawtooth', .18, 38);
+};
+$('btnMute').addEventListener('click', () => {
+  muted = !muted;
+  $('btnMute').textContent = muted ? '🔇' : '🔊';
+  if (muted && synth) synth.cancel();
+});
+
+/* ---------------- 工具 ---------------- */
+function shade(hex, amt) {
+  const n = parseInt(hex.slice(1), 16);
+  let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  r = Math.round(Math.min(255, Math.max(0, r + r * amt)));
+  g = Math.round(Math.min(255, Math.max(0, g + g * amt)));
+  b = Math.round(Math.min(255, Math.max(0, b + b * amt)));
+  return `rgb(${r},${g},${b})`;
+}
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/* 星空（夜空氛围） */
+for (let i = 0; i < STAR_COUNT; i++) {
+  stars.push({ fx: Math.random(), fy: Math.random() * 0.8, r: 0.5 + Math.random() * 1.2, p: Math.random() * 6.28 });
+}
+
+/* ---------------- 气球配色（高饱和：红橙黄绿蓝紫） ---------------- */
+const BALLOON_COLORS = [
+  { body: '#ff5c5c', hi: '#ffd3d3' },   // 红
+  { body: '#ff9c3c', hi: '#ffe3c2' },   // 橙
+  { body: '#ffd35c', hi: '#fff3c4' },   // 黄
+  { body: '#4cd97b', hi: '#d0ffe4' },   // 绿
+  { body: '#4f9cff', hi: '#cde4ff' },   // 蓝
+  { body: '#b06bff', hi: '#ead4ff' },   // 紫
+];
+
+/* ---------------- 出题 ---------------- */
+function makeQuiz() {
+  // 目标数字 0-9，避开上一题
+  let n;
+  do { n = String(Math.floor(Math.random() * 10)); } while (n === lastTarget);
+  lastTarget = n;
+  targetNum = n;
+
+  // 干扰项：从其余 9 个数字里挑 2-3 个 → 每题 3-4 个气球
+  const others = shuffle(['0','1','2','3','4','5','6','7','8','9'].filter(d => d !== n));
+  const count = 3 + Math.floor(Math.random() * 2);   // 3 或 4 个
+  const nums = shuffle([n].concat(others.slice(0, count - 1)));
+
+  balloons = [];
+  const cols = nums.length;
+  const margin = 0.10, span = (1 - margin * 2) / cols;
+  nums.forEach((num, i) => {
+    balloons.push({
+      id: 'b' + quizIndex + '_' + i,
+      num,
+      correct: num === n,
+      fx: margin + span * (i + 0.5),
+      fy: 1.16 + Math.random() * 0.10,   // 屏幕底部下方出生
+      phase: Math.random() * 6.28,
+      riseMul: 0.85 + Math.random() * 0.3,
+      color: BALLOON_COLORS[(quizIndex + i) % BALLOON_COLORS.length],
+      r: Math.min(W, H) * 0.095,
+      pop: 0,
+      wrongShake: 0,
+    });
+  });
+
+  targetWordEl.textContent = n;
+  targetHintEl.textContent = '戳数字 ' + n + ' 的气球';
+  speak('戳数字' + n + '！');
+  caption('🔈 戳数字 ' + n + ' 的气球');
+  updateHUD();
+}
+
+/* 同目标补发一批气球（防卡死：飘走后总能再点） */
+function respawnQuiz() {
+  const n = targetNum;
+  const others = shuffle(['0','1','2','3','4','5','6','7','8','9'].filter(d => d !== n));
+  const count = 3 + Math.floor(Math.random() * 2);
+  const nums = shuffle([n].concat(others.slice(0, count - 1)));
+  const spawnBase = quizIndex;
+  balloons = [];
+  const cols = nums.length;
+  const margin = 0.10, span = (1 - margin * 2) / cols;
+  nums.forEach((num, i) => {
+    balloons.push({
+      id: 'r' + spawnBase + '_' + respawnSeq++ + '_' + i,
+      num,
+      correct: num === n,
+      fx: margin + span * (i + 0.5),
+      fy: 1.16 + Math.random() * 0.10,
+      phase: Math.random() * 6.28,
+      riseMul: 0.85 + Math.random() * 0.3,
+      color: BALLOON_COLORS[(quizIndex + i) % BALLOON_COLORS.length],
+      r: Math.min(W, H) * 0.095,
+      pop: 0,
+      wrongShake: 0,
+    });
+  });
+  caption('🔈 再来一次，戳数字 ' + n + ' 的气球');
+}
+let respawnSeq = 0;
+
+/* ---------------- 点击判定 ---------------- */
+function balloonAt(x, y) {
+  for (let i = balloons.length - 1; i >= 0; i--) {
+    const b = balloons[i];
+    const pos = balloonPos(b, perfT());
+    const dx = x - pos.x, dy = (y - pos.y) / 1.18;   // 热区椭圆（气球纵向更长）
+    const r2 = b.r * 1.25;                           // 热区放大 25%，幼儿好点
+    if (dx * dx + dy * dy <= r2 * r2) return b;
+  }
+  return null;
+}
+function clickBalloon(id) {
+  if (state !== STATE.RUNNING) return;
+  const b = balloons.find(x => x.id === id);
+  if (b) judge(b);
+}
+canvas.addEventListener('pointerdown', e => {
+  if (state !== STATE.RUNNING) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left, y = e.clientY - rect.top;
+  const b = balloonAt(x, y);
+  if (b) judge(b);
+});
+
+function judge(b) {
+  if (state !== STATE.RUNNING || targetNum === null) return;
+  if (b.correct) {
+    /* ---- 答对：爆炸纸屑 ---- */
+    const bp = balloonPos(b, perfT());
+    booms.push({ x: bp.x, y: bp.y, t: 0, color: b.color });
+    for (let i = 0; i < 22; i++) {                    // 彩色纸屑（上限 120 内）
+      const a = Math.random() * Math.PI * 2;
+      const sp = 1.5 + Math.random() * 4.5;
+      particles.push({
+        x: bp.x, y: bp.y,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 2,
+        life: 1, color: Math.random() < 0.5 ? b.color.body : b.color.hi,
+        size: 2.5 + Math.random() * 3.5,
+      });
+    }
+    balloons = [];                                     // 干扰气球一并清场（等价飘走）
+    sfxPop();
+    shake = 0.28; flashT = 0.12;
+
+    score += 10;
+    streak++;
+    if (streak > bestStreak) bestStreak = streak;
+    quizIndex++;
+    const praise = PRAISES[Math.floor(Math.random() * PRAISES.length)];
+    toast(praise + '！是 ' + targetNum, true);
+    if (quizIndex >= QUIZ_TOTAL) {
+      speak(praise + '！数字' + targetNum);
+      updateHUD();
+      nextTimer = 1.0;                 // 看完爆炸再结算
+      state = STATE.FINISH;
+      targetNum = null;
+      targetWordEl.textContent = '🎆';
+      targetHintEl.textContent = '全部打爆啦！';
+      caption('🎆 太厉害了，全部打爆啦！');
+    } else {
+      speak(praise + '！数字' + targetNum);
+      nextTimer = NEXT_DELAY;
+      updateHUD();
+    }
+  } else {
+    /* ---- 答错：气球晃一下，播报正确答案（无惩罚） ---- */
+    wrongTotal++;
+    streak = 0;
+    b.wrongShake = 0.5;
+    sfxWrong();
+    toast('这是 ' + b.num, false);
+    speak('这是数字' + b.num + '，找找' + targetNum + '吧');
+    caption('🔈 这是数字 ' + b.num + '，找找 ' + targetNum + ' 吧');
+    updateHUD();
+  }
+}
+
+const PRAISES = ['太棒了', '好厉害', '真不错', '顶呱呱', '打得准'];
+
+/* ---------------- 测试钩子（设计文档 G1） ---------------- */
+window.__testBalloonHit = (x, y) => {
+  const b = balloonAt(x, y);
+  return b ? b.id : null;
+};
+window.__testClickBalloon = id => clickBalloon(id);
+window.__testBalloons = () => balloons.map(b => ({ id: b.id, num: b.num, correct: b.correct }));
+window.__testState = () => state;
+window.__testProgress = () => ({
+  quizIndex, score, streak, bestStreak, wrongTotal,
+  target: targetNum,
+  balloons: balloons.length,
+});
+
+/* ---------------- HUD / Toast / 字幕 ---------------- */
+function updateHUD() {
+  $('hudScore').textContent = String(score);
+  $('hudStreak').textContent = String(streak);
+  $('hudLeft').textContent = String(Math.max(0, QUIZ_TOTAL - quizIndex));
+}
+let toastTimer = null;
+function toast(text, good) {
+  toastEl.textContent = text;
+  toastEl.style.color = good ? '#7dffa1' : '#ff9d9d';
+  toastEl.classList.add('pop');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('pop'), 900);
+}
+let captionTimer = null;
+function caption(text) {
+  captionBar.textContent = text;
+  captionBar.classList.add('show');
+  if (captionTimer) clearTimeout(captionTimer);
+  captionTimer = setTimeout(() => captionBar.classList.remove('show'), 2600);
+}
+function perfT() { return (window.performance ? performance.now() : 0) / 1000; }
+
+/* ---------------- 结算 ---------------- */
+function showResult() {
+  let title, medal;
+  if (bestStreak >= 9)       { title = '🥇 金牌神射手！'; medal = '金牌'; }
+  else if (bestStreak >= 6)  { title = '🥈 银牌神射手！'; medal = '银牌'; }
+  else if (bestStreak >= 3)  { title = '🥉 铜牌神射手！'; medal = '铜牌'; }
+  else                       { title = '🎉 全部打爆啦！'; medal = '继续加油'; }
+  $('resultTitle').textContent = title;
+  $('resultDesc').innerHTML =
+    `打爆 <b style="color:#ffd35c">${quizIndex}</b> / ${QUIZ_TOTAL} 个气球（${medal}）<br>` +
+    `最佳连对 <b style="color:#ffd35c">${bestStreak}</b> 次 · 答错 <b style="color:#ff9d9d">${wrongTotal}</b> 次<br>` +
+    `一共得了 <b style="color:#7dffa1">${score}</b> 分，数字认得越来越棒啦！`;
+  $('result').classList.add('show');
+  speak(`游戏完成！获得${medal}！`);
+  // 庆祝彩带
+  for (let i = 0; i < 60; i++) {
+    particles.push({
+      x: Math.random() * W, y: -20 - Math.random() * H * 0.3,
+      vx: (Math.random() - 0.5) * 2, vy: 1.5 + Math.random() * 3,
+      life: 1, color: BALLOON_COLORS[i % BALLOON_COLORS.length].body,
+      size: 3 + Math.random() * 4,
+    });
+  }
+}
+
+/* ---------------- 位置计算 ---------------- */
+function balloonPos(b, t) {
+  return {
+    x: W * b.fx + Math.sin(t * 0.8 + b.phase) * W * SWAY_A,
+    y: H * b.fy,
+  };
+}
+
+/* ---------------- 主循环 ---------------- */
+function update(dt, t) {
+  if (shake > 0) shake = Math.max(0, shake - dt);
+  if (flashT > 0) flashT = Math.max(0, flashT - dt);
+
+  // 气球上升
+  if (state === STATE.RUNNING || state === STATE.FINISH) {
+    for (const b of balloons) {
+      // 进入可点区（0.18-0.55）减速停留，出界后恢复速度飘走
+      const v = (b.fy > 0.18 && b.fy < 0.55) ? RISE_V * RISE_SLOW : RISE_V;
+      b.fy -= v * b.riseMul * dt;
+      if (b.pop > 0) b.pop = Math.max(0, b.pop - dt * 5);
+      if (b.wrongShake > 0) b.wrongShake = Math.max(0, b.wrongShake - dt);
+    }
+    // 全部飘走也绝不卡死：从头补发一批同目标气球（无限重试铁律）
+    // length>0 守卫：答对清场后的换题等待窗口不触发
+    if (state === STATE.RUNNING && targetNum !== null &&
+        balloons.length > 0 && balloons.every(b => b.fy < -0.22)) {
+      respawnQuiz();
+    }
+  }
+
+  // 换题 / 结算倒计时（rAF 驱动，不用 setTimeout）
+  if (nextTimer > 0) {
+    nextTimer -= dt;
+    if (nextTimer <= 0 && state === STATE.RUNNING && quizIndex < QUIZ_TOTAL) {
+      makeQuiz();
+    }
+  }
+  if (state === STATE.FINISH && nextTimer <= 0) {
+    showResult();
+    state = STATE.START;   // 结算页展示态（rAF 继续画背景）
+  }
+
+  // 纸屑 / 爆炸推进
+  for (const p of particles) {
+    p.x += p.vx; p.y += p.vy; p.vy += 0.10;
+    p.life -= dt * 1.15;
+  }
+  particles = particles.filter(p => p.life > 0);
+  for (const bm of booms) bm.t += dt;
+  booms = booms.filter(bm => bm.t < EXPL_TIME);
+}
+
+/* ---------------- 绘制 ---------------- */
+function drawBackground(t) {
+  // 夜空
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#070d26');
+  sky.addColorStop(0.6, '#0d1637');
+  sky.addColorStop(1, '#182964');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H);
+
+  // 星星
+  for (const s of stars) {
+    const a = 0.35 + 0.4 * (0.5 + 0.5 * Math.sin(t * 2 + s.p));
+    ctx.globalAlpha = a;
+    ctx.fillStyle = '#dceaff';
+    ctx.beginPath();
+    ctx.arc(s.fx * W, s.fy * H, s.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+/* ---- 气球：椭圆 + 高光 + 系绳摆动 ---- */
+function drawBalloon(b, t) {
+  const pos = balloonPos(b, t);
+  const r = b.r * (1 + b.pop * 0.25);
+  const wob = b.wrongShake > 0 ? Math.sin(t * 40) * b.wrongShake * 0.28 : 0;
+  ctx.save();
+  ctx.translate(pos.x + wob * r * 0.5, pos.y);
+  ctx.rotate(wob * 0.12);
+
+  // 系绳（摆动的弧线）
+  ctx.strokeStyle = 'rgba(255,255,255,.35)';
+  ctx.lineWidth = Math.max(1.2, r * 0.03);
+  ctx.beginPath();
+  const sway = Math.sin(t * 1.6 + b.phase) * r * 0.4;
+  ctx.moveTo(0, r * 1.18);
+  ctx.quadraticCurveTo(sway * 0.6, r * 1.55, sway, r * 2.05);
+  ctx.stroke();
+
+  // 球体（椭圆，纵向稍长）
+  const g = ctx.createRadialGradient(-r * 0.3, -r * 0.35, r * 0.1, 0, 0, r * 1.25);
+  g.addColorStop(0, b.color.hi);
+  g.addColorStop(0.55, b.color.body);
+  g.addColorStop(1, shade(b.color.body, -0.35));
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, r * 0.92, r * 1.08, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 高光（左上小椭圆）
+  ctx.fillStyle = 'rgba(255,255,255,.55)';
+  ctx.beginPath();
+  ctx.ellipse(-r * 0.34, -r * 0.42, r * 0.22, r * 0.32, -0.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 大数字（0-9，白色描边黑字，幼儿看得清）
+  ctx.fillStyle = '#fff';
+  ctx.strokeStyle = 'rgba(20,25,60,.85)';
+  ctx.lineWidth = Math.max(3, r * 0.14);
+  ctx.font = `900 ${r * 1.05}px system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.strokeText(b.num, 0, r * 0.04);
+  ctx.fillText(b.num, 0, r * 0.04);
+
+  ctx.restore();
+}
+
+/* ---- 爆炸动画：扩散环 + 白闪 ---- */
+function drawBooms() {
+  for (const bm of booms) {
+    const k = bm.t / EXPL_TIME;
+    ctx.globalAlpha = 1 - k;
+    ctx.strokeStyle = bm.color.body;
+    ctx.lineWidth = Math.max(2, 12 * (1 - k));
+    ctx.beginPath();
+    ctx.arc(bm.x, bm.y, 10 + k * 70, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+}
+
+/* ---- 纸屑 ---- */
+function drawParticles() {
+  for (const p of particles) {
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+/* ---------------- 渲染 ---------------- */
+function render(t) {
+  ctx.save();
+  if (shake > 0) {
+    const m = shake * 12;
+    ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m);
+  }
+
+  drawBackground(t);
+  for (const b of balloons) drawBalloon(b, t);
+  drawBooms();
+  drawParticles();
+
+  // 爆炸白闪
+  if (flashT > 0) {
+    ctx.fillStyle = `rgba(255,240,200,${flashT * 0.8})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+  ctx.restore();
+}
+
+/* ---------------- 帧循环 ---------------- */
+let lastT = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now;
+  update(dt, now / 1000);
+  render(now / 1000);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ---------------- 开始 / 重开 ---------------- */
+function startGame() {
+  initAudio();
+  $('start').style.display = 'none';
+  quizIndex = 0; score = 0; streak = 0; bestStreak = 0; wrongTotal = 0;
+  balloons = []; booms = []; particles = [];
+  targetNum = null;
+  shake = 0; flashT = 0; lastTarget = null;
+  makeQuiz();
+  state = STATE.RUNNING;
+  speak('游戏开始！戳数字气球');
+}
+$('btnStart').addEventListener('click', startGame);
+
+$('btnRestart').addEventListener('click', () => {
+  $('result').classList.remove('show');
+  startGame();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>颜色捕鱼 · Color Fishing</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  body {
+    background: #9be0ff;
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #game { display: block; width: 100vw; height: 100vh; }
+
+  /* ---------- HUD（控件保持全站同款 DNA） ---------- */
+  .hud {
+    position: absolute; top: 46px; left: 14px; z-index: 10;
+    display: flex; gap: 10px; flex-wrap: wrap; pointer-events: none;
+  }
+  .hud-chip {
+    background: rgba(10, 16, 40, .72);
+    border: 1px solid rgba(120, 200, 255, .35);
+    border-radius: 14px;
+    color: #dff2ff;
+    padding: 7px 15px;
+    font-size: 17px;
+    font-weight: 600;
+    box-shadow: 0 4px 18px rgba(0,0,0,.35);
+    backdrop-filter: blur(6px);
+  }
+  .hud-chip b { color: #ffd35c; font-size: 21px; }
+
+  /* ---------- 声音开关 ---------- */
+  #btnMute {
+    position: absolute; top: 12px; right: 12px; z-index: 60;
+    font-size: 20px; line-height: 1;
+    padding: 9px 13px; border-radius: 12px; cursor: pointer;
+    background: rgba(10, 16, 40, .72);
+    border: 1px solid rgba(120, 200, 255, .35);
+    color: #dff2ff;
+  }
+
+  /* ---------- 语音字幕条（无挑战弹窗，低幼纯点选） ---------- */
+  #caption {
+    position: absolute; z-index: 20;
+    left: 50%; top: 64px;
+    transform: translate(-50%, 0) scale(.8);
+    opacity: 0; pointer-events: none;
+    transition: transform .3s cubic-bezier(.34,1.56,.64,1), opacity .25s;
+    background: rgba(10, 16, 40, .78);
+    border: 2px solid #ffd35c;
+    border-radius: 20px;
+    padding: 12px 26px;
+    font-size: 25px; font-weight: 800;
+    color: #fff;
+    letter-spacing: 2px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    white-space: nowrap;
+    max-width: 92vw;
+  }
+  #caption.show {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+  #caption .dot {
+    display: inline-block; width: 12px; height: 12px; margin-left: 10px;
+    background: #ffd35c; border-radius: 50%;
+    vertical-align: middle;
+    animation: capPulse 1s infinite;
+  }
+  @keyframes capPulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.5); opacity: .5; }
+  }
+
+  /* ---------- 渔桶（侧边计数） ---------- */
+  #bucket {
+    position: absolute; right: 14px; bottom: 14px; z-index: 12;
+    width: 108px;
+    background: rgba(10, 16, 40, .72);
+    border: 1px solid rgba(120, 200, 255, .35);
+    border-radius: 16px;
+    padding: 8px 10px 10px;
+    text-align: center;
+    box-shadow: 0 4px 18px rgba(0,0,0,.3);
+    backdrop-filter: blur(6px);
+    pointer-events: none;
+  }
+  #bucket .title { color: #dff2ff; font-size: 13.5px; font-weight: 700; letter-spacing: 2px; }
+  #bucket .fishList {
+    display: flex; flex-wrap: wrap; gap: 4px; justify-content: center;
+    margin-top: 6px; min-height: 16px;
+  }
+  #bucket .fishList i {
+    width: 14px; height: 14px; border-radius: 50% 50% 50% 4px;
+    transform: rotate(-45deg);
+    box-shadow: 0 1px 4px rgba(0,0,0,.25);
+  }
+
+  /* ---------- 反馈大字 ---------- */
+  #toast {
+    position: absolute; left: 50%; top: 30%;
+    transform: translate(-50%, -50%) scale(1);
+    z-index: 30;
+    font-size: 56px; font-weight: 800;
+    color: #ffd35c;
+    text-shadow: 0 4px 18px rgba(0,0,0,.45), 0 0 2px #fff;
+    opacity: 0; pointer-events: none;
+    transition: opacity .25s, transform .25s;
+    white-space: nowrap;
+  }
+  #toast.pop {
+    opacity: 1;
+    transform: translate(-50%, -58%) scale(1.12);
+  }
+
+  /* ---------- 结算 ---------- */
+  #result {
+    position: absolute; inset: 0; z-index: 40;
+    background: rgba(4, 8, 22, .72);
+    display: none;
+    align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  #result.show { display: flex; }
+  .result-card {
+    text-align: center; color: #eaf4ff;
+    background: linear-gradient(160deg, #16224a, #0d1330);
+    border: 2px solid #4f8cff;
+    border-radius: 26px;
+    padding: 30px 44px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.55);
+    max-width: 88vw;
+  }
+  .result-card h1 { font-size: 38px; color: #ffd35c; margin-bottom: 12px; }
+  .result-card p { font-size: 17px; color: #b9cdf0; margin: 6px 0 22px; line-height: 1.8; }
+  .result-card button {
+    font-size: 20px; padding: 12px 42px; border-radius: 999px;
+    border: none; cursor: pointer;
+    background: linear-gradient(90deg, #4f8cff, #59d1ff);
+    color: #fff; font-weight: 700; letter-spacing: 4px;
+    box-shadow: 0 6px 20px rgba(79,140,255,.45);
+    font-family: inherit;
+  }
+  .result-card button:active { transform: scale(.97); }
+
+  /* ---------- 开始界面 ---------- */
+  #start {
+    position: absolute; inset: 0; z-index: 50;
+    background: radial-gradient(1200px 600px at 50% 30%, #1668a8 0%, #0b4a80 60%, #083a66 100%);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: #eaf4ff; text-align: center;
+    padding: 20px;
+  }
+  #start h1 {
+    font-size: clamp(38px, 8vw, 60px); letter-spacing: 6px;
+    background: linear-gradient(90deg, #ffd35c, #ff9c5c, #5cc8ff);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+    margin-bottom: 14px;
+  }
+  #start p { font-size: 16px; color: #cfe6ff; line-height: 2; max-width: 560px; }
+  #start .rules { margin: 22px 0 28px; }
+  #start button {
+    font-size: 21px; padding: 14px 56px; border-radius: 999px;
+    border: none; cursor: pointer;
+    background: linear-gradient(90deg, #ff9c5c, #ffd35c);
+    color: #3a2200; font-weight: 800; letter-spacing: 6px;
+    box-shadow: 0 8px 26px rgba(255,180,70,.45);
+    font-family: inherit;
+  }
+  #start button:active { transform: scale(.97); }
+  #start .fish-preview { font-size: 44px; margin-bottom: 6px; }
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<button id="btnMute" title="声音开关">🔊</button>
+
+<!-- HUD -->
+<div class="hud">
+  <div class="hud-chip">渔桶 <b id="hudBucket">0</b> / 12</div>
+  <div class="hud-chip">连对 <b id="hudStreak">0</b> 🔥</div>
+</div>
+
+<!-- 语音字幕条 -->
+<div id="caption">听一听：抓一条红色的鱼！</div>
+
+<!-- 侧边渔桶 -->
+<div id="bucket">
+  <div class="title">我的渔桶</div>
+  <div class="fishList" id="bucketList"></div>
+</div>
+
+<!-- 结果反馈 -->
+<div id="toast"></div>
+
+<!-- 结算 -->
+<div id="result">
+  <div class="result-card">
+    <h1 id="resultTitle">🎉 满载而归！</h1>
+    <p id="resultDesc"></p>
+    <button id="btnRestart">再捞一次</button>
+  </div>
+</div>
+
+<!-- 开始 -->
+<div id="start">
+  <div class="fish-preview">🐟🐟🐟</div>
+  <h1>颜色捕鱼</h1>
+  <p class="rules">
+    小池塘里游着 <b>红黄蓝绿橙紫</b> 的彩色鱼！听一听老师说：<br>
+    “抓一条红色的鱼！” 点击正确颜色的小鱼，就能把它捞进 <b>小渔桶</b> 里～<br>
+    ✅ 抓对 → 水花表扬，桶里多一条　　❌ 抓错 → 老师告诉你正确的颜色，再试一次<br>
+    抓满 12 条小鱼，满载而归！
+  </p>
+  <button id="btnStart">开始捕鱼</button>
+</div>
+
+<script>
+/* =========================================================
+ * 颜色捕鱼 Color Fishing —— 单文件 Canvas 低幼点选游戏
+ *
+ * 玩法：亮色小池塘，6 色鱼群自由游动。语音+字幕下达颜色任务，
+ * 点击正确颜色的鱼 → 捞进侧边渔桶 + 水花表扬；
+ * 点错 → 鱼儿游走，语音播报正确颜色（“这是黄色，找红色的”）。
+ * 无键盘、无失败惩罚、无挑战弹窗，纯语音字幕条 + 点击。
+ * 抓满 12 条结算，按连对颁发奖牌。
+ * ========================================================= */
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+let W = 0, H = 0;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+/* ---------------- 常量 ---------------- */
+const STATE = { START: 0, RUNNING: 1, CATCHING: 2, FINISH: 3 };
+const TARGET_TOTAL = 12;   // 12 题结算
+const FISH_PER_ROUND = 7;  // 每题 6-8 条
+const CATCH_TIME = 0.6;    // 捞鱼动画时长（秒）
+
+/* 6 种颜色：认知核心——鱼身上无文字，只靠颜色 + 语音颜色名 */
+const COLORS = [
+  { key: 'red',    name: '红色', body: '#ff5b5b', belly: '#ffd1d1', dark: '#c93a3a' },
+  { key: 'yellow', name: '黄色', body: '#ffd93b', belly: '#fff3c0', dark: '#d4a516' },
+  { key: 'blue',   name: '蓝色', body: '#4f9cff', belly: '#c8e2ff', dark: '#2f6cc4' },
+  { key: 'green',  name: '绿色', body: '#4fd17a', belly: '#c9f5d6', dark: '#2f9e55' },
+  { key: 'orange', name: '橙色', body: '#ff9440', belly: '#ffe0c2', dark: '#d06a1f' },
+  { key: 'purple', name: '紫色', body: '#a86bff', belly: '#e2d0ff', dark: '#7a44c9' },
+];
+const SHAPES = ['round', 'long', 'tall'];  // 3 种身形
+
+/* ---------------- 状态 ---------------- */
+let state = STATE.START;
+let bucket = 0, streak = 0, bestStreak = 0, wrongTotal = 0;
+let fishes = [], particles = [], rings = [], bubbles = [];
+let targetColor = null;         // 当前题目颜色 key
+let questionActive = false;     // 当前题是否有目标待抓
+let catchAnim = null;           // 捞鱼动画 {fish, t}
+let nextDelay = 0;             // 换题延迟
+let shake = 0;
+let lastTarget = null;
+let caughtColors = [];          // 桶里的鱼颜色（展示用）
+
+/* 装饰：白云 + 涟漪 */
+const cloudsBg = [];
+for (let i = 0; i < 5; i++) {
+  cloudsBg.push({ fx: Math.random(), fy: 0.06 + Math.random() * 0.16, s: 0.7 + Math.random() * 0.8, spd: 0.008 + Math.random() * 0.012 });
+}
+const reeds = [];
+for (let i = 0; i < 9; i++) {
+  reeds.push({ fx: Math.random(), side: i % 2, h: 0.08 + Math.random() * 0.08, p: Math.random() * 6.28 });
+}
+
+/* ---------------- DOM ---------------- */
+const $ = id => document.getElementById(id);
+const captionEl = $('caption');
+const toastEl = $('toast');
+const bucketListEl = $('bucketList');
+
+/* ---------------- 语音播报 ---------------- */
+const synth = window.speechSynthesis || null;
+let zhVoice = null;
+function pickVoice() {
+  if (!synth) return;
+  const vs = synth.getVoices();
+  zhVoice = vs.find(v => /zh[-_]CN/i.test(v.lang)) ||
+            vs.find(v => /^zh/i.test(v.lang)) || null;
+}
+if (synth) {
+  pickVoice();
+  synth.onvoiceschanged = pickVoice;
+}
+function speak(text) {
+  if (muted || !synth) return;
+  try {
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN';
+    if (zhVoice) u.voice = zhVoice;
+    u.rate = 0.92;
+    synth.speak(u);
+  } catch (e) { /* 忽略 */ }
+}
+
+/* ---------------- 音效 ---------------- */
+let actx = null, muted = false;
+function initAudio() {
+  if (actx) return;
+  try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+}
+function beep(freq, dur, type, vol, sweepTo) {
+  if (!actx || muted) return;
+  try {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(freq, actx.currentTime);
+    if (sweepTo) o.frequency.exponentialRampToValueAtTime(sweepTo, actx.currentTime + dur);
+    g.gain.setValueAtTime(vol || 0.15, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + dur);
+    o.connect(g).connect(actx.destination);
+    o.start();
+    o.stop(actx.currentTime + dur);
+  } catch (e) { /* 忽略 */ }
+}
+const sfxRight = () => { beep(660, .09, 'sine', .16); beep(990, .16, 'sine', .16); };
+const sfxWrong = () => beep(180, .22, 'sawtooth', .07);
+const sfxSplash = () => { beep(520, .18, 'sine', .18, 220); beep(880, .1, 'triangle', .1, 400); };
+const sfxPop = () => beep(740, .08, 'triangle', .12, 980);
+$('btnMute').addEventListener('click', () => {
+  muted = !muted;
+  $('btnMute').textContent = muted ? '🔇' : '🔊';
+  if (muted && synth) synth.cancel();
+});
+
+/* ---------------- 工具 ---------------- */
+const rand = (a, b) => a + Math.random() * (b - a);
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+/* ---------------- 鱼群 ---------------- */
+function spawnRound() {
+  // 每题 6-8 条鱼，至少 2 条目标色
+  const n = 6 + Math.floor(Math.random() * 3);
+  fishes = [];
+  const otherColors = COLORS.filter(c => c.key !== targetColor.key);
+  const count = Math.min(n, 2 + Math.floor(Math.random() * 2));  // 目标色 2-3 条
+  const list = [];
+  for (let i = 0; i < count; i++) list.push(targetColor);
+  for (let i = list.length; i < n; i++) list.push(pick(otherColors));
+  // 打乱
+  for (let i = list.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [list[i], list[j]] = [list[j], list[i]];
+  }
+  const roundId = 'r' + bucket + '-' + Math.floor(Math.random() * 100000);
+  list.forEach((c, i) => {
+    fishes.push({
+      id: roundId + '-f' + i,
+      color: c.key,
+      colorName: c.name,
+      body: c.body, belly: c.belly, dark: c.dark,
+      shape: pick(SHAPES),
+      x: rand(0.08, 0.92) * W, y: rand(0.30, 0.92) * H,
+      vx: (Math.random() < 0.5 ? -1 : 1) * rand(26, 62),
+      vy: rand(-8, 8),
+      dir: 0,             // 朝向插值（-1 左 / 1 右）
+      size: rand(46, 66), // 热区 ≥ 44px
+      wobble: Math.random() * 6.28,
+      fleeing: 0,          // 逃逸计时
+      dead: false,
+    });
+  });
+  fishes.forEach(f => { f.dir = f.vx > 0 ? 1 : -1; });
+}
+
+/* ---------------- 粒子 / 水花 ---------------- */
+function splash(x, y, color, n) {
+  for (let i = 0; i < (n || 18); i++) {
+    const a = Math.random() * Math.PI * 2;
+    const sp = 40 + Math.random() * 130;
+    particles.push({
+      x, y,
+      vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 60,
+      life: 1, color, size: 2.5 + Math.random() * 4,
+    });
+  }
+  rings.push({ x, y, t: 0 });
+}
+function updateParticles(dt) {
+  for (const p of particles) {
+    p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 260 * dt;
+    p.life -= dt * 1.4;
+  }
+  particles = particles.filter(p => p.life > 0);
+  for (const r of rings) r.t += dt * 1.8;
+  rings = rings.filter(r => r.t < 1);
+  for (const b of bubbles) {
+    b.y -= 26 * dt;
+    b.x += Math.sin(b.p + b.y * 0.03) * 8 * dt;
+    b.life -= dt * 0.5;
+  }
+  bubbles = bubbles.filter(b => b.life > 0 && b.y > H * 0.18);
+  if (bubbles.length > 40) bubbles.splice(0, bubbles.length - 40);
+  if (Math.random() < 0.15 && bubbles.length < 30) {
+    bubbles.push({ x: rand(0.05, 0.95) * W, y: rand(0.3, 1) * H, r: rand(1.5, 4), p: Math.random() * 6.28, life: 1 });
+  }
+}
+
+/* ---------------- HUD / Toast / 字幕 ---------------- */
+function updateHUD() {
+  $('hudBucket').textContent = bucket;
+  $('hudStreak').textContent = streak;
+  refreshBucketList();
+}
+function refreshBucketList() {
+  if (!bucketListEl) return;
+  // 重建小色点（测试 stub 下 children 忽略也安全）
+  let html = '';
+  for (const c of caughtColors) html += '<i style="background:' + c.body + '"></i>';
+  bucketListEl.innerHTML = html;
+}
+let toastTimer = null;
+function toast(text, good) {
+  toastEl.textContent = text;
+  toastEl.style.color = good ? '#7dffa1' : '#ff9d9d';
+  toastEl.classList.add('pop');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('pop'), 900);
+}
+function showCaption(text) {
+  captionEl.textContent = text;
+  captionEl.classList.remove('show');
+  // 强制重排以重播动画（stub 下为空操作）
+  void captionEl.offsetWidth;
+  captionEl.classList.add('show');
+}
+function hideCaption() {
+  captionEl.classList.remove('show');
+}
+
+/* ---------------- 题目流程 ---------------- */
+const PRAISES = ['太棒了', '好厉害', '真不错', '顶呱呱', '抓到啦'];
+
+function nextQuestion() {
+  let c;
+  do { c = pick(COLORS); } while (COLORS.length > 1 && c.key === lastTarget);
+  lastTarget = c.key;
+  targetColor = c;
+  questionActive = true;
+  spawnRound();
+  const text = '抓一条' + c.name + '的鱼！';
+  showCaption('🎣 ' + text);
+  speak(text);
+  updateHUD();
+}
+
+function tryCatch(fish) {
+  if (!questionActive || state !== STATE.RUNNING) return;
+  if (fish.dead) return;
+  if (fish.color === targetColor.key) {
+    // 抓对！
+    questionActive = false;
+    fish.dead = true;
+    state = STATE.CATCHING;
+    catchAnim = { fish, t: 0, x: fish.x, y: fish.y };
+    splash(fish.x, fish.y, '#bfe9ff', 20);
+    sfxRight();
+    sfxSplash();
+  } else {
+    // 抓错：鱼游走 + 播报正确答案，不惩罚
+    wrongTotal++;
+    streak = 0;
+    updateHUD();
+    fish.fleeing = 1.4;                 // 受惊快速游走
+    fish.vx = (fish.vx > 0 ? 1 : -1) * rand(120, 170);
+    const wrong = fish.colorName;
+    toast('这是' + wrong, false);
+    splash(fish.x, fish.y, fish.belly, 8);
+    sfxWrong();
+    speak('这是' + wrong + '，找' + targetColor.name + '的鱼');
+    shake = 0.25;
+  }
+}
+
+function finishCatch() {
+  const f = catchAnim.fish;
+  bucket++;
+  streak++;
+  if (streak > bestStreak) bestStreak = streak;
+  caughtColors.push({ body: f.body });
+  catchAnim = null;
+  const praise = pick(PRAISES);
+  toast(praise + '！桶里 +1', true);
+  if (bucket >= TARGET_TOTAL) {
+    hideCaption();
+    speak(praise + '！渔桶满啦！');
+    showResult();
+  } else {
+    state = STATE.RUNNING;
+    nextDelay = 0.7;
+    speak(praise + '！再抓一条' + targetColor.name + '的鱼吧');
+    // 语音鼓励后再出新题
+  }
+  updateHUD();
+}
+
+function showResult() {
+  let title, medal;
+  if (bestStreak >= 10)      { title = '🥇 金牌小渔夫！'; medal = '金牌'; }
+  else if (bestStreak >= 6)  { title = '🥈 银牌小渔夫！'; medal = '银牌'; }
+  else if (bestStreak >= 3)  { title = '🥉 铜牌小渔夫！'; medal = '铜牌'; }
+  else                       { title = '🎣 满载而归！';   medal = '继续加油'; }
+  $('resultTitle').textContent = title;
+  $('resultDesc').innerHTML =
+    `捞到 <b style="color:#ffd35c">${bucket}</b> 条小鱼（${medal}）<br>` +
+    `最佳连对 <b style="color:#ffd35c">${bestStreak}</b> 次 · 抓错 <b style="color:#ff9d9d">${wrongTotal}</b> 次<br>` +
+    `你是颜色认知小达人！`;
+  $('result').classList.add('show');
+  state = STATE.FINISH;
+  celebrate();
+  speak('任务完成！渔桶满满，你是最棒的小渔夫！');
+}
+
+/* 结算庆祝彩带 */
+let confettiTimer = -1;
+function celebrate() {
+  confettiTimer = 1.2;
+}
+function spawnConfetti() {
+  const colors = ['#ff5b5b', '#ffd93b', '#4f9cff', '#4fd17a', '#ff9440', '#a86bff', '#fff'];
+  for (let i = 0; i < 10 && particles.length < 110; i++) {
+    particles.push({
+      x: rand(0, W), y: rand(-30, -5),
+      vx: rand(-30, 30), vy: rand(60, 150),
+      life: rand(2, 3.2), color: pick(colors),
+      size: rand(3, 6), confetti: true,
+    });
+  }
+}
+
+/* ---------------- 点击 / 触摸 ---------------- */
+function hitFish(px, py) {
+  // 由近及远（后绘制的在上层）：倒序找命中的鱼
+  for (let i = fishes.length - 1; i >= 0; i--) {
+    const f = fishes[i];
+    if (f.dead) continue;
+    const dx = px - f.x, dy = py - f.y;
+    const r = Math.max(44, f.size);            // 热区 ≥ 44px
+    if (dx * dx + dy * dy <= r * r) return f;
+  }
+  return null;
+}
+function pointerDown(e) {
+  if (state !== STATE.RUNNING) return;
+  const rect = canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : { left: 0, top: 0 };
+  const px = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+  const py = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+  const f = hitFish(px, py);
+  if (f) tryCatch(f);
+  else {
+    // 点到水里：小涟漪鼓励
+    rings.push({ x: px, y: py, t: 0 });
+    sfxPop();
+  }
+}
+canvas.addEventListener('pointerdown', e => {
+  if (e.preventDefault) e.preventDefault();
+  pointerDown(e);
+});
+/* 触屏兜底 */
+canvas.addEventListener('touchstart', e => {
+  if (e.preventDefault) e.preventDefault();
+  pointerDown(e);
+}, { passive: false });
+/* 鼠标兜底（Safari 老版本 pointer 事件缺失时） */
+if (!canvas.addEventListener) { /* stub 安全 */ }
+
+/* ---------------- 主循环 ---------------- */
+function update(dt, t) {
+  if (shake > 0) shake = Math.max(0, shake - dt);
+
+  // 云倒影漂移
+  for (const c of cloudsBg) {
+    c.fx += c.spd * dt;
+    if (c.fx > 1.2) c.fx = -0.2;
+  }
+  // 芦苇摇摆
+  // 鱼群游动
+  for (const f of fishes) {
+    if (f.dead) continue;
+    f.wobble += dt * 4;
+    let sp = 1;
+    if (f.fleeing > 0) { f.fleeing -= dt; sp = 2.2; }
+    f.x += f.vx * sp * dt;
+    f.y += f.vy * dt + Math.sin(f.wobble) * 10 * dt;
+    // 边界折返
+    if (f.x < f.size * 0.8) { f.x = f.size * 0.8; f.vx = Math.abs(f.vx); }
+    if (f.x > W - f.size * 0.8) { f.x = W - f.size * 0.8; f.vx = -Math.abs(f.vx); }
+    if (f.y < H * 0.26) { f.y = H * 0.26; f.vy = Math.abs(f.vy); }
+    if (f.y > H - f.size * 0.5) { f.y = H - f.size * 0.5; f.vy = -Math.abs(f.vy); }
+    // 朝向平滑
+    const want = f.vx > 0 ? 1 : -1;
+    f.dir += (want - f.dir) * Math.min(1, dt * 5);
+  }
+
+  // 捞鱼动画：鱼飞向渔桶
+  if (state === STATE.CATCHING && catchAnim) {
+    catchAnim.t += dt / CATCH_TIME;
+    const k = Math.min(1, catchAnim.t);
+    const bx = W - 68, by = H - 120;   // 桶位置
+    catchAnim.fish.x = catchAnim.x + (bx - catchAnim.x) * k;
+    catchAnim.fish.y = catchAnim.y + (by - catchAnim.y) * k - Math.sin(k * Math.PI) * 90;
+    if (k >= 1) finishCatch();
+  }
+
+  // 换题
+  if (state === STATE.RUNNING && !questionActive) {
+    if (nextDelay > 0) nextDelay -= dt;
+    else nextQuestion();
+  }
+
+  // 结算彩带
+  if (confettiTimer > 0) {
+    confettiTimer -= dt;
+    spawnConfetti();
+  }
+
+  updateParticles(dt);
+}
+
+/* ---------------- 绘制 ---------------- */
+function drawBackground(t) {
+  // 明亮天空
+  const sky = ctx.createLinearGradient(0, 0, 0, H * 0.3);
+  sky.addColorStop(0, '#8fd8ff');
+  sky.addColorStop(1, '#c6ecff');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H * 0.3);
+
+  // 白云
+  for (const c of cloudsBg) {
+    const cx = c.fx * W, cy = c.fy * H;
+    ctx.fillStyle = 'rgba(255,255,255,.92)';
+    const r = c.s * 34;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.arc(cx + r * 0.8, cy + r * 0.15, r * 0.75, 0, Math.PI * 2);
+    ctx.arc(cx - r * 0.8, cy + r * 0.2, r * 0.62, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 池塘水面
+  const pond = ctx.createLinearGradient(0, H * 0.22, 0, H);
+  pond.addColorStop(0, '#63c8f0');
+  pond.addColorStop(0.5, '#3fa8dd');
+  pond.addColorStop(1, '#2b86c4');
+  ctx.fillStyle = pond;
+  ctx.fillRect(0, H * 0.28, W, H * 0.72);
+
+  // 岸边
+  ctx.fillStyle = '#7ed37e';
+  ctx.beginPath();
+  ctx.ellipse(W * 0.5, H * 0.30, W * 0.75, H * 0.055, 0, Math.PI, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#5cba5c';
+  ctx.beginPath();
+  ctx.ellipse(W * 0.5, H * 0.305, W * 0.75, H * 0.035, 0, Math.PI, Math.PI * 2);
+  ctx.fill();
+
+  // 云倒影（水面柔光）
+  for (const c of cloudsBg) {
+    const cx = c.fx * W, cy = H * 0.36 + c.fy * H * 0.8;
+    ctx.fillStyle = 'rgba(255,255,255,.10)';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, c.s * 90, c.s * 20, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 水面波光
+  ctx.strokeStyle = 'rgba(255,255,255,.18)';
+  ctx.lineWidth = 2;
+  for (let i = 0; i < 5; i++) {
+    const wy = H * (0.34 + i * 0.05) + Math.sin(t * 0.8 + i) * 4;
+    ctx.beginPath();
+    for (let x = 0; x <= W; x += 24) {
+      const yy = wy + Math.sin(x * 0.02 + t * 1.4 + i * 2) * 3;
+      if (x === 0) ctx.moveTo(x, yy); else ctx.lineTo(x, yy);
+    }
+    ctx.stroke();
+  }
+
+  // 芦苇
+  for (const r of reeds) {
+    const rx = r.side ? W * (0.97 - r.fx * 0.1) : W * (0.03 + r.fx * 0.1);
+    const baseY = H * 0.305;
+    const hgt = r.h * H;
+    const sway = Math.sin(t * 1.1 + r.p) * 7;
+    ctx.strokeStyle = '#3e9e4d';
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.moveTo(rx, baseY);
+    ctx.quadraticCurveTo(rx + sway * 0.4, baseY - hgt * 0.6, rx + sway, baseY - hgt);
+    ctx.stroke();
+  }
+}
+
+/* ---- 鱼（卡通大眼，无文字） ---- */
+function drawFish(f, t) {
+  const s = f.size;
+  const facing = f.dir;   // -1 左 / 1 右
+  ctx.save();
+  ctx.translate(f.x, f.y);
+  ctx.scale(facing || 1, 1);
+  if (f.fleeing > 0) ctx.globalAlpha = 0.75;
+
+  const wob = Math.sin(f.wobble) * 0.08;
+  ctx.rotate(wob * 0.3);
+
+  // 身形差异
+  let bodyRx = s * 0.42, bodyRy = s * 0.30;
+  if (f.shape === 'long') { bodyRx = s * 0.52; bodyRy = s * 0.24; }
+  if (f.shape === 'tall') { bodyRx = s * 0.34; bodyRy = s * 0.38; }
+
+  // 尾巴（摆动）
+  const tail = Math.sin(f.wobble * 2.2) * s * 0.10;
+  ctx.fillStyle = f.dark;
+  ctx.beginPath();
+  ctx.moveTo(-bodyRx * 0.82, 0);
+  ctx.lineTo(-bodyRx * 1.45, -s * 0.30 + tail);
+  ctx.lineTo(-bodyRx * 1.30, 0 + tail * 0.5);
+  ctx.lineTo(-bodyRx * 1.45, s * 0.30 + tail);
+  ctx.closePath();
+  ctx.fill();
+
+  // 鱼鳍
+  ctx.fillStyle = f.dark;
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.02, -bodyRy * 0.6);
+  ctx.quadraticCurveTo(s * 0.1, -s * 0.5, s * 0.26, -bodyRy * 0.72);
+  ctx.quadraticCurveTo(s * 0.08, -bodyRy * 0.2, -s * 0.02, -bodyRy * 0.6);
+  ctx.fill();
+
+  // 身体
+  const g = ctx.createLinearGradient(0, -bodyRy, 0, bodyRy);
+  g.addColorStop(0, f.body);
+  g.addColorStop(0.62, f.body);
+  g.addColorStop(1, f.belly);
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, bodyRx, bodyRy, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // 轮廓
+  ctx.strokeStyle = 'rgba(255,255,255,.55)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // 鳃线
+  ctx.strokeStyle = f.dark;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(-bodyRx * 0.25, 0, bodyRy * 0.55, -0.9, 0.9);
+  ctx.stroke();
+
+  // 大眼（卡通，朝前）
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(bodyRx * 0.45, -bodyRy * 0.32, s * 0.115, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#222';
+  ctx.beginPath();
+  ctx.arc(bodyRx * 0.52, -bodyRy * 0.32, s * 0.055, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(bodyRx * 0.55, -bodyRy * 0.36, s * 0.02, 0, Math.PI * 2);
+  ctx.fill();
+  // 腮红
+  ctx.fillStyle = 'rgba(255,255,255,.35)';
+  ctx.beginPath();
+  ctx.arc(bodyRx * 0.18, bodyRy * 0.28, s * 0.06, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 嘴巴
+  ctx.strokeStyle = f.dark;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(bodyRx * 0.62, bodyRy * 0.12, s * 0.06, 0.3, 2.6);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+/* ---- 目标色提示牌（左下角，纯色块无文字依赖） ---- */
+function drawTargetHint() {
+  if (!targetColor || state !== STATE.RUNNING) return;
+  const x = 24, y = H - 88;
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,255,.9)';
+  ctx.beginPath();
+  ctx.roundRect ? ctx.roundRect(x, y, 64, 64, 14) : ctx.rect(x, y, 64, 64);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,.15)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  // 目标色小鱼简图
+  ctx.fillStyle = targetColor.body;
+  ctx.beginPath();
+  ctx.ellipse(x + 30, y + 30, 15, 10, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = targetColor.dark;
+  ctx.beginPath();
+  ctx.moveTo(x + 16, y + 30);
+  ctx.lineTo(x + 6, y + 22);
+  ctx.lineTo(x + 6, y + 38);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(x + 36, y + 27, 3.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+/* ---- 水泡 / 涟漪 / 粒子 ---- */
+function drawEffects() {
+  // 水泡
+  ctx.strokeStyle = 'rgba(255,255,255,.4)';
+  ctx.lineWidth = 1.5;
+  for (const b of bubbles) {
+    ctx.globalAlpha = Math.max(0, Math.min(1, b.life)) * 0.6;
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  // 涟漪
+  for (const r of rings) {
+    if (r.t < 0) continue;
+    ctx.strokeStyle = `rgba(255,255,255,${(1 - r.t) * 0.7})`;
+    ctx.lineWidth = Math.max(1.5, 6 * (1 - r.t));
+    ctx.beginPath();
+    ctx.arc(r.x, r.y, 8 + r.t * 46, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  // 粒子
+  for (const p of particles) {
+    ctx.globalAlpha = Math.max(0, Math.min(1, p.confetti ? p.life / 3 : p.life));
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+/* ---------------- 渲染 ---------------- */
+function render(t) {
+  ctx.save();
+  if (shake > 0) {
+    const m = shake * 10;
+    ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m);
+  }
+  drawBackground(t);
+  for (const f of fishes) drawFish(f, t);
+  drawTargetHint();
+  drawEffects();
+  ctx.restore();
+}
+
+/* ---------------- 帧循环 ---------------- */
+let lastT = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now;
+  update(dt, now / 1000);
+  render(now / 1000);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ---------------- 开始 / 重开 ---------------- */
+$('btnStart').addEventListener('click', () => {
+  initAudio();
+  $('start').style.display = 'none';
+  state = STATE.RUNNING;
+  bucket = 0; streak = 0; bestStreak = 0; wrongTotal = 0;
+  caughtColors = [];
+  nextDelay = 0;
+  updateHUD();
+  speak('开始捕鱼啦！');
+  nextQuestion();
+});
+
+$('btnRestart').addEventListener('click', () => {
+  $('result').classList.remove('show');
+  bucket = 0; streak = 0; bestStreak = 0; wrongTotal = 0;
+  caughtColors = [];
+  particles = []; rings = []; bubbles = [];
+  fishes = [];
+  catchAnim = null;
+  targetColor = null; questionActive = false;
+  lastTarget = null;
+  confettiTimer = -1;
+  state = STATE.RUNNING;
+  nextDelay = 0.4;
+  updateHUD();
+  speak('再捞一次！');
+});
+
+/* ---------------- 测试钩子（设计文档要求） ---------------- */
+window.__testFishes = function () {
+  return fishes.filter(f => !f.dead).map(f => ({ id: f.id, color: f.color, colorName: f.colorName, x: f.x, y: f.y }));
+};
+window.__testCatch = function (id) {
+  const f = fishes.find(x => x.id === id && !x.dead);
+  if (!f) return false;
+  tryCatch(f);
+  return true;
+};
+window.__testState = function () {
+  return { state, bucket, streak, target: targetColor ? targetColor.key : null, questionActive };
+};
+</script>
+</body>
+</html>

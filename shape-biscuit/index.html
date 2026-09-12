@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>形状饼干工厂 · Shape Biscuit</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  body {
+    background: #2b1f14;
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+  }
+  #game { display: block; width: 100vw; height: 100vh; }
+  .hud { position: absolute; top: 46px; left: 14px; z-index: 10; display: flex; gap: 10px; flex-wrap: wrap; pointer-events: none; }
+  .hud-chip { background: rgba(43,31,20,.78); border: 1px solid rgba(255,205,120,.4); border-radius: 14px; color: #ffe9c9; padding: 7px 15px; font-size: 17px; font-weight: 600; box-shadow: 0 4px 18px rgba(0,0,0,.35); backdrop-filter: blur(6px); }
+  .hud-chip b { color: #ffd35c; font-size: 21px; }
+  #btnMute { position: absolute; top: 12px; right: 12px; z-index: 60; font-size: 20px; line-height: 1; padding: 9px 13px; border-radius: 12px; cursor: pointer; background: rgba(43,31,20,.78); border: 1px solid rgba(255,205,120,.4); color: #ffe9c9; }
+  #caption { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 15; background: rgba(43,31,20,.85); border: 2px solid rgba(255,205,120,.5); border-radius: 18px; color: #ffe9c9; padding: 10px 26px; font-size: 21px; font-weight: 700; letter-spacing: 1px; pointer-events: none; white-space: nowrap; max-width: 92vw; text-align: center; }
+  #toast { position: absolute; left: 50%; top: 24%; transform: translate(-50%, -50%) scale(1); z-index: 30; font-size: 56px; font-weight: 800; color: #ffd35c; text-shadow: 0 4px 18px rgba(0,0,0,.6); opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; white-space: nowrap; }
+  #toast.pop { opacity: 1; transform: translate(-50%, -58%) scale(1.12); }
+  #result { position: absolute; inset: 0; z-index: 40; background: rgba(20,12,6,.85); display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+  #result.show { display: flex; }
+  .result-card { text-align: center; color: #ffe9c9; background: linear-gradient(160deg, #4a3421, #2b1f14); border: 2px solid #ff9c5c; border-radius: 26px; padding: 30px 44px; box-shadow: 0 20px 60px rgba(0,0,0,.55); max-width: 88vw; }
+  .result-card h1 { font-size: 38px; color: #ffd35c; margin-bottom: 12px; }
+  .result-card p { font-size: 17px; color: #e3cba4; margin: 6px 0 22px; line-height: 1.8; }
+  .result-card button { font-size: 20px; padding: 12px 42px; border-radius: 999px; border: none; cursor: pointer; background: linear-gradient(90deg, #ff9c5c, #ffd35c); color: #3a2200; font-weight: 700; letter-spacing: 4px; box-shadow: 0 6px 20px rgba(255,156,92,.45); font-family: inherit; }
+  .result-card button:active { transform: scale(.97); }
+  #start { position: absolute; inset: 0; z-index: 50; background: radial-gradient(1200px 600px at 50% 30%, #6b4a2a 0%, #2b1f14 70%); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #ffe9c9; text-align: center; padding: 20px; }
+  #start h1 { font-size: clamp(38px, 8vw, 60px); letter-spacing: 6px; background: linear-gradient(90deg, #ffd35c, #ff9c5c, #ffe9c9); -webkit-background-clip: text; background-clip: text; color: transparent; margin-bottom: 14px; }
+  #start p { font-size: 16px; color: #d8b98c; line-height: 2; max-width: 560px; }
+  #start .rules { margin: 22px 0 28px; }
+  #start button { font-size: 21px; padding: 14px 56px; border-radius: 999px; border: none; cursor: pointer; background: linear-gradient(90deg, #ff9c5c, #ffd35c); color: #3a2200; font-weight: 800; letter-spacing: 6px; box-shadow: 0 8px 26px rgba(255,180,70,.45); font-family: inherit; }
+  #start button:active { transform: scale(.97); }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<button id="btnMute" title="声音开关">🔊</button>
+<div class="hud">
+  <div class="hud-chip">烤好 <b id="hudDone">0</b> / 15</div>
+  <div class="hud-chip">连对 <b id="hudStreak">0</b> 🔥</div>
+</div>
+<div id="caption" style="display:none"></div>
+<div id="toast"></div>
+<div id="result">
+  <div class="result-card">
+    <h1 id="resultTitle">🍪 收工啦！</h1>
+    <p id="resultDesc"></p>
+    <button id="btnRestart">再烤一次</button>
+  </div>
+</div>
+<div id="start">
+  <h1>形状饼干工厂</h1>
+  <p class="rules">
+    传送带上送来一块块饼干，听语音指令：<br>
+    找到和饼干一样形状的模具，点击给它 <b>盖章</b>！<br>
+    盖对了饼干会烤得金黄金黄，盖错了它会晃晃悠悠溜走～<br>
+    一起烤好 <b>15 块</b> 形状饼干吧！
+  </p>
+  <button id="btnStart">开始烤饼干</button>
+</div>
+<script>
+/* =========================================================
+ * 形状饼干工厂 Shape Biscuit —— 单文件 Canvas 小游戏
+ * 传送带送来形状饼干，点对应模具盖章；盖对烤成金色。
+ * ========================================================= */
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0;
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+window.addEventListener('resize', resize);
+resize();
+
+const SHAPES = [
+  { key: 'circle',   name: '圆形' },
+  { key: 'triangle', name: '三角形' },
+  { key: 'square',   name: '正方形' },
+  { key: 'star',     name: '五角星' },
+  { key: 'heart',    name: '心形' },
+];
+const SHAPE_COLORS = { circle: '#ffd35c', triangle: '#7dffa1', square: '#6bd5ff', star: '#ff9c5c', heart: '#ff8fab' };
+
+const STATE = { START: 0, RUNNING: 1, FINISH: 2 };
+let state = STATE.START;
+let doneCount = 0, streak = 0, bestStreak = 0, wrongTotal = 0;
+let biscuit = null;            // {shape, x, y, wob, baked, leaving}
+let stampAnim = null;          // {x, y, t, shape, ok}
+let particles = [], crumbs = [];
+let shake = 0;
+let lastShape = null;
+let spawnT = 0;
+
+const $ = id => document.getElementById(id);
+const captionEl = $('caption');
+const toastEl = $('toast');
+
+/* 语音 */
+const synth = window.speechSynthesis || null;
+let zhVoice = null;
+function pickVoice() {
+  if (!synth) return;
+  const vs = synth.getVoices();
+  zhVoice = vs.find(v => /zh[-_]CN/i.test(v.lang)) || vs.find(v => /^zh/i.test(v.lang)) || null;
+}
+if (synth) { pickVoice(); if (synth.onvoiceschanged !== undefined) synth.onvoiceschanged = pickVoice; }
+function speak(text) {
+  if (muted || !synth) return;
+  try {
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN'; if (zhVoice) u.voice = zhVoice; u.rate = 0.92;
+    synth.speak(u);
+  } catch (e) {}
+}
+
+/* 音效 */
+let actx = null, muted = false;
+function initAudio() {
+  if (actx) { actx.resume && actx.resume(); return; }
+  try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+}
+function beep(freq, dur, type, vol, delay) {
+  if (!actx || muted) return;
+  const t0 = actx.currentTime + (delay || 0);
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type || 'sine'; o.frequency.value = freq;
+  g.gain.setValueAtTime(vol || 0.15, t0);
+  g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+  o.connect(g).connect(actx.destination);
+  o.start(t0); o.stop(t0 + dur + 0.02);
+}
+const sfxRight = () => { beep(660, .1, 'sine', .2); beep(990, .16, 'sine', .2, .1); };
+const sfxWrong = () => beep(180, .2, 'sawtooth', .12);
+const sfxStamp = () => { beep(140, .12, 'square', .22); beep(90, .1, 'triangle', .18, .05); };
+const sfxDing  = () => { beep(1320, .2, 'sine', .18); };
+
+$('btnMute').addEventListener('click', () => {
+  muted = !muted;
+  $('btnMute').textContent = muted ? '🔇' : '🔊';
+  if (muted && synth) synth.cancel();
+});
+
+/* 粒子 */
+function burst(x, y, color, n) {
+  for (let i = 0; i < (n || 20); i++) {
+    const a = Math.random() * Math.PI * 2, sp = 2 + Math.random() * 4;
+    particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 2, life: 1, color, size: 3 + Math.random() * 4 });
+  }
+}
+
+function updateHUD() {
+  $('hudDone').textContent = doneCount;
+  $('hudStreak').textContent = streak;
+}
+let toastTimer = null;
+function toast(text, good) {
+  toastEl.textContent = text;
+  toastEl.style.color = good ? '#7dffa1' : '#ffb0a0';
+  toastEl.classList.add('pop');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('pop'), 900);
+}
+function caption(text) {
+  captionEl.style.display = 'block';
+  captionEl.textContent = text;
+}
+
+/* 生成下一块饼干 */
+function nextBiscuit() {
+  let s;
+  do { s = SHAPES[Math.floor(Math.random() * SHAPES.length)]; } while (s.key === lastShape && Math.random() < 0.6);
+  lastShape = s.key;
+  biscuit = { shape: s, x: -80, y: H * 0.40, wob: Math.random() * 6.28, baked: false, leaving: false, bakedT: 0 };
+  speak(`给${s.name}饼干盖章！`);
+  caption(`给 ${s.name} 饼干盖章！`);
+}
+
+/* 点击模具（shapes 之一） */
+function stampShape(key) {
+  if (state !== STATE.RUNNING || !biscuit || biscuit.leaving || stampAnim) return;
+  stampAnim = { x: biscuit.x, y: biscuit.y, t: 0, shape: key, ok: key === biscuit.shape.key };
+  sfxStamp();
+  if (stampAnim.ok) {
+    sfxRight();
+    doneCount++; streak++;
+    if (streak > bestStreak) bestStreak = streak;
+    biscuit.baked = true;
+    burst(biscuit.x, biscuit.y, '#ffd35c', 26);
+    toast('🍪 烤好啦！', true);
+    speak(['太棒了', '好厉害', '真不错', '顶呱呱'][Math.floor(Math.random() * 4)]);
+    updateHUD();
+    if (doneCount >= 15) setTimeout(showResult, 900);
+  } else {
+    wrongTotal++; streak = 0;
+    biscuit.leaving = true;
+    shake = 0.3;
+    sfxWrong();
+    toast(`这是${SHAPE_TXT[key]}模具`);
+    speak(`盖错啦，这是${biscuit.shape.name}饼干，要用${biscuit.shape.name}模具`);
+    updateHUD();
+  }
+}
+const SHAPE_TXT = { circle: '圆形', triangle: '三角形', square: '正方形', star: '五角星', heart: '心形' };
+
+function showResult() {
+  let title, medal;
+  if (bestStreak >= 12) { title = '🥇 金牌面点师！'; medal = '金牌'; }
+  else if (bestStreak >= 8) { title = '🥈 银牌面点师！'; medal = '银牌'; }
+  else if (bestStreak >= 4) { title = '🥉 铜牌面点师！'; medal = '铜牌'; }
+  else { title = '🍪 收工啦！'; medal = '继续加油'; }
+  $('resultTitle').textContent = title;
+  $('resultDesc').innerHTML =
+    `烤好 <b style="color:#ffd35c">${doneCount}</b> 块饼干（${medal}）<br>` +
+    `最佳连对 <b style="color:#ffd35c">${bestStreak}</b> 次 · 盖错 <b style="color:#ff9d9d">${wrongTotal}</b> 次<br>` +
+    `五种形状全都认识啦！`;
+  $('result').classList.add('show');
+  speak(`收工啦！你烤好了${doneCount}块饼干，获得${medal}！`);
+}
+
+/* 绘制形状（key 在 cx,cy 半径 r） */
+function drawShape(key, cx, cy, r, fill, stroke, lw) {
+  ctx.beginPath();
+  if (key === 'circle') {
+    ctx.arc(cx, cy, r * 0.9, 0, Math.PI * 2);
+  } else if (key === 'square') {
+    const s = r * 1.28;
+    ctx.rect(cx - s / 2, cy - s / 2, s, s);
+  } else if (key === 'triangle') {
+    ctx.moveTo(cx, cy - r * 1.1);
+    ctx.lineTo(cx + r, cy + r * 0.75);
+    ctx.lineTo(cx - r, cy + r * 0.75);
+    ctx.closePath();
+  } else if (key === 'star') {
+    for (let i = 0; i < 10; i++) {
+      const rr = i % 2 === 0 ? r * 1.05 : r * 0.45;
+      const a = -Math.PI / 2 + i * Math.PI / 5;
+      if (i === 0) ctx.moveTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+      else ctx.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+    }
+    ctx.closePath();
+  } else if (key === 'heart') {
+    ctx.moveTo(cx, cy + r * 0.85);
+    ctx.bezierCurveTo(cx - r * 1.3, cy - r * 0.1, cx - r * 0.55, cy - r * 1.05, cx, cy - r * 0.35);
+    ctx.bezierCurveTo(cx + r * 0.55, cy - r * 1.05, cx + r * 1.3, cy - r * 0.1, cx, cy + r * 0.85);
+    ctx.closePath();
+  }
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw || 3; ctx.stroke(); }
+}
+
+/* 绘制场景 */
+function drawScene(t) {
+  // 面包房暖色背景
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#4a3421');
+  bg.addColorStop(1, '#2b1f14');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // 后墙砖纹
+  ctx.strokeStyle = 'rgba(255,220,160,.06)';
+  ctx.lineWidth = 2;
+  for (let y = 40; y < H * 0.62; y += 34) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+  // 温馨挂灯
+  for (let i = 0; i < 3; i++) {
+    const lx = W * (0.2 + i * 0.3);
+    ctx.strokeStyle = '#6b4a2a'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(lx, 0); ctx.lineTo(lx, 46); ctx.stroke();
+    const g = ctx.createRadialGradient(lx, 62, 2, lx, 62, 60);
+    g.addColorStop(0, 'rgba(255,220,140,.55)');
+    g.addColorStop(1, 'rgba(255,220,140,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(lx, 62, 60, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffe9c0';
+    ctx.beginPath(); ctx.arc(lx, 58, 10, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // 传送带
+  const beltY = H * 0.55, beltH = 46;
+  ctx.fillStyle = '#1c130a';
+  roundRect2(0, beltY, W, beltH, 10); ctx.fill();
+  // 滚动纹
+  ctx.strokeStyle = 'rgba(255,220,160,.14)'; ctx.lineWidth = 3;
+  const roll = (t * 120) % 42;
+  for (let x = -42 + roll; x < W + 42; x += 42) {
+    ctx.beginPath(); ctx.moveTo(x, beltY + 6); ctx.lineTo(x, beltY + beltH - 6); ctx.stroke();
+  }
+  ctx.strokeStyle = '#8a6a42'; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(0, beltY); ctx.lineTo(W, beltY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, beltY + beltH); ctx.lineTo(W, beltY + beltH); ctx.stroke();
+
+  // 模具架（底部）
+  const n = SHAPES.length;
+  const cellW = Math.min(150, (W - 30) / n);
+  const rackY = H - 120;
+  ctx.fillStyle = 'rgba(43,31,20,.9)';
+  roundRect2(10, rackY - 8, W - 20, 128, 18); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,205,120,.35)'; ctx.lineWidth = 2;
+  roundRect2(10, rackY - 8, W - 20, 128, 18); ctx.stroke();
+  ctx.fillStyle = '#d8b98c';
+  ctx.font = '15px system-ui, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText('点 模 具 盖 章', W / 2, rackY + 118);
+}
+function roundRect2(x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function drawBiscuit(t) {
+  if (!biscuit) return;
+  const b = biscuit;
+  const by = b.y + Math.sin(t * 3 + b.wob) * 4 + (b.baked ? -26 : 0);
+  const sc = b.baked ? Math.max(0, 1 - b.bakedT * 0.8) : 1;
+  if (sc <= 0) return;
+  ctx.save();
+  ctx.translate(b.x, by);
+  ctx.scale(sc, sc);
+  const r = Math.min(W, H) * 0.075;
+  // 阴影
+  ctx.fillStyle = 'rgba(0,0,0,.3)';
+  ctx.beginPath();
+  ctx.ellipse(0, r * 1.5, r * 1.1, r * 0.24, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // 饼干底（生面团色 / 烤好金色）
+  drawShape(b.shape.key, 0, 0, r, b.baked ? '#e8a33d' : '#d8b98c', '#8a6a42', 5);
+  // 巧克力点缀
+  ctx.fillStyle = b.baked ? '#8a5a2a' : '#b08a5a';
+  ctx.beginPath(); ctx.arc(-r * 0.25, r * 0.2, r * 0.09, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(r * 0.3, -r * 0.15, r * 0.07, 0, Math.PI * 2); ctx.fill();
+  if (b.baked) {
+    // 香气
+    ctx.strokeStyle = 'rgba(255,235,180,.5)';
+    ctx.lineWidth = 2.5;
+    for (let i = 0; i < 3; i++) {
+      const sx = -r * 0.5 + i * r * 0.5;
+      const ph = t * 2 + i;
+      ctx.beginPath();
+      ctx.moveTo(sx, -r * 1.3);
+      ctx.quadraticCurveTo(sx + 8 * Math.sin(ph), -r * 1.7, sx, -r * 2.1);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+function drawStampAnim(t) {
+  if (!stampAnim) return;
+  const a = stampAnim;
+  a.t += 0.016;
+  const k = Math.min(1, a.t / 0.4);
+  const lift = Math.sin(k * Math.PI) * 90;
+  const cx = a.x, cy = a.y - lift;
+  const r = Math.min(W, H) * 0.075;
+  // 印章
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.fillStyle = '#6b4a2a';
+  roundRect2(-r * 0.7, -r * 2.2, r * 1.4, r * 2.6, 8); ctx.fill();
+  ctx.fillStyle = SHAPE_COLORS[a.shape];
+  drawShape(a.shape, 0, -r * 0.9, r * 0.55, null, '#3a2200', 3);
+  ctx.restore();
+  if (a.t > 0.7) stampAnim = null;
+}
+
+function drawRack(t) {
+  const n = SHAPES.length;
+  const cellW = Math.min(150, (W - 30) / n);
+  const rackY = H - 120;
+  const r = Math.min(cellW * 0.24, 34);
+  for (let i = 0; i < n; i++) {
+    const s = SHAPES[i];
+    const cx = 10 + cellW * (i + 0.5) + (W - 20 - cellW * n) / 2;
+    const cy = rackY + 52;
+    // 模具木底
+    ctx.fillStyle = '#8a6a42';
+    roundRect2(cx - cellW * 0.42, cy - r * 1.35, cellW * 0.84, r * 2.5, 12); ctx.fill();
+    ctx.fillStyle = '#5a4025';
+    drawShape(s.key, cx, cy, r * 0.62, null, '#3a2200', 3);
+    // 彩色形状印面
+    drawShape(s.key, cx, cy, r * 0.5, SHAPE_COLORS[s.key], null, 0);
+    // 名字
+    ctx.fillStyle = '#ffe9c9';
+    ctx.font = 'bold 15px system-ui, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText(s.name, cx, cy + r * 1.6 + 18);
+    // 记录热区
+    rackHit[i] = { x: cx - cellW * 0.42, y: cy - r * 1.4, w: cellW * 0.84, h: r * 2.9, key: s.key };
+  }
+}
+const rackHit = [];
+
+function drawParticles() {
+  for (const p of particles) {
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+/* 主循环 */
+function update(dt, t) {
+  if (shake > 0) shake = Math.max(0, shake - dt);
+  for (const p of particles) { p.x += p.vx; p.y += p.vy; p.vy += 0.12; p.life -= dt * 1.3; }
+  particles = particles.filter(p => p.life > 0);
+
+  if (state === STATE.RUNNING) {
+    // 传送带送饼干
+    if (!biscuit) {
+      spawnT -= dt;
+      if (spawnT <= 0) { nextBiscuit(); }
+    } else if (biscuit.leaving) {
+      biscuit.x -= 240 * dt;
+      if (biscuit.x < -120) { biscuit = null; spawnT = 0.5; }
+    } else if (biscuit.baked) {
+      biscuit.bakedT += dt;
+      if (biscuit.bakedT > 1.1) { biscuit = null; spawnT = 0.5; }
+    } else {
+      biscuit.x += Math.min(140, 60 + doneCount * 6) * dt;   // 传送带速度随进度微升
+      if (biscuit.x > W - Math.min(W, H) * 0.09) {
+        // 溜走到头：温和提示再来一块
+        biscuit = null; spawnT = 0.4;
+        streak = 0;
+        caption('饼干溜走啦，等下一块～');
+        speak('饼干溜走啦，下一块来啦');
+        updateHUD();
+      }
+    }
+  }
+}
+
+function render(t) {
+  ctx.save();
+  if (shake > 0) {
+    const m = shake * 10;
+    ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m);
+  }
+  drawScene(t);
+  drawBiscuit(t);
+  drawStampAnim(t);
+  drawRack(t);
+  drawParticles();
+  ctx.restore();
+}
+
+let lastT = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now;
+  update(dt, now / 1000);
+  render(now / 1000);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* 点击判定：先查模具架热区，再查饼干 */
+canvas.addEventListener('pointerdown', e => {
+  if (state !== STATE.RUNNING) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) * (W / rect.width);
+  const y = (e.clientY - rect.top) * (H / rect.height);
+  for (const hz of rackHit) {
+    if (x >= hz.x - 10 && x <= hz.x + hz.w + 10 && y >= hz.y - 10 && y <= hz.y + hz.h + 10) {
+      stampShape(hz.key);
+      return;
+    }
+  }
+});
+
+/* 开始 / 重开 */
+$('btnStart').addEventListener('click', () => {
+  initAudio();
+  $('start').style.display = 'none';
+  resetGame();
+  state = STATE.RUNNING;
+  spawnT = 0.4;
+  speak('饼干工厂开工啦！');
+});
+$('btnRestart').addEventListener('click', () => {
+  $('result').classList.remove('show');
+  resetGame();
+  state = STATE.RUNNING;
+  spawnT = 0.4;
+  speak('再烤一炉！');
+});
+function resetGame() {
+  doneCount = 0; streak = 0; bestStreak = 0; wrongTotal = 0;
+  biscuit = null; stampAnim = null;
+  particles = [];
+  shake = 0; lastShape = null; spawnT = 0.4;
+  captionEl.style.display = 'none';
+  updateHUD();
+}
+
+/* 测试钩子 */
+window.__testShape = () => biscuit ? biscuit.shape.key : null;
+window.__testStamp = key => stampShape(key);
+window.__testState = () => ({ state, done: doneCount, streak, bestStreak, wrong: wrongTotal });
+</script>
+</body>
+</html>
