@@ -100,7 +100,7 @@ let cars = [];                 // 月台车厢 [{num, x, y, hit, wiggle}]
 let coupled = [];              // 已挂车厢号（按序）
 let coupledTarget = 3;
 let smoke = [];                // 烟囱粒子
-let trainX = 0;                // 车头左边缘位置（车头朝左，整列从画面右侧往左开走）
+let trainX = 0;                // 开走动画的向左位移累积（<0），0 = 停靠中
 let departT = -1;              // 开走计时
 let nextT = -1;                // 进下一关延迟
 let flyingCar = null;          // 飞行中车厢 {car, t, from, to}
@@ -219,7 +219,7 @@ function buildLevel() {
       color: CAR_COLORS[(n - 1) % CAR_COLORS.length],
     });
   });
-  trainX = W - 150;
+  trainX = 0;
   departT = -1; nextT = -1;
   updateHUD();
   say(`第${level}站！这一关挂 1 到 ${coupledTarget} 号车厢，先挂 1 号，1 号！`, true);
@@ -269,7 +269,10 @@ function update(dt, t) {
   // 烟囱粒子
   if (departT >= 0 || state === STATE.RUNNING) {
     if (Math.random() < 0.3) {
-      smoke.push({ x: trainX + 70, y: H * 0.46 - 70, vx: 0.5 + Math.random(), vy: -0.8 - Math.random(), r: 6 + Math.random() * 8, life: 1 });
+      const cw2 = Math.min(96, (W * 0.72) / (coupledTarget + 1));
+      const headW2 = Math.max(86, cw2);
+      const headX2 = W - 60 + trainX - headW2 - 8 - coupled.length * (cw2 + 6);
+      smoke.push({ x: headX2 + headW2 * 0.76, y: H * 0.46 - 70, vx: 0.5 + Math.random(), vy: -0.8 - Math.random(), r: 6 + Math.random() * 8, life: 1 });
     }
   }
   for (const s of smoke) { s.x += s.vx; s.y += s.vy; s.r += 0.15; s.life -= dt * 0.8; }
@@ -326,8 +329,9 @@ function drawTrain(t) {
   /* 已挂车厢（第 9 关列车长：车头 + 9 节，宽度自适应） */
   const cw = Math.min(96, (W * 0.72) / (coupledTarget + 1));
   const headW = Math.max(86, cw);
-  /* 车头在最左端（朝左，行驶方向），车厢接在车头右侧 —— 整列车从画面右侧往左开走 */
-  const headX = trainX;        // 车头左边缘
+  /* 车尾固定在画面右侧（月台旁），每挂一节车厢整列往左挪一格 —— 车厢不会堆出屏外 */
+  const tailX = W - 60 + trainX;               // 列车右端（开走时向左移出）
+  const headX = tailX - headW - 8 - coupled.length * (cw + 6);
   drawLocoLeft(headX, ry, headW, t);
   /* 已挂车厢（从车头右侧往右排） */
   let wx = headX + headW + 8;
@@ -339,7 +343,7 @@ function drawTrain(t) {
   if (flyingCar) {
     const fc = flyingCar;
     const k = fc.t;
-    const targetX = wx;                    // 列车右端
+    const targetX = tailX;                     // 车尾固定点
     const from = fc.from;
     const toX = targetX, toY = ry;
     const bx = from.x + (toX - from.x) * k;
