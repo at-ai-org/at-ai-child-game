@@ -552,7 +552,7 @@ window.__testState = () => ({ state, done: doneCount, streak, bestStreak, wrong:
   });
   document.getElementById('hcOk').addEventListener('click', function () {
     try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (err) {}
-    window.location.href = '../index.html';
+    window.location.replace('../index.html');
   });
   document.getElementById('hcCancel').addEventListener('click', function () {
     dlg.classList.remove('show');
@@ -560,6 +560,30 @@ window.__testState = () => ({ state, done: doneCount, streak, bestStreak, wrong:
   dlg.addEventListener('pointerdown', function (e) {
     if (e.target === dlg) dlg.classList.remove('show');
   });
+})();
+</script>
+
+
+<script>
+/* ---- 禁用浏览器回退：按物理回退键只会弹确认弹窗 ---- */
+(function () {
+  var dlg = document.getElementById('homeConfirm');
+  /* 无弹窗结构（理论上不会发生）时退化为静默推回 */
+  function guardBack() {
+    try { history.pushState({ g: 1 }, '', '#guard'); } catch (e) {}
+    if (dlg) {
+      dlg.classList.add('show');
+      try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (e) {}
+    }
+  }
+  try {
+    history.pushState({ g: 1 }, '', '#guard');
+    window.addEventListener('popstate', guardBack);
+    /* 页面显示状态变化（从 bfcache 恢复）时重新垫垫子 */
+    window.addEventListener('pageshow', function (e) {
+      if (e.persisted) { try { history.pushState({ g: 1 }, '', '#guard'); } catch (err) {} }
+    });
+  } catch (e) {}
 })();
 </script>
 

@@ -337,5 +337,22 @@ window.addEventListener('contextmenu', e => e.preventDefault());
 </div>
 
 <footer>at-ai-child-game · 用 AI 编写的少儿教育游戏 · MIT License</footer>
+
+<script>
+/* ---- 主页：垫住回退键，防止回退到游戏页造成状态错乱 ---- */
+(function () {
+  function guardBack() {
+    try { history.pushState({ g: 1 }, '', '#home'); } catch (e) {}
+  }
+  try {
+    history.pushState({ g: 1 }, '', '#home');
+    window.addEventListener('popstate', guardBack);
+    window.addEventListener('pageshow', function (e) {
+      if (e.persisted) { try { history.pushState({ g: 1 }, '', '#home'); } catch (err) {} }
+    });
+  } catch (e) {}
+})();
+</script>
+
 </body>
 </html>
