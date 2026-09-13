@@ -241,7 +241,9 @@ function nextBiscuit() {
   let s;
   do { s = SHAPES[Math.floor(Math.random() * SHAPES.length)]; } while (s.key === lastShape && Math.random() < 0.6);
   lastShape = s.key;
-  biscuit = { shape: s, x: -80, y: H * 0.40, wob: Math.random() * 6.28, baked: false, leaving: false, bakedT: 0 };
+  /* 饼干 y：中带偏上，确保与加高的模具架不重叠 */
+  const beltY2 = Math.max(H * 0.18, (H - 226) * 0.55);
+  biscuit = { shape: s, x: -80, y: beltY2, wob: Math.random() * 6.28, baked: false, leaving: false, bakedT: 0 };
   speak(`给${s.name}饼干盖章！`);
   caption(`给 ${s.name} 饼干盖章！`);
 }
@@ -540,7 +542,7 @@ function drawScene(t) {
   // 模具架（底部）：整体抬高，内部留足形状 + 名字空间
   const n = SHAPES.length;
   const cellW = Math.min(150, (W - 30) / n);
-  const rackH = 150;                       // 架子高度：形状 56 + 名字 22 + 内边距
+  const rackH = 210;                       // 架子高度：形状 90 + 名字 24 + 内边距
   const rackY = H - rackH - 16;            // 距底部 16px
   ctx.fillStyle = 'rgba(43,31,20,.9)';
   roundRect2(10, rackY, W - 20, rackH, 18); ctx.fill();
@@ -632,35 +634,35 @@ function drawStampAnim(t) {
 function drawRack(t) {
   const n = SHAPES.length;
   const cellW = Math.min(150, (W - 30) / n);
-  const rackH = 150;
+  const rackH = 210;
   const rackY = H - rackH - 16;
-  const r = Math.min(cellW * 0.22, 30);
-  const shapeCy = rackY + 62;                    // 形状中心：架顶 +62
-  const labelY = rackY + rackH - 42;             // 名字基线：底部提示上方
+  const r = Math.min(cellW * 0.44, 60);            // 形状基准半径（放大一倍）
+  const shapeCy = rackY + r + 24;                  // 形状中心：架顶 + 形状高 + 边距
+  const labelY = rackY + rackH - 40;               // 名字基线：底部提示上方
   for (let i = 0; i < n; i++) {
     const s = SHAPES[i];
     const cx = 10 + cellW * (i + 0.5) + (W - 20 - cellW * n) / 2;
     const cy = shapeCy;
-    // 模具木底
+    // 模具木底（随形状放大）
     ctx.fillStyle = '#8a6a42';
-    roundRect2(cx - cellW * 0.42, cy - r * 1.5, cellW * 0.84, r * 3.0, 12); ctx.fill();
+    roundRect2(cx - cellW * 0.44, cy - r * 1.25, cellW * 0.88, r * 2.5, 14); ctx.fill();
     if (is3D(s.key)) {
-      // 彩色立体印面 + 暗色描边底
-      drawShape3D(s.key, cx, cy - r * 0.1, r * 0.62, '#5a4025', '#3a2200');
-      drawShape3D(s.key, cx, cy - r * 0.18, r * 0.5, SHAPE_COLORS[s.key], '#3a2200');
+      // 暗色描边底 + 彩色立体印面（双层错位）
+      drawShape3D(s.key, cx, cy - r * 0.1, r * 0.98, '#5a4025', '#3a2200');
+      drawShape3D(s.key, cx, cy - r * 0.3, r * 0.8, SHAPE_COLORS[s.key], '#3a2200');
     } else {
       ctx.fillStyle = '#5a4025';
-      drawShape(s.key, cx, cy, r * 0.62, null, '#3a2200', 3);
+      drawShape(s.key, cx, cy, r * 0.98, null, '#3a2200', 3);
       // 彩色形状印面
-      drawShape(s.key, cx, cy, r * 0.5, SHAPE_COLORS[s.key], null, 0);
+      drawShape(s.key, cx, cy, r * 0.8, SHAPE_COLORS[s.key], null, 0);
     }
-    // 名字（middle 基线，保证完整显示）
+    // 名字（middle 基线，字号随格子放大）
     ctx.fillStyle = '#ffe9c9';
-    ctx.font = `bold ${Math.min(16, cellW * 0.13)}px system-ui, sans-serif`;
+    ctx.font = `bold ${Math.min(22, Math.max(15, cellW * 0.15))}px system-ui, sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(s.name, cx, labelY);
     // 记录热区（覆盖木底 + 名字）
-    rackHit[i] = { x: cx - cellW * 0.42, y: cy - r * 1.5, w: cellW * 0.84, h: labelY - (cy - r * 1.5) + 12, key: s.key };
+    rackHit[i] = { x: cx - cellW * 0.44, y: cy - r * 1.25, w: cellW * 0.88, h: labelY - (cy - r * 1.25) + 14, key: s.key };
   }
 }
 const rackHit = [];
