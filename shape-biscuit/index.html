@@ -65,8 +65,9 @@
 <canvas id="game"></canvas>
 <button id="btnMute" title="声音开关">🔊</button>
 <div class="hud">
-  <div class="hud-chip">烤好 <b id="hudDone">0</b> / 15</div>
+  <div class="hud-chip">烤好 <b id="hudDone">0</b> / 20</div>
   <div class="hud-chip">连对 <b id="hudStreak">0</b> 🔥</div>
+  <div class="hud-chip" id="hudBatch">第一批</div>
 </div>
 <div id="caption" style="display:none"></div>
 <div id="toast"></div>
@@ -83,7 +84,8 @@
     传送带上送来一块块饼干，听语音指令：<br>
     找到和饼干一样形状的模具，点击给它 <b>盖章</b>！<br>
     盖对了饼干会烤得金黄金黄，盖错了它会晃晃悠悠溜走～<br>
-    一起烤好 <b>15 块</b> 形状饼干吧！
+    先认识 <b>10 种平面图形</b>，再来挑战 <b>5 种立体图形</b>（球体、正方体、圆柱体…）<br>
+    一起烤好 <b>20 块</b> 形状饼干吧！
   </p>
   <button id="btnStart">开始烤饼干</button>
 </div>
@@ -102,18 +104,55 @@ function resize() { W = canvas.width = window.innerWidth; H = canvas.height = wi
 window.addEventListener('resize', resize);
 resize();
 
-const SHAPES = [
+/* 平面图形（第一批） */
+const SHAPES_2D = [
   { key: 'circle',   name: '圆形' },
   { key: 'triangle', name: '三角形' },
   { key: 'square',   name: '正方形' },
   { key: 'star',     name: '五角星' },
   { key: 'heart',    name: '心形' },
+  { key: 'diamond',  name: '菱形' },
+  { key: 'oval',     name: '椭圆形' },
+  { key: 'hexagon',  name: '六边形' },
+  { key: 'trapezoid',name: '梯形' },
+  { key: 'arrow',    name: '箭头形' },
 ];
-const SHAPE_COLORS = { circle: '#ffd35c', triangle: '#7dffa1', square: '#6bd5ff', star: '#ff9c5c', heart: '#ff8fab' };
+/* 立体图形（第二批） */
+const SHAPES_3D = [
+  { key: 'sphere',   name: '球体' },
+  { key: 'cube',     name: '正方体' },
+  { key: 'cuboid',   name: '长方体' },
+  { key: 'cylinder', name: '圆柱体' },
+  { key: 'cone',     name: '圆锥体' },
+];
+/* 当前批次的模具集（5 个一组轮换） */
+let SHAPES = [];
+const SHAPE_COLORS = {
+  circle: '#ffd35c', triangle: '#7dffa1', square: '#6bd5ff', star: '#ff9c5c', heart: '#ff8fab',
+  diamond: '#c0a8ff', oval: '#a8e8c0', hexagon: '#ffc0d8', trapezoid: '#d8c090', arrow: '#9fe0ff',
+  sphere: '#ffd35c', cube: '#6bd5ff', cuboid: '#7dffa1', cylinder: '#ff9c5c', cone: '#ff8fab',
+};
+const SHAPE_TXT = {
+  circle: '圆形', triangle: '三角形', square: '正方形', star: '五角星', heart: '心形',
+  diamond: '菱形', oval: '椭圆形', hexagon: '六边形', trapezoid: '梯形', arrow: '箭头形',
+  sphere: '球体', cube: '正方体', cuboid: '长方体', cylinder: '圆柱体', cone: '圆锥体',
+};
+/* 游戏分 4 批，每批 5 块（平面 2 批 → 立体 2 批），共 20 块 */
+const TOTAL = 20;
+const BATCHES = [
+  { shapes: SHAPES_2D.slice(0, 5),  label: '第一批' },
+  { shapes: SHAPES_2D.slice(5, 10), label: '第二批' },
+  { shapes: SHAPES_3D,              label: '立体图形' },
+  { shapes: SHAPES_2D,              label: '大合集' },   /* 10 选 5 补足到 20 */
+];
 
 const STATE = { START: 0, RUNNING: 1, FINISH: 2 };
 let state = STATE.START;
 let doneCount = 0, streak = 0, bestStreak = 0, wrongTotal = 0;
+let batchIndex = 0;             // 当前批次（0..3）
+let batchDone = 0;              // 本批已烤数量
+let betweenBatches = false;     // 批次切换等待中（不送新饼干、不响应盖章）
+const BATCH_SIZE = 5;           // 每批 5 块
 let biscuit = null;            // {shape, x, y, wob, baked, leaving}
 let stampAnim = null;          // {x, y, t, shape, ok}
 let particles = [], crumbs = [];
@@ -182,6 +221,7 @@ function burst(x, y, color, n) {
 function updateHUD() {
   $('hudDone').textContent = doneCount;
   $('hudStreak').textContent = streak;
+  $('hudBatch').textContent = BATCHES[batchIndex] ? BATCHES[batchIndex].label : '';
 }
 let toastTimer = null;
 function toast(text, good) {
@@ -196,7 +236,7 @@ function caption(text) {
   captionEl.textContent = text;
 }
 
-/* 生成下一块饼干 */
+/* 生成下一块饼干：从当前批次随机 */
 function nextBiscuit() {
   let s;
   do { s = SHAPES[Math.floor(Math.random() * SHAPES.length)]; } while (s.key === lastShape && Math.random() < 0.6);
@@ -206,21 +246,52 @@ function nextBiscuit() {
   caption(`给 ${s.name} 饼干盖章！`);
 }
 
+/* 切换批次：换模具架 + 播报 */
+function enterBatch(bi) {
+  batchIndex = bi;
+  const b = BATCHES[bi];
+  SHAPES = b.shapes;
+  batchDone = 0;
+  betweenBatches = false;
+  rackHit.length = 0;          // 清空热区，避免点到旧模具
+  updateHUD();
+}
+
 /* 点击模具（shapes 之一） */
 function stampShape(key) {
-  if (state !== STATE.RUNNING || !biscuit || biscuit.leaving || stampAnim) return;
+  if (state !== STATE.RUNNING || betweenBatches || !biscuit || biscuit.leaving || stampAnim) return;
   stampAnim = { x: biscuit.x, y: biscuit.y, t: 0, shape: key, ok: key === biscuit.shape.key };
   sfxStamp();
   if (stampAnim.ok) {
     sfxRight();
-    doneCount++; streak++;
+    doneCount++; streak++; batchDone++;
     if (streak > bestStreak) bestStreak = streak;
     biscuit.baked = true;
     burst(biscuit.x, biscuit.y, '#ffd35c', 26);
     toast('🍪 烤好啦！', true);
     speak(['太棒了', '好厉害', '真不错', '顶呱呱'][Math.floor(Math.random() * 4)]);
     updateHUD();
-    if (doneCount >= 15) setTimeout(showResult, 900);
+    if (doneCount >= TOTAL) {
+      setTimeout(showResult, 900);
+    } else if (batchDone >= BATCH_SIZE) {
+      /* 本批完成 → 换下一批模具（等待期间不送新饼干） */
+      betweenBatches = true;
+      const next = batchIndex + 1;
+      setTimeout(() => {
+        enterBatch(next);
+        const label = BATCHES[next].label;
+        const is3D = BATCHES[next].shapes === SHAPES_3D;
+        if (is3D) {
+          toast('🎉 立体图形登场！', true);
+          speak(`平面图形全都烤好啦！接下来是立体图形饼干，换新模具咯！`);
+          caption('立体图形饼干来啦！🧊');
+        } else {
+          toast('🎉 换新模具啦！', true);
+          speak(`这一批烤好啦！换新模具，继续加油！`);
+          caption('新模具上架啦！');
+        }
+      }, 1100);
+    }
   } else {
     wrongTotal++; streak = 0;
     biscuit.leaving = true;
@@ -231,24 +302,25 @@ function stampShape(key) {
     updateHUD();
   }
 }
-const SHAPE_TXT = { circle: '圆形', triangle: '三角形', square: '正方形', star: '五角星', heart: '心形' };
+
 
 function showResult() {
   let title, medal;
-  if (bestStreak >= 12) { title = '🥇 金牌面点师！'; medal = '金牌'; }
-  else if (bestStreak >= 8) { title = '🥈 银牌面点师！'; medal = '银牌'; }
-  else if (bestStreak >= 4) { title = '🥉 铜牌面点师！'; medal = '铜牌'; }
+  if (bestStreak >= 16) { title = '🥇 金牌面点师！'; medal = '金牌'; }
+  else if (bestStreak >= 10) { title = '🥈 银牌面点师！'; medal = '银牌'; }
+  else if (bestStreak >= 5) { title = '🥉 铜牌面点师！'; medal = '铜牌'; }
   else { title = '🍪 收工啦！'; medal = '继续加油'; }
   $('resultTitle').textContent = title;
   $('resultDesc').innerHTML =
     `烤好 <b style="color:#ffd35c">${doneCount}</b> 块饼干（${medal}）<br>` +
     `最佳连对 <b style="color:#ffd35c">${bestStreak}</b> 次 · 盖错 <b style="color:#ff9d9d">${wrongTotal}</b> 次<br>` +
-    `五种形状全都认识啦！`;
+    `十五种形状（10 平面 + 5 立体）全都认识啦！`;
   $('result').classList.add('show');
+  state = STATE.FINISH;         // 游戏结束：不再送饼干/响应盖章
   speak(`收工啦！你烤好了${doneCount}块饼干，获得${medal}！`);
 }
 
-/* 绘制形状（key 在 cx,cy 半径 r） */
+/* 绘制形状（key 在 cx,cy 半径 r）—— 平面图形 */
 function drawShape(key, cx, cy, r, fill, stroke, lw) {
   ctx.beginPath();
   if (key === 'circle') {
@@ -274,10 +346,153 @@ function drawShape(key, cx, cy, r, fill, stroke, lw) {
     ctx.bezierCurveTo(cx - r * 1.3, cy - r * 0.1, cx - r * 0.55, cy - r * 1.05, cx, cy - r * 0.35);
     ctx.bezierCurveTo(cx + r * 0.55, cy - r * 1.05, cx + r * 1.3, cy - r * 0.1, cx, cy + r * 0.85);
     ctx.closePath();
+  } else if (key === 'diamond') {
+    ctx.moveTo(cx, cy - r * 1.05);
+    ctx.lineTo(cx + r * 0.85, cy);
+    ctx.lineTo(cx, cy + r * 1.05);
+    ctx.lineTo(cx - r * 0.85, cy);
+    ctx.closePath();
+  } else if (key === 'oval') {
+    ctx.ellipse(cx, cy, r * 1.15, r * 0.75, 0, 0, Math.PI * 2);
+  } else if (key === 'hexagon') {
+    for (let i = 0; i < 6; i++) {
+      const a = -Math.PI / 2 + i * Math.PI / 3;
+      if (i === 0) ctx.moveTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+      else ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+    }
+    ctx.closePath();
+  } else if (key === 'trapezoid') {
+    ctx.moveTo(cx - r * 0.55, cy - r * 0.7);
+    ctx.lineTo(cx + r * 0.55, cy - r * 0.7);
+    ctx.lineTo(cx + r, cy + r * 0.7);
+    ctx.lineTo(cx - r, cy + r * 0.7);
+    ctx.closePath();
+  } else if (key === 'arrow') {
+    ctx.moveTo(cx, cy - r * 1.05);
+    ctx.lineTo(cx + r * 0.95, cy);
+    ctx.lineTo(cx + r * 0.35, cy);
+    ctx.lineTo(cx + r * 0.35, cy + r * 1.0);
+    ctx.lineTo(cx - r * 0.35, cy + r * 1.0);
+    ctx.lineTo(cx - r * 0.35, cy);
+    ctx.lineTo(cx - r * 0.95, cy);
+    ctx.closePath();
   }
   if (fill) { ctx.fillStyle = fill; ctx.fill(); }
   if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw || 3; ctx.stroke(); }
 }
+
+/* 绘制立体图形（伪 3D：亮面 + 侧面暗面 + 顶面高光） */
+function drawShape3D(key, cx, cy, r, mainColor, edgeColor, baked) {
+  const face = mainColor;                       // 正面
+  const side = shadeColor(mainColor, -28);      // 侧面（暗）
+  const top = shadeColor(mainColor, 22);        // 顶面（亮）
+  ctx.save();
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = edgeColor || '#8a6a42';
+  if (key === 'sphere') {
+    /* 球：径向渐变球体 */
+    const g = ctx.createRadialGradient(cx - r * 0.35, cy - r * 0.35, r * 0.1, cx, cy, r);
+    g.addColorStop(0, top);
+    g.addColorStop(0.55, face);
+    g.addColorStop(1, side);
+    ctx.beginPath(); ctx.arc(cx, cy, r * 0.95, 0, Math.PI * 2);
+    ctx.fillStyle = g; ctx.fill(); ctx.stroke();
+    /* 高光点 */
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    ctx.beginPath(); ctx.ellipse(cx - r * 0.35, cy - r * 0.4, r * 0.2, r * 0.13, -0.6, 0, Math.PI * 2); ctx.fill();
+  } else if (key === 'cube') {
+    /* 正方体：正方形正面 + 斜上顶面 + 右侧面 */
+    const s = r * 0.95, d = s * 0.45;
+    /* 顶面 */
+    ctx.beginPath();
+    ctx.moveTo(cx - s, cy - s); ctx.lineTo(cx - s + d, cy - s - d);
+    ctx.lineTo(cx + s + d, cy - s - d); ctx.lineTo(cx + s, cy - s);
+    ctx.closePath();
+    ctx.fillStyle = top; ctx.fill(); ctx.stroke();
+    /* 右侧面 */
+    ctx.beginPath();
+    ctx.moveTo(cx + s, cy - s); ctx.lineTo(cx + s + d, cy - s - d);
+    ctx.lineTo(cx + s + d, cy + s - d); ctx.lineTo(cx + s, cy + s);
+    ctx.closePath();
+    ctx.fillStyle = side; ctx.fill(); ctx.stroke();
+    /* 正面 */
+    ctx.beginPath();
+    ctx.rect(cx - s, cy - s, s * 2, s * 2);
+    ctx.fillStyle = face; ctx.fill(); ctx.stroke();
+  } else if (key === 'cuboid') {
+    /* 长方体：宽正面 + 斜上顶面 + 右侧面 */
+    const w = r * 1.2, h = r * 0.75, d = r * 0.5;
+    /* 顶面 */
+    ctx.beginPath();
+    ctx.moveTo(cx - w, cy - h); ctx.lineTo(cx - w + d, cy - h - d);
+    ctx.lineTo(cx + w + d, cy - h - d); ctx.lineTo(cx + w, cy - h);
+    ctx.closePath();
+    ctx.fillStyle = top; ctx.fill(); ctx.stroke();
+    /* 右侧面 */
+    ctx.beginPath();
+    ctx.moveTo(cx + w, cy - h); ctx.lineTo(cx + w + d, cy - h - d);
+    ctx.lineTo(cx + w + d, cy + h - d); ctx.lineTo(cx + w, cy + h);
+    ctx.closePath();
+    ctx.fillStyle = side; ctx.fill(); ctx.stroke();
+    /* 正面 */
+    ctx.beginPath();
+    ctx.rect(cx - w, cy - h, w * 2, h * 2);
+    ctx.fillStyle = face; ctx.fill(); ctx.stroke();
+  } else if (key === 'cylinder') {
+    /* 圆柱：矩形身 + 顶椭圆 + 底弧 */
+    const w = r * 0.68, h = r * 0.9, eo = r * 0.3;
+    /* 侧面 */
+    ctx.beginPath();
+    ctx.moveTo(cx - w, cy - h);
+    ctx.lineTo(cx - w, cy + h);
+    ctx.ellipse(cx, cy + h, w, eo, 0, Math.PI, 0, true);
+    ctx.lineTo(cx + w, cy - h);
+    ctx.closePath();
+    ctx.fillStyle = side; ctx.fill(); ctx.stroke();
+    /* 正面渐变（圆柱曲面感） */
+    const g2 = ctx.createLinearGradient(cx - w, 0, cx + w, 0);
+    g2.addColorStop(0, side);
+    g2.addColorStop(0.5, face);
+    g2.addColorStop(1, side);
+    ctx.beginPath();
+    ctx.rect(cx - w, cy - h, w * 2, h * 2);
+    ctx.fillStyle = g2; ctx.fill(); ctx.stroke();
+    /* 顶面椭圆 */
+    ctx.beginPath();
+    ctx.ellipse(cx, cy - h, w, eo, 0, 0, Math.PI * 2);
+    ctx.fillStyle = top; ctx.fill(); ctx.stroke();
+  } else if (key === 'cone') {
+    /* 圆锥：三角锥身 + 底椭圆 */
+    const w = r * 0.85, h = r * 1.15, eo = r * 0.3;
+    /* 锥身 */
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - h);
+    ctx.lineTo(cx + w, cy + h - eo * 0.4);
+    ctx.ellipse(cx, cy + h - eo * 0.4, w, eo, 0, 0, Math.PI * 0.5, true);
+    ctx.lineTo(cx - w, cy + h - eo * 0.4);
+    ctx.closePath();
+    const g3 = ctx.createLinearGradient(cx - w, 0, cx + w, 0);
+    g3.addColorStop(0, side);
+    g3.addColorStop(0.45, face);
+    g3.addColorStop(1, side);
+    ctx.fillStyle = g3; ctx.fill(); ctx.stroke();
+    /* 底面椭圆（可见前半） */
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + h - eo * 0.4, w, eo, 0, 0, Math.PI, false);
+    ctx.fillStyle = side; ctx.fill(); ctx.stroke();
+  }
+  ctx.restore();
+}
+/* 颜色加深/变亮工具 */
+function shadeColor(hex, amt) {
+  const n = parseInt(hex.slice(1), 16);
+  let r = (n >> 16) + amt, g = ((n >> 8) & 255) + amt, b = (n & 255) + amt;
+  r = Math.max(0, Math.min(255, r)); g = Math.max(0, Math.min(255, g)); b = Math.max(0, Math.min(255, b));
+  return `rgb(${r},${g},${b})`;
+}
+/* 是否立体图形 */
+function is3D(key) { return key === 'sphere' || key === 'cube' || key === 'cuboid' || key === 'cylinder' || key === 'cone'; }
 
 /* 绘制场景 */
 function drawScene(t) {
@@ -322,18 +537,19 @@ function drawScene(t) {
   ctx.beginPath(); ctx.moveTo(0, beltY); ctx.lineTo(W, beltY); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(0, beltY + beltH); ctx.lineTo(W, beltY + beltH); ctx.stroke();
 
-  // 模具架（底部）
+  // 模具架（底部）：整体抬高，内部留足形状 + 名字空间
   const n = SHAPES.length;
   const cellW = Math.min(150, (W - 30) / n);
-  const rackY = H - 120;
+  const rackH = 150;                       // 架子高度：形状 56 + 名字 22 + 内边距
+  const rackY = H - rackH - 16;            // 距底部 16px
   ctx.fillStyle = 'rgba(43,31,20,.9)';
-  roundRect2(10, rackY - 8, W - 20, 128, 18); ctx.fill();
+  roundRect2(10, rackY, W - 20, rackH, 18); ctx.fill();
   ctx.strokeStyle = 'rgba(255,205,120,.35)'; ctx.lineWidth = 2;
-  roundRect2(10, rackY - 8, W - 20, 128, 18); ctx.stroke();
+  roundRect2(10, rackY, W - 20, rackH, 18); ctx.stroke();
   ctx.fillStyle = '#d8b98c';
   ctx.font = '15px system-ui, sans-serif';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-  ctx.fillText('点 模 具 盖 章', W / 2, rackY + 118);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('点 模 具 盖 章', W / 2, rackY + rackH - 14);
 }
 function roundRect2(x, y, w, h, r) {
   r = Math.min(r, w / 2, h / 2);
@@ -361,8 +577,15 @@ function drawBiscuit(t) {
   ctx.beginPath();
   ctx.ellipse(0, r * 1.5, r * 1.1, r * 0.24, 0, 0, Math.PI * 2);
   ctx.fill();
-  // 饼干底（生面团色 / 烤好金色）
-  drawShape(b.shape.key, 0, 0, r, b.baked ? '#e8a33d' : '#d8b98c', '#8a6a42', 5);
+  const key = b.shape.key;
+  if (is3D(key)) {
+    /* 立体饼干：伪 3D 绘制（烤好前面团色，烤好金色） */
+    const mainC = b.baked ? '#e8a33d' : '#d8b98c';
+    drawShape3D(key, 0, -r * 0.1, r * 0.85, mainC, '#8a6a42', b.baked);
+  } else {
+    // 饼干底（生面团色 / 烤好金色）
+    drawShape(key, 0, 0, r, b.baked ? '#e8a33d' : '#d8b98c', '#8a6a42', 5);
+  }
   // 巧克力点缀
   ctx.fillStyle = b.baked ? '#8a5a2a' : '#b08a5a';
   ctx.beginPath(); ctx.arc(-r * 0.25, r * 0.2, r * 0.09, 0, Math.PI * 2); ctx.fill();
@@ -397,7 +620,11 @@ function drawStampAnim(t) {
   ctx.fillStyle = '#6b4a2a';
   roundRect2(-r * 0.7, -r * 2.2, r * 1.4, r * 2.6, 8); ctx.fill();
   ctx.fillStyle = SHAPE_COLORS[a.shape];
-  drawShape(a.shape, 0, -r * 0.9, r * 0.55, null, '#3a2200', 3);
+  if (is3D(a.shape)) {
+    drawShape3D(a.shape, 0, -r * 0.9, r * 0.5, SHAPE_COLORS[a.shape], '#3a2200');
+  } else {
+    drawShape(a.shape, 0, -r * 0.9, r * 0.55, null, '#3a2200', 3);
+  }
   ctx.restore();
   if (a.t > 0.7) stampAnim = null;
 }
@@ -405,26 +632,35 @@ function drawStampAnim(t) {
 function drawRack(t) {
   const n = SHAPES.length;
   const cellW = Math.min(150, (W - 30) / n);
-  const rackY = H - 120;
-  const r = Math.min(cellW * 0.24, 34);
+  const rackH = 150;
+  const rackY = H - rackH - 16;
+  const r = Math.min(cellW * 0.22, 30);
+  const shapeCy = rackY + 62;                    // 形状中心：架顶 +62
+  const labelY = rackY + rackH - 42;             // 名字基线：底部提示上方
   for (let i = 0; i < n; i++) {
     const s = SHAPES[i];
     const cx = 10 + cellW * (i + 0.5) + (W - 20 - cellW * n) / 2;
-    const cy = rackY + 52;
+    const cy = shapeCy;
     // 模具木底
     ctx.fillStyle = '#8a6a42';
-    roundRect2(cx - cellW * 0.42, cy - r * 1.35, cellW * 0.84, r * 2.5, 12); ctx.fill();
-    ctx.fillStyle = '#5a4025';
-    drawShape(s.key, cx, cy, r * 0.62, null, '#3a2200', 3);
-    // 彩色形状印面
-    drawShape(s.key, cx, cy, r * 0.5, SHAPE_COLORS[s.key], null, 0);
-    // 名字
+    roundRect2(cx - cellW * 0.42, cy - r * 1.5, cellW * 0.84, r * 3.0, 12); ctx.fill();
+    if (is3D(s.key)) {
+      // 彩色立体印面 + 暗色描边底
+      drawShape3D(s.key, cx, cy - r * 0.1, r * 0.62, '#5a4025', '#3a2200');
+      drawShape3D(s.key, cx, cy - r * 0.18, r * 0.5, SHAPE_COLORS[s.key], '#3a2200');
+    } else {
+      ctx.fillStyle = '#5a4025';
+      drawShape(s.key, cx, cy, r * 0.62, null, '#3a2200', 3);
+      // 彩色形状印面
+      drawShape(s.key, cx, cy, r * 0.5, SHAPE_COLORS[s.key], null, 0);
+    }
+    // 名字（middle 基线，保证完整显示）
     ctx.fillStyle = '#ffe9c9';
-    ctx.font = 'bold 15px system-ui, sans-serif';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-    ctx.fillText(s.name, cx, cy + r * 1.6 + 18);
-    // 记录热区
-    rackHit[i] = { x: cx - cellW * 0.42, y: cy - r * 1.4, w: cellW * 0.84, h: r * 2.9, key: s.key };
+    ctx.font = `bold ${Math.min(16, cellW * 0.13)}px system-ui, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(s.name, cx, labelY);
+    // 记录热区（覆盖木底 + 名字）
+    rackHit[i] = { x: cx - cellW * 0.42, y: cy - r * 1.5, w: cellW * 0.84, h: labelY - (cy - r * 1.5) + 12, key: s.key };
   }
 }
 const rackHit = [];
@@ -447,10 +683,12 @@ function update(dt, t) {
   particles = particles.filter(p => p.life > 0);
 
   if (state === STATE.RUNNING) {
-    // 传送带送饼干
+    // 传送带送饼干（批次切换等待中不送）
     if (!biscuit) {
-      spawnT -= dt;
-      if (spawnT <= 0) { nextBiscuit(); }
+      if (!betweenBatches) {
+        spawnT -= dt;
+        if (spawnT <= 0) { nextBiscuit(); }
+      }
     } else if (biscuit.leaving) {
       biscuit.x -= 240 * dt;
       if (biscuit.x < -120) { biscuit = null; spawnT = 0.5; }
@@ -530,6 +768,8 @@ function resetGame() {
   biscuit = null; stampAnim = null;
   particles = [];
   shake = 0; lastShape = null; spawnT = 0.4;
+  betweenBatches = false;
+  enterBatch(0);                               // 第一批模具（平面 1-5）
   captionEl.style.display = 'none';
   updateHUD();
 }
