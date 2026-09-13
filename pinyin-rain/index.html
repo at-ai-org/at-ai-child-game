@@ -165,9 +165,35 @@
     min-height: 52px;
   }
   #start button:active { transform: scale(.97); }
+
+/* ---- 返回主页按钮 + 确认弹窗 ---- */
+#btnHome { position: absolute; top: 12px; left: 12px; z-index: 60; font-size: 20px; line-height: 1; padding: 9px 13px; border-radius: 12px; cursor: pointer; background: rgba(10, 16, 40, .72); border: 1px solid rgba(120, 200, 255, .35); color: #dff2ff; font-family: inherit; }
+#btnHome:active { transform: scale(.94); }
+#homeConfirm { position: absolute; inset: 0; z-index: 90; background: rgba(4, 8, 22, .62); display: none; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+#homeConfirm.show { display: flex; }
+#homeConfirm .hc-card { text-align: center; background: linear-gradient(160deg, #16224a, #0d1330); border: 2px solid #4f8cff; border-radius: 22px; padding: 26px 34px; box-shadow: 0 18px 50px rgba(0,0,0,.5); max-width: 84vw; }
+#homeConfirm .hc-card h2 { font-size: 24px; color: #eaf4ff; margin-bottom: 8px; letter-spacing: 2px; }
+#homeConfirm .hc-card p { font-size: 15px; color: #9db4d8; margin: 4px 0 18px; }
+#homeConfirm .hc-btns { display: flex; gap: 14px; justify-content: center; }
+#homeConfirm button { font-size: 17px; padding: 10px 26px; border-radius: 999px; border: none; cursor: pointer; font-weight: 700; letter-spacing: 2px; font-family: inherit; }
+#homeConfirm button:active { transform: scale(.96); }
+#hcOk { background: linear-gradient(90deg, #ff9c5c, #ffd35c); color: #3a2200; box-shadow: 0 6px 18px rgba(255,180,70,.4); }
+#hcCancel { background: rgba(255,255,255,.12); color: #dff2ff; border: 1px solid rgba(120,200,255,.4) !important; }
 </style>
 </head>
 <body>
+<button id="btnHome" title="返回主页">🏠</button>
+<div id="homeConfirm">
+  <div class="hc-card">
+    <h2>🏠 返回游戏主页？</h2>
+    <p>当前的游戏进度将会丢失哦</p>
+    <div class="hc-btns">
+      <button id="hcOk">确认返回</button>
+      <button id="hcCancel">再玩一会儿</button>
+    </div>
+  </div>
+</div>
+
 
 <canvas id="game"></canvas>
 
@@ -901,5 +927,29 @@ function resetGame() {
   updateHUD();
 }
 </script>
+
+<script>
+/* ---- 返回主页：确认弹窗 ---- */
+(function () {
+  var btn = document.getElementById('btnHome');
+  var dlg = document.getElementById('homeConfirm');
+  if (!btn || !dlg) return;
+  btn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    dlg.classList.add('show');
+  });
+  document.getElementById('hcOk').addEventListener('click', function () {
+    try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (err) {}
+    window.location.href = '../index.html';
+  });
+  document.getElementById('hcCancel').addEventListener('click', function () {
+    dlg.classList.remove('show');
+  });
+  dlg.addEventListener('pointerdown', function (e) {
+    if (e.target === dlg) dlg.classList.remove('show');
+  });
+})();
+</script>
+
 </body>
 </html>
