@@ -66,7 +66,8 @@ window.addEventListener('contextmenu', e => e.preventDefault());
 
 /* =========================================================
  * 红绿灯过马路 Traffic Safety —— 单文件 Canvas 小游戏（G13）
- * 红灯 3s → 绿灯 4s 循环；绿灯点过街按钮走斑马线；
+ * 红灯 3s → 绿灯 4s 循环；绿灯点过街按钮纵向走斑马线
+ * （从上方人行道走到下方草地，与横向车流垂直交叉）；
  * 红灯点被喇叭制止（不撞人）；往返 8 次通关。
  * ========================================================= */
 const canvas = document.getElementById('game');
@@ -84,8 +85,8 @@ const CROSS_TARGET = 8;
 const RED_T = 3.0, GREEN_T = 4.0;
 let lightT = 0;           // 当前灯已亮秒数
 let light = 'red';        // 'red' | 'green'
-let walker = null;        // {x, targetX, dir, phase: 'idle'|'crossing'|'stopped'|'arrived', prog}
-let walkerSide = 0;      // 0 = 左侧, 1 = 右侧
+let walker = null;        // {fromY, toY, phase: 'idle'|'crossing'|'stopped'|'arrived', prog}
+let walkerSide = 0;      // 0 = 上侧, 1 = 下侧
 let cars = [];            // 横向车流
 let celebration = [];
 let shake = 0;
@@ -175,7 +176,16 @@ function crossButtonRect() {
   const bw = Math.min(220, W * 0.5), bh = 66;
   return { x: W / 2 - bw / 2, y: H - 118, w: bw, h: bh };
 }
-function zebraY() { return H * 0.60; }
+/* 斑马线几何：中央垂直条带（白条横向排列，人从上往下走） */
+function zebraX() { return W / 2; }
+function walkFromY() { return H * 0.44; }   // 上侧人行道
+function walkToY()   { return H * 0.90; }    // 下侧草地
+function walkerY(prog) {
+  /* prog 0→1：上→下；已到对面（side=1）则方向反转 */
+  const from = walkerSide === 0 ? walkFromY() : walkToY();
+  const to   = walkerSide === 0 ? walkToY()   : walkFromY();
+  return from + (to - from) * Math.max(0, Math.min(1, prog));
+}
 
 /* 点击过马路按钮 */
 function tryCross() {
@@ -184,12 +194,7 @@ function tryCross() {
   if (walker && walker.phase === 'stopped') { walker.phase = 'back'; return; }  // 从半步退回后允许再走
   if (light === 'green') {
     // 绿灯：出发！
-    walker = {
-      phase: 'crossing',
-      prog: 0,
-      fromX: walkerSide === 0 ? W * 0.18 : W * 0.82,
-      toX: walkerSide === 0 ? W * 0.82 : W * 0.18,
-    };
+    walker = { phase: 'crossing', prog: 0 };
     sfxHonk();
     say('绿灯亮啦，走斑马线！');
   } else {
@@ -197,12 +202,7 @@ function tryCross() {
     rushed++;
     shake = 0.35;
     sfxHorn();
-    walker = {
-      phase: 'stopped',
-      prog: 0.12,
-      fromX: walkerSide === 0 ? W * 0.18 : W * 0.82,
-      toX: walkerSide === 0 ? W * 0.82 : W * 0.18,
-    };
+    walker = { phase: 'stopped', prog: 0.12 };
     toast('红灯停！🚗', false);
     speak('红灯停！汽车还在开，要等绿灯才能过马路哦！');
     updateHUD();
@@ -246,6 +246,7 @@ function update(dt, t) {
         crossed++;
         walkerSide = walkerSide === 0 ? 1 : 0;
         sfxRight();
+        burst(zebraX(), walkerY(1) - 30);
         toast('安全过街！+1', true);
         speak(['太棒了！安全过街！', '真不错，红灯停绿灯行！', '好厉害，安全到达！'][Math.floor(Math.random() * 3)]);
         updateHUD();
@@ -397,12 +398,12 @@ function drawCars(t) {
 }
 function drawWalker(t) {
   if (!walker) {
-    /* 待机小人（当前侧） */
-    drawPerson(walkerSide === 0 ? W * 0.18 : W * 0.82, zebraY() - 40, t, false);
+    /* 待机小人（当前侧的路边，站在斑马线一端） */
+    drawPerson(zebraX(), walkerSide === 0 ? walkFromY() : walkToY(), t, false);
     return;
   }
-  const x = walker.fromX + (walker.toX - walker.fromX) * walker.prog;
-  drawPerson(x, zebraY() - 40, t, walker.phase === 'crossing');
+  /* 纵向过街：沿斑马线上下移动 */
+  drawPerson(zebraX(), walkerY(walker.prog), t, walker.phase === 'crossing');
 }
 function drawPerson(x, y, t, walking) {
   ctx.save();
@@ -507,8 +508,8 @@ canvas.addEventListener('pointerdown', e => {
     return;
   }
   /* 点击小人也可触发 */
-  const wx = walker ? (walker.fromX + (walker.toX - walker.fromX) * walker.prog) : (walkerSide === 0 ? W * 0.18 : W * 0.82);
-  if (Math.hypot(x - wx, y - (zebraY() - 40)) < 60) tryCross();
+  const wy = walker ? walkerY(walker.prog) : (walkerSide === 0 ? walkFromY() : walkToY());
+  if (Math.hypot(x - zebraX(), y - (wy - 20)) < 60) tryCross();
 });
 
 /* 开始 / 重开 */

@@ -41,7 +41,7 @@ body{background: #0b1026;font-family: "PingFang SC", "Microsoft YaHei", system-u
 <div id="voiceBar">点击开始，睁大眼睛找不同吧！</div>
 
 <div class="hud">
-  <div class="hud-chip">第 <b id="hudLevel">1</b> / 4 关</div>
+  <div class="hud-chip">第 <b id="hudLevel">1</b> / <b id="hudTotalLevel">9</b> 关</div>
   <div class="hud-chip">找到 <b id="hudFound">0</b> / <b id="hudTotal">5</b> 处</div>
   <div class="hud-chip">用了 <b id="hudHints">0</b> 次提示 💡</div>
 </div>
@@ -61,10 +61,10 @@ body{background: #0b1026;font-family: "PingFang SC", "Microsoft YaHei", system-u
 <div id="start">
   <h1>找不同小侦探</h1>
   <p class="rules">
-    两幅画看起来一样，其实藏着 5 处小秘密：<br>
-    🔍 点击<b>下面那幅图</b>里不一样的地方 → 放大镜圈出它！<br>
+    左右两幅画看起来一样，其实藏着 5 处小秘密：<br>
+    🔍 点击<b>任意一幅图</b>里不一样的地方 → 放大镜圈出它！<br>
     💡 实在找不到就点"提示"，一处不同会闪闪发光<br>
-    🏆 闯过 4 大场景：公园、海底、太空、糖果城！
+    🏆 闯过 9 大场景：公园、海底、太空、糖果城……更多惊喜等你发现！
   </p>
   <button id="btnStart">开始侦探之旅</button>
 </div>
@@ -75,9 +75,9 @@ window.addEventListener('contextmenu', e => e.preventDefault());
 
 /* =========================================================
  * 找不同小侦探 Spot Difference —— 单文件 Canvas 小游戏
- * 上下两幅 400×300 场景图，同一绘制函数带 variant 参数；
- * 点击下图差异处 → 放大镜光圈标记；点错 → 轻摇 + 嗡声；
- * 5 处找齐 → 烟花庆祝进下一关，4 关结算。
+ * 左右两幅 400×300 场景图（中间竖线隔开），同一绘制函数带 variant 参数；
+ * 点击任意一幅图的差异处 → 放大镜光圈标记；点错 → 轻摇 + 嗡声；
+ * 5 处找齐 → 烟花庆祝进下一关，9 关结算。
  * ========================================================= */
 
 const canvas = document.getElementById('game');
@@ -96,12 +96,13 @@ window.addEventListener('resize', resize);
 const IMG_W = 400, IMG_H = 300;
 const HIT_R = 32;
 const STATE = { START: 0, RUNNING: 1, LEVEL_UP: 2, FINISH: 3 };
-const TOTAL_LEVELS = 4;
+const TOTAL_LEVELS = 9;
 const HIT_MARGIN = 30;                    // 命中判定缩边（差异尽量远离外边）
 const CHEER_TIME = 1.4;
 
 /* ---------------- 场景定义 ----------------
  * 每关一个绘制函数，variant ∈ {'A','B'}，5 个差异点坐标写死（场景内 400×300 系）。
+ * 9 大场景：公园、海底、太空、糖果城、农场、雪地、森林、夜晚、生日。
  * d.desc: 测试/提示语音用差异名。 */
 const SCENES = [
   {
@@ -148,6 +149,61 @@ const SCENES = [
       { x: 122, y: 258, desc: '糖果数量' },        // 数量：左下散糖 3 vs 2
     ],
   },
+  {
+    name: '农场', sky: ['#aee8ff', '#e8f7d8'],
+    draw: drawFarm,
+    diffs: [
+      { x: 68,  y: 96,  desc: '太阳镜' },          // 有无：太阳戴墨镜
+      { x: 322, y: 130, desc: '风车叶片颜色' },    // 颜色：风车叶片红 vs 蓝
+      { x: 196, y: 216, desc: '小鸡数量' },        // 数量：小鸡 3 只 vs 2 只
+      { x: 118, y: 150, desc: '干草堆大小' },      // 大小：左中干草堆
+      { x: 268, y: 250, desc: '南瓜' },            // 有无：右下南瓜
+    ],
+  },
+  {
+    name: '雪地', sky: ['#b8dcff', '#eaf6ff'],
+    draw: drawSnow,
+    diffs: [
+      { x: 70,  y: 114, desc: '雪人围巾' },        // 颜色：围巾红 vs 绿
+      { x: 320, y: 84,  desc: '雪花数量' },        // 数量：右上雪花 4 vs 3
+      { x: 200, y: 195, desc: '冰屋门' },          // 有无：中央冰屋门
+      { x: 130, y: 230, desc: '雪橇' },            // 有无：左下雪橇
+      { x: 286, y: 224, desc: '企鹅大小' },        // 大小：右下企鹅
+    ],
+  },
+  {
+    name: '森林', sky: ['#c8f0c8', '#eafcdf'],
+    draw: drawForest,
+    diffs: [
+      { x: 72,  y: 92,  desc: '蘑菇颜色' },        // 颜色：左上蘑菇红 vs 黄
+      { x: 323, y: 152, desc: '小鸟数量' },        // 数量：树洞小鸟 2 vs 1
+      { x: 200, y: 200, desc: '刺猬' },            // 有无：中央刺猬
+      { x: 126, y: 244, desc: '蘑菇大小' },        // 大小：左下蘑菇
+      { x: 288, y: 244, desc: '浆果数量' },        // 数量：右下浆果 4 vs 3
+    ],
+  },
+  {
+    name: '夜晚', sky: ['#0a1038', '#182450'],
+    draw: drawNight,
+    diffs: [
+      { x: 70,  y: 66,  desc: '月亮方向' },        // 形状：月牙朝向
+      { x: 322, y: 78,  desc: '星星数量' },        // 数量：右上亮星 4 vs 3
+      { x: 191, y: 195, desc: '窗户灯光' },        // 颜色：小屋窗户亮 vs 暗
+      { x: 120, y: 236, desc: '萤火虫数量' },      // 数量：左下萤火虫 3 vs 2
+      { x: 288, y: 210, desc: '猫头鹰' },          // 有无：右下猫头鹰
+    ],
+  },
+  {
+    name: '生日', sky: ['#ffe0f0', '#fff4fb'],
+    draw: drawBirthday,
+    diffs: [
+      { x: 70,  y: 74,  desc: '气球数量' },        // 数量：左上气球 3 vs 2
+      { x: 326, y: 96,  desc: '彩旗颜色' },        // 颜色：右上彩旗
+      { x: 200, y: 170, desc: '蛋糕蜡烛' },        // 数量：蜡烛 4 根 vs 3 根
+      { x: 298, y: 234, desc: '礼物盒' },          // 有无：右下礼物盒
+      { x: 118, y: 226, desc: '礼物蝴蝶结' },      // 颜色：左下蝴蝶结
+    ],
+  },
 ];
 
 /* ---------------- 状态 ---------------- */
@@ -159,18 +215,26 @@ let marks = [];                                   // 已找到标记 [{x,y,anim}
 let fireworks = [];                               // 庆祝烟花粒子
 let shake = 0;                                    // 点错轻摇强度
 let cheerTimer = -1;
-let stageTop = { x: 0, y: 0, w: 0, h: 0 };         // 上图画区
-let stageBot = { x: 0, y: 0, w: 0, h: 0 };         // 下图画区
+let stageTop = { x: 0, y: 0, w: 0, h: 0 };         // 左图画区（原图 A）
+let stageBot = { x: 0, y: 0, w: 0, h: 0 };         // 右图画区（找茬图 B）
 
 function layout() {
-  /* 两幅图横向铺满（保持 4:3），中间留 12px 缝，上下留 HUD 空间 */
+  /* 两幅图左右并排（各保持 4:3），中间一条竖线隔开，上下留 HUD 空间 */
+  const SPLIT_W = 16;                                  // 中缝宽（含竖线）
   const marginX = Math.min(40, W * 0.04);
-  const iw = W - marginX * 2;
+  const iw = Math.max(60, (W - marginX * 2 - SPLIT_W) / 2);   // 兜底防负宽
   const ih = iw * IMG_H / IMG_W;
-  const totalH = ih * 2 + 14;
-  const topY = Math.max(86, (H - totalH - 20) / 2);
-  stageTop = { x: marginX, y: topY, w: iw, h: ih };
-  stageBot = { x: marginX, y: topY + ih + 14, w: iw, h: ih };
+  const maxH = Math.max(120, H - 200);                 // 给 HUD/按钮留空间
+  let topY = Math.max(86, (H - ih) / 2 + 10);
+  let drawW = iw, drawH = ih;
+  if (ih > maxH) {                                     // 竖屏兜底：按高度缩小
+    drawH = maxH;
+    drawW = drawH * IMG_W / IMG_H;
+    topY = Math.max(86, (H - drawH) / 2 + 10);
+  }
+  const leftX = marginX + (iw - drawW) / 2;            // 缩小后保持居中
+  stageTop = { x: leftX, y: topY, w: drawW, h: drawH };                  // 左图（原图 A）
+  stageBot = { x: leftX + drawW + SPLIT_W, y: topY, w: drawW, h: drawH }; // 右图（找茬图 B）
 }
 resize();
 
@@ -243,6 +307,7 @@ $('btnMute').addEventListener('click', () => {
 /* ---------------- HUD / Toast ---------------- */
 function updateHUD() {
   $('hudLevel').textContent = String(level);
+  $('hudTotalLevel').textContent = String(TOTAL_LEVELS);
   $('hudFound').textContent = String(foundCount);
   $('hudTotal').textContent = String(5);
   $('hudHints').textContent = String(hintTotal);
@@ -293,7 +358,7 @@ function hitDiff(i) {
     spawnFireworks();
     const last = level >= TOTAL_LEVELS;
     toast(last ? '🎉 全部通关啦！' : '🎉 本关找齐啦！', true);
-    say(last ? '太厉害了！四关全部通关！' : `${SCENES[level - 1].name}找齐啦！真棒！`);
+    say(last ? '太厉害了！九关全部通关！' : `${SCENES[level - 1].name}找齐啦！真棒！`);
   }
   return true;
 }
@@ -324,11 +389,15 @@ canvas.addEventListener('pointerdown', e => {
   if (state !== STATE.RUNNING) return;
   const rect = canvas.getBoundingClientRect();
   const x = e.clientX - rect.left, y = e.clientY - rect.top;
-  const s = stageBot;
-  if (x < s.x || x > s.x + s.w || y < s.y || y > s.y + s.h) return;
-  const gx = (x - s.x) / s.w * IMG_W;
-  const gy = (y - s.y) / s.h * IMG_H;
-  clickStage(gx, gy);
+  /* 左右两幅图都可以点：哪幅命中就用哪幅的坐标 */
+  for (const s of [stageTop, stageBot]) {
+    if (x >= s.x && x <= s.x + s.w && y >= s.y && y <= s.y + s.h) {
+      const gx = (x - s.x) / s.w * IMG_W;
+      const gy = (y - s.y) / s.h * IMG_H;
+      clickStage(gx, gy);
+      return;
+    }
+  }
 });
 
 /* ---------------- 提示 ---------------- */
@@ -730,6 +799,436 @@ function drawCandy(g, v) {
   g.beginPath(); g.arc(367, 204, 13, Math.PI, 0); g.fill();
 }
 
+/* ================= 场景 5：农场 ================= */
+function drawFarm(g, v) {
+  const grad = g.createLinearGradient(0, 0, 0, IMG_H);
+  grad.addColorStop(0, '#8ed8f8');
+  grad.addColorStop(1, '#d8f4c8');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, IMG_W, IMG_H);
+  /* 云朵 */
+  g.fillStyle = '#ffffff';
+  g.beginPath(); g.ellipse(90, 40, 38, 14, 0, 0, Math.PI*2); g.fill();
+  g.beginPath(); g.ellipse(300, 34, 42, 15, 0, 0, Math.PI*2); g.fill();
+  /* 草地 */
+  g.fillStyle = '#8ed86a';
+  g.fillRect(0, 226, IMG_W, 74);
+  g.fillStyle = '#6cb84e';
+  for (let i = 0; i < IMG_W; i += 20) g.fillRect(i, 226, 10, 4);
+  /* D1 太阳墨镜：A 有 / B 无 */
+  ballAt(g, 68, 96, 26, ['#fff3b0', '#ffd35c']);
+  if (v === 'A') {
+    g.fillStyle = '#222';
+    g.fillRect(58, 90, 8, 6);
+    g.fillRect(70, 90, 8, 6);
+    g.strokeStyle = '#222'; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(66, 92); g.lineTo(70, 92); g.stroke();
+  }
+  /* 远处谷仓 */
+  g.fillStyle = '#d86a4a';
+  g.beginPath(); g.rect(300, 150, 64, 50); g.fill();
+  g.fillStyle = '#b8503a';
+  g.beginPath();
+  g.moveTo(296, 150); g.lineTo(332, 122); g.lineTo(368, 150);
+  g.closePath(); g.fill();
+  g.fillStyle = '#f4e6c8';
+  g.beginPath(); g.rect(322, 168, 20, 32); g.fill();
+  /* D2 风车叶片颜色：红 / 蓝 */
+  const bladeC = v === 'A' ? '#e8403a' : '#3a8fe0';
+  g.save();
+  g.translate(322, 130);
+  g.strokeStyle = '#8a5a2b'; g.lineWidth = 5;
+  g.beginPath(); g.moveTo(0, 0); g.lineTo(0, -34); g.stroke();
+  g.fillStyle = bladeC;
+  for (let k = 0; k < 4; k++) {
+    g.save();
+    g.rotate(k * Math.PI / 2);
+    g.beginPath();
+    g.moveTo(0, -8); g.lineTo(20, -12); g.lineTo(20, -4);
+    g.closePath(); g.fill();
+    g.restore();
+  }
+  g.restore();
+  /* D3 小鸡：A 3 只 / B 2 只 */
+  const chickN = v === 'A' ? 3 : 2;
+  for (let i = 0; i < chickN; i++) {
+    const cx = 170 + i * 26, cy = 216 + (i % 2) * 6;
+    ballAt(g, cx, cy, 9, ['#ffe8b0', '#f0c040']);
+    g.fillStyle = '#f0a020';
+    g.beginPath(); g.moveTo(cx + 7, cy); g.lineTo(cx + 13, cy + 2); g.lineTo(cx + 7, cy + 4); g.closePath(); g.fill();
+    g.fillStyle = '#1b1b33';
+    g.beginPath(); g.arc(cx + 3, cy - 2, 1.5, 0, Math.PI*2); g.fill();
+  }
+  /* D4 干草堆大小：A 大 / B 小 */
+  const hs = v === 'A' ? 1.3 : 0.7;
+  g.save();
+  g.translate(118, 150); g.scale(hs, hs);
+  g.fillStyle = '#e8c860';
+  g.beginPath();
+  g.moveTo(-30, 26); g.quadraticCurveTo(0, -34, 30, 26);
+  g.closePath(); g.fill();
+  g.strokeStyle = '#c8a030'; g.lineWidth = 2;
+  for (let k = -1; k <= 1; k++) {
+    g.beginPath();
+    g.moveTo(-24, 18 + k * 6); g.quadraticCurveTo(0, -14 + k * 6, 24, 18 + k * 6);
+    g.stroke();
+  }
+  g.restore();
+  /* D5 右下南瓜：A 有 / B 无 */
+  if (v === 'A') {
+    ballAt(g, 268, 250, 17, ['#ffb070', '#e88020']);
+    ballAt(g, 252, 248, 13, ['#ffb070', '#e88020']);
+    g.fillStyle = '#4fae4f';
+    g.fillRect(266, 230, 4, 8);
+  }
+  /* 栅栏装饰 */
+  g.strokeStyle = '#a87848'; g.lineWidth = 4;
+  for (let fx = 20; fx <= 90; fx += 18) {
+    g.beginPath(); g.moveTo(fx, 244); g.lineTo(fx, 272); g.stroke();
+  }
+  g.beginPath(); g.moveTo(16, 252); g.lineTo(94, 252); g.stroke();
+}
+
+/* ================= 场景 6：雪地 ================= */
+function drawSnow(g, v) {
+  const grad = g.createLinearGradient(0, 0, 0, IMG_H);
+  grad.addColorStop(0, '#9ed0f8');
+  grad.addColorStop(1, '#e8f6ff');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, IMG_W, IMG_H);
+  /* 雪地 */
+  g.fillStyle = '#f4faFF';
+  g.beginPath();
+  g.moveTo(0, 226); g.quadraticCurveTo(100, 210, 200, 226);
+  g.quadraticCurveTo(300, 242, IMG_W, 222);
+  g.lineTo(IMG_W, IMG_H); g.lineTo(0, IMG_H); g.closePath(); g.fill();
+  /* D1 雪人围巾颜色：红 / 绿 */
+  const scarfC = v === 'A' ? '#e8403a' : '#30a830';
+  ballAt(g, 70, 98, 22, ['#ffffff', '#dceaf6']);
+  ballAt(g, 70, 142, 30, ['#ffffff', '#dceaf6']);
+  g.fillStyle = '#1b1b33';
+  g.beginPath(); g.arc(63, 92, 2.5, 0, Math.PI*2); g.fill();
+  g.beginPath(); g.arc(77, 92, 2.5, 0, Math.PI*2); g.fill();
+  g.fillStyle = '#f0a020';
+  g.beginPath(); g.moveTo(66, 102); g.lineTo(74, 102); g.lineTo(70, 108); g.closePath(); g.fill();
+  g.fillStyle = scarfC;
+  g.fillRect(50, 112, 40, 8);
+  g.fillRect(78, 112, 10, 26);
+  /* D2 右上雪花：4 vs 3 */
+  const snowPos = [[296, 60], [330, 84], [352, 52], [310, 108]];
+  const snowN = v === 'A' ? 4 : 3;
+  g.fillStyle = '#ffffff';
+  for (let i = 0; i < snowN; i++) {
+    const sp = snowPos[i];
+    g.strokeStyle = '#ffffff'; g.lineWidth = 2.5; g.lineCap = 'round';
+    g.beginPath();
+    g.moveTo(sp[0] - 7, sp[1]); g.lineTo(sp[0] + 7, sp[1]);
+    g.moveTo(sp[0], sp[1] - 7); g.lineTo(sp[0], sp[1] + 7);
+    g.moveTo(sp[0] - 5, sp[1] - 5); g.lineTo(sp[0] + 5, sp[1] + 5);
+    g.moveTo(sp[0] - 5, sp[1] + 5); g.lineTo(sp[0] + 5, sp[1] - 5);
+    g.stroke();
+  }
+  /* D3 中央冰屋门：A 有 / B 无 */
+  g.fillStyle = '#e8f2fa';
+  g.beginPath();
+  g.moveTo(160, 210); g.quadraticCurveTo(200, 156, 240, 210);
+  g.closePath(); g.fill();
+  g.strokeStyle = '#a8c8e0'; g.lineWidth = 3;
+  g.beginPath();
+  g.moveTo(160, 210); g.quadraticCurveTo(200, 156, 240, 210);
+  g.stroke();
+  g.beginPath(); g.moveTo(180, 210); g.lineTo(180, 186); g.stroke();
+  g.beginPath(); g.moveTo(220, 210); g.lineTo(220, 186); g.stroke();
+  if (v === 'A') {
+    g.fillStyle = '#3a5a8a';
+    g.beginPath();
+    g.moveTo(184, 210); g.quadraticCurveTo(200, 184, 216, 210);
+    g.closePath(); g.fill();
+  }
+  /* D4 左下雪橇：A 有 / B 无 */
+  if (v === 'A') {
+    g.save();
+    g.translate(130, 240); g.rotate(-0.06);
+    g.strokeStyle = '#a8402a'; g.lineWidth = 5; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(-26, 8); g.lineTo(26, 8); g.stroke();
+    g.beginPath(); g.moveTo(-26, 8); g.quadraticCurveTo(-38, 8, -38, -4); g.stroke();
+    g.fillStyle = '#a8402a';
+    g.fillRect(-24, 0, 48, 5);
+    g.restore();
+  } else {
+    /* 无雪橇：雪堆 */
+    g.fillStyle = '#e4f0fa';
+    g.beginPath(); g.ellipse(130, 248, 26, 9, 0, 0, Math.PI*2); g.fill();
+  }
+  /* D5 右下企鹅：A 大 / B 小 */
+  const ps = v === 'A' ? 1.35 : 0.75;
+  g.save();
+  g.translate(286, 224); g.scale(ps, ps);
+  ballAt(g, 0, 0, 17, ['#3a4a6a', '#222e48']);
+  ballAt(g, 0, 3, 11, ['#ffffff', '#e8eef6']);
+  g.fillStyle = '#ffffff';
+  g.beginPath(); g.arc(-5, -5, 3.5, 0, Math.PI*2); g.fill();
+  g.beginPath(); g.arc(5, -5, 3.5, 0, Math.PI*2); g.fill();
+  g.fillStyle = '#1b1b33';
+  g.beginPath(); g.arc(-5, -5, 1.6, 0, Math.PI*2); g.fill();
+  g.beginPath(); g.arc(5, -5, 1.6, 0, Math.PI*2); g.fill();
+  g.fillStyle = '#f0a020';
+  g.beginPath(); g.moveTo(-3, 2); g.lineTo(3, 2); g.lineTo(0, 6); g.closePath(); g.fill();
+  g.restore();
+  /* 远处松树装饰 */
+  g.fillStyle = '#3a7a5a';
+  for (const tx of [350, 376]) {
+    g.beginPath();
+    g.moveTo(tx, 226); g.lineTo(tx - 12, 258); g.lineTo(tx + 12, 258);
+    g.closePath(); g.fill();
+  }
+}
+
+/* ================= 场景 7：森林 ================= */
+function drawForest(g, v) {
+  const grad = g.createLinearGradient(0, 0, 0, IMG_H);
+  grad.addColorStop(0, '#b8ecd8');
+  grad.addColorStop(1, '#eafcdf');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, IMG_W, IMG_H);
+  /* 地面 */
+  g.fillStyle = '#a0d888';
+  g.fillRect(0, 224, IMG_W, 76);
+  g.fillStyle = '#7cb868';
+  for (let i = 0; i < IMG_W; i += 22) g.fillRect(i, 224, 11, 4);
+  /* D1 左上蘑菇颜色：红 / 黄 */
+  const mc = v === 'A' ? ['#ff9f9f', '#e8403a'] : ['#ffe89f', '#e8b820'];
+  g.fillStyle = '#f4e6c8';
+  g.fillRect(67, 84, 10, 24);
+  ballAt(g, 72, 82, 17, mc);
+  g.fillStyle = '#fff';
+  g.beginPath(); g.arc(66, 78, 3, 0, Math.PI*2); g.fill();
+  g.beginPath(); g.arc(78, 84, 2.5, 0, Math.PI*2); g.fill();
+  /* 大树（右） */
+  g.fillStyle = '#8a5a2b'; g.fillRect(316, 120, 14, 90);
+  ballAt(g, 323, 104, 38, ['#8fe08f', '#4fae4f']);
+  ballAt(g, 298, 126, 24, ['#8fe08f', '#4fae4f']);
+  ballAt(g, 348, 126, 24, ['#8fe08f', '#4fae4f']);
+  /* D2 树洞小鸟：2 vs 1 */
+  g.fillStyle = '#5a3a1e';
+  g.beginPath(); g.ellipse(323, 158, 11, 14, 0, 0, Math.PI*2); g.fill();
+  const birdN = v === 'A' ? 2 : 1;
+  for (let i = 0; i < birdN; i++) {
+    const bx = 318 + i * 11, by = 154 - (i % 2) * 4;
+    ballAt(g, bx, by, 6, ['#a0d8ff', '#4f8cff']);
+    g.fillStyle = '#1b1b33';
+    g.beginPath(); g.arc(bx + 2, by - 1, 1.2, 0, Math.PI*2); g.fill();
+  }
+  /* D3 中央刺猬：A 有 / B 无 */
+  if (v === 'A') {
+    g.fillStyle = '#8a6a4a';
+    g.beginPath(); g.ellipse(200, 204, 24, 16, 0, 0, Math.PI*2); g.fill();
+    g.fillStyle = '#5a4a3a';
+    for (let k = 0; k < 7; k++) {
+      const a = Math.PI + k * Math.PI / 6;
+      g.beginPath();
+      g.moveTo(200 + Math.cos(a) * 16, 204 + Math.sin(a) * 11);
+      g.lineTo(200 + Math.cos(a) * 28, 204 + Math.sin(a) * 18 - 4);
+      g.lineTo(200 + Math.cos(a + 0.25) * 16, 204 + Math.sin(a + 0.25) * 11);
+      g.closePath(); g.fill();
+    }
+    ballAt(g, 178, 200, 9, ['#e8d0b0', '#c8a878']);
+    g.fillStyle = '#1b1b33';
+    g.beginPath(); g.arc(174, 198, 1.5, 0, Math.PI*2); g.fill();
+    g.fillStyle = '#f0a020';
+    g.beginPath(); g.arc(170, 202, 2, 0, Math.PI*2); g.fill();
+  } else {
+    /* 无刺猬：放两颗小石头 */
+    ballAt(g, 196, 210, 8, ['#d8d8d8', '#a8a8a8']);
+    ballAt(g, 214, 214, 6, ['#d8d8d8', '#a8a8a8']);
+  }
+  /* D4 左下蘑菇大小：A 大 / B 小 */
+  const ms = v === 'A' ? 1.4 : 0.7;
+  g.save();
+  g.translate(126, 244); g.scale(ms, ms);
+  g.fillStyle = '#f4e6c8';
+  g.fillRect(-4, -6, 8, 18);
+  ballAt(g, 0, -8, 12, ['#ffe0b0', '#e8a040']);
+  g.restore();
+  /* D5 右下浆果：4 vs 3 */
+  const berryPos = [[282, 236], [302, 242], [292, 256], [274, 252]];
+  const berryN = v === 'A' ? 4 : 3;
+  for (let i = 0; i < berryN; i++) ballAt(g, berryPos[i][0], berryPos[i][1], 6, ['#ffb0c0', '#e83a6a']);
+  g.strokeStyle = '#4fae4f'; g.lineWidth = 2.5;
+  g.beginPath(); g.moveTo(282, 226); g.lineTo(282, 232); g.stroke();
+  g.beginPath(); g.moveTo(292, 226); g.lineTo(292, 232); g.stroke();
+  /* 背景小树 */
+  g.fillStyle = '#7cc87c';
+  for (const bt of [40, 380]) {
+    g.beginPath();
+    g.moveTo(bt, 224); g.lineTo(bt - 16, 260); g.lineTo(bt + 16, 260);
+    g.closePath(); g.fill();
+  }
+}
+
+/* ================= 场景 8：夜晚 ================= */
+function drawNight(g, v) {
+  const grad = g.createLinearGradient(0, 0, 0, IMG_H);
+  grad.addColorStop(0, '#0a1038');
+  grad.addColorStop(1, '#182450');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, IMG_W, IMG_H);
+  /* 背景星星（固定伪随机） */
+  let seed = 23;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  g.fillStyle = 'rgba(255,255,255,.5)';
+  for (let i = 0; i < 50; i++) {
+    const sx = rnd() * IMG_W, sy = rnd() * IMG_H, sr = rnd() * 1.2 + 0.3;
+    g.beginPath(); g.arc(sx, sy, sr, 0, Math.PI*2); g.fill();
+  }
+  /* D1 月亮朝向：A 朝右 / B 朝左 */
+  g.fillStyle = '#fff3c0';
+  g.save();
+  g.translate(70, 66);
+  g.beginPath(); g.arc(0, 0, 24, 0, Math.PI*2); g.fill();
+  g.fillStyle = '#0a1038';
+  g.beginPath(); g.arc(v === 'A' ? -10 : 10, -4, 21, 0, Math.PI*2); g.fill();
+  g.restore();
+  /* D2 右上亮星：4 vs 3 */
+  const starPos = [[292, 56], [324, 78], [352, 48], [308, 102]];
+  const starN = v === 'A' ? 4 : 3;
+  for (let i = 0; i < starN; i++) drawStar(g, starPos[i][0], starPos[i][1], 8, '#ffe08a');
+  /* 地面 */
+  g.fillStyle = '#12203e';
+  g.fillRect(0, 236, IMG_W, 64);
+  /* 小屋 */
+  g.fillStyle = '#4a3626';
+  g.fillRect(160, 172, 80, 60);
+  g.fillStyle = '#3a2a1c';
+  g.beginPath();
+  g.moveTo(152, 172); g.lineTo(200, 138); g.lineTo(248, 172);
+  g.closePath(); g.fill();
+  /* D3 窗户灯光：亮 / 暗 */
+  const winC = v === 'A' ? '#ffe08a' : '#2a3a5a';
+  g.fillStyle = winC;
+  g.fillRect(184, 188, 14, 14);
+  g.strokeStyle = '#2a1c10'; g.lineWidth = 2;
+  g.strokeRect(184, 188, 14, 14);
+  g.beginPath(); g.moveTo(191, 188); g.lineTo(191, 202); g.stroke();
+  g.beginPath(); g.moveTo(184, 195); g.lineTo(198, 195); g.stroke();
+  /* D4 左下萤火虫：3 vs 2 */
+  const flyPos = [[104, 240], [128, 254], [118, 230]];
+  const flyN = v === 'A' ? 3 : 2;
+  for (let i = 0; i < flyN; i++) {
+    ballAt(g, flyPos[i][0], flyPos[i][1], 4, ['#e8ffb0', '#a0e840']);
+    g.strokeStyle = 'rgba(160,232,64,.4)'; g.lineWidth = 3;
+    g.beginPath(); g.arc(flyPos[i][0], flyPos[i][1], 8, 0, Math.PI*2); g.stroke();
+  }
+  /* D5 右下猫头鹰：A 有 / B 无 */
+  if (v === 'A') {
+    ballAt(g, 288, 210, 16, ['#b08a5a', '#8a6a3a']);
+    g.fillStyle = '#8a6a3a';
+    g.beginPath(); g.ellipse(288, 226, 11, 8, 0, 0, Math.PI*2); g.fill();
+    g.fillStyle = '#fff';
+    g.beginPath(); g.arc(283, 206, 4.5, 0, Math.PI*2); g.fill();
+    g.beginPath(); g.arc(293, 206, 4.5, 0, Math.PI*2); g.fill();
+    g.fillStyle = '#1b1b33';
+    g.beginPath(); g.arc(283, 206, 2, 0, Math.PI*2); g.fill();
+    g.beginPath(); g.arc(293, 206, 2, 0, Math.PI*2); g.fill();
+    g.fillStyle = '#f0a020';
+    g.beginPath(); g.moveTo(285, 211); g.lineTo(291, 211); g.lineTo(288, 215); g.closePath(); g.fill();
+  } else {
+    /* 无猫头鹰：树桩 */
+    g.fillStyle = '#3a2a1c';
+    g.fillRect(280, 212, 20, 16);
+  }
+  /* 远处山影 */
+  g.fillStyle = '#0c1830';
+  g.beginPath();
+  g.moveTo(0, 236); g.lineTo(60, 196); g.lineTo(130, 236);
+  g.closePath(); g.fill();
+  g.beginPath();
+  g.moveTo(270, 236); g.lineTo(340, 188); g.lineTo(400, 236);
+  g.closePath(); g.fill();
+}
+
+/* ================= 场景 9：生日 ================= */
+function drawBirthday(g, v) {
+  const grad = g.createLinearGradient(0, 0, 0, IMG_H);
+  grad.addColorStop(0, '#ffd6ee');
+  grad.addColorStop(1, '#fff6fc');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, IMG_W, IMG_H);
+  /* D1 左上气球：3 vs 2 */
+  const balloonC = [['#ffb0c0', '#e86a9a'], ['#b0d8ff', '#5a9ae8'], ['#ffe0a0', '#f0a840']];
+  const balloonN = v === 'A' ? 3 : 2;
+  for (let i = 0; i < balloonN; i++) {
+    const bx = 56 + i * 20, by = 66 + (i % 2) * 10;
+    ballAt(g, bx, by, 13, balloonC[i]);
+    g.strokeStyle = '#c8a0b8'; g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(bx, by + 13); g.quadraticCurveTo(bx + 4, by + 28, bx, by + 42); g.stroke();
+  }
+  /* D2 右上彩旗颜色：红黄 vs 蓝绿 */
+  const flagC = v === 'A' ? ['#e8403a', '#f0c040'] : ['#4f8cff', '#4fc880'];
+  for (let i = 0; i < 5; i++) {
+    const fx = 296 + i * 16;
+    g.fillStyle = flagC[i % 2];
+    g.beginPath();
+    g.moveTo(fx, 84); g.lineTo(fx + 13, 84); g.lineTo(fx + 6.5, 98);
+    g.closePath(); g.fill();
+  }
+  g.strokeStyle = '#d8a8c0'; g.lineWidth = 2;
+  g.beginPath(); g.moveTo(292, 84); g.lineTo(378, 84); g.stroke();
+  /* 桌子 */
+  g.fillStyle = '#e8c8a0';
+  g.fillRect(100, 214, 200, 10);
+  g.fillStyle = '#d8b088';
+  g.fillRect(112, 224, 12, 40);
+  g.fillRect(276, 224, 12, 40);
+  /* D3 蛋糕蜡烛：4 根 vs 3 根 */
+  g.fillStyle = '#fff0f8';
+  g.fillRect(168, 176, 64, 38);
+  g.fillStyle = '#f0a8c8';
+  g.beginPath(); g.moveTo(168, 176);
+  g.quadraticCurveTo(178, 158, 188, 172);
+  g.quadraticCurveTo(200, 152, 212, 172);
+  g.quadraticCurveTo(224, 158, 232, 176);
+  g.closePath(); g.fill();
+  const candleN = v === 'A' ? 4 : 3;
+  for (let i = 0; i < candleN; i++) {
+    const cx2 = 178 + i * 15;
+    g.fillStyle = i % 2 ? '#7fd4ff' : '#ff9c8a';
+    g.fillRect(cx2, 160, 4, 16);
+    g.fillStyle = '#ffd35c';
+    g.beginPath(); g.ellipse(cx2 + 2, 157, 2, 3.5, 0, 0, Math.PI*2); g.fill();
+  }
+  /* D4 右下礼物盒：A 有 / B 无 */
+  if (v === 'A') {
+    g.fillStyle = '#7fc8ff';
+    g.fillRect(282, 214, 36, 30);
+    g.fillStyle = '#5aa8e8';
+    g.fillRect(282, 226, 36, 6);
+    g.fillRect(297, 214, 6, 30);
+  } else {
+    /* 无礼物盒：小椅子 */
+    g.fillStyle = '#e8c8a0';
+    g.fillRect(284, 220, 32, 6);
+    g.fillRect(286, 226, 5, 20);
+    g.fillRect(309, 226, 5, 20);
+  }
+  /* D5 左下礼物蝴蝶结颜色：红 / 紫 */
+  const bowC = v === 'A' ? '#e8403a' : '#8a4fe0';
+  g.fillStyle = '#a0e8c0';
+  g.fillRect(102, 220, 34, 26);
+  g.fillStyle = '#7fc8a8';
+  g.fillRect(102, 230, 34, 5);
+  g.fillRect(117, 220, 5, 26);
+  g.fillStyle = bowC;
+  g.beginPath(); g.ellipse(112, 216, 7, 5, -0.4, 0, Math.PI*2); g.fill();
+  g.beginPath(); g.ellipse(127, 216, 7, 5, 0.4, 0, Math.PI*2); g.fill();
+  ballAt(g, 119, 216, 3.5, ['#ffd0d0', '#e8403a']);
+  /* 彩点装饰 */
+  g.fillStyle = 'rgba(232,106,154,.35)';
+  for (const [dx, dy] of [[40, 150], [360, 160], [56, 190], [352, 200], [150, 110], [250, 108]]) {
+    g.beginPath(); g.arc(dx, dy, 4, 0, Math.PI*2); g.fill();
+  }
+}
+
 /* ---------------- 舞台渲染 ---------------- */
 function drawStage(scene) {
   ctx.save();
@@ -749,38 +1248,39 @@ function drawStage(scene) {
   ctx.restore();
 }
 
-/* 放大镜光圈标记（画在下图） */
+/* 放大镜光圈标记（左右两幅图都画，方便对照） */
 function drawMarks(now) {
   for (const m of marks) {
-    const s = stageBot;
-    const cx = s.x + m.x / IMG_W * s.w;
-    const cy = s.y + m.y / IMG_H * s.h;
     const pop = Math.min(1, m.anim);
-    const R = (26 + 10 * pop) * Math.min(s.w / IMG_W, 2);
-    /* 光圈 */
-    ctx.save();
-    ctx.globalAlpha = 0.9;
-    ctx.strokeStyle = '#ffd35c';
-    ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2); ctx.stroke();
-    /* 放大镜柄 */
-    ctx.strokeStyle = '#8a5a2b';
-    ctx.lineWidth = 5;
-    ctx.beginPath();
-    ctx.moveTo(cx + R * 0.72, cy + R * 0.72);
-    ctx.lineTo(cx + R * 1.25, cy + R * 1.25);
-    ctx.stroke();
-    /* 内光晕 */
-    const glow = ctx.createRadialGradient(cx, cy, R * 0.2, cx, cy, R);
-    glow.addColorStop(0, 'rgba(255,211,92,.28)');
-    glow.addColorStop(1, 'rgba(255,211,92,0)');
-    ctx.fillStyle = glow;
-    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2); ctx.fill();
-    ctx.restore();
+    for (const s of [stageTop, stageBot]) {
+      const cx = s.x + m.x / IMG_W * s.w;
+      const cy = s.y + m.y / IMG_H * s.h;
+      const R = (26 + 10 * pop) * Math.min(s.w / IMG_W, 2);
+      /* 光圈 */
+      ctx.save();
+      ctx.globalAlpha = 0.9;
+      ctx.strokeStyle = '#ffd35c';
+      ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2); ctx.stroke();
+      /* 放大镜柄 */
+      ctx.strokeStyle = '#8a5a2b';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(cx + R * 0.72, cy + R * 0.72);
+      ctx.lineTo(cx + R * 1.25, cy + R * 1.25);
+      ctx.stroke();
+      /* 内光晕 */
+      const glow = ctx.createRadialGradient(cx, cy, R * 0.2, cx, cy, R);
+      glow.addColorStop(0, 'rgba(255,211,92,.28)');
+      glow.addColorStop(1, 'rgba(255,211,92,0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+    }
   }
 }
 
-/* 提示闪烁（上下两幅同一点位对比闪现） */
+/* 提示闪烁（左右两幅同一点位对比闪现） */
 function drawHintFlash(now) {
   if (hintFlash < 0 || now > hintUntil) return;
   const scene = SCENES[level - 1];
@@ -833,12 +1333,24 @@ function render(now) {
   for (const s of [stageTop, stageBot]) {
     ctx.strokeRect(s.x, s.y, s.w, s.h);
   }
+  /* 中间竖线分隔条 */
+  const midX = (stageTop.x + stageTop.w + stageBot.x) / 2;
+  const splitGrad = ctx.createLinearGradient(midX - 4, 0, midX + 4, 0);
+  splitGrad.addColorStop(0, 'rgba(92,200,255,.15)');
+  splitGrad.addColorStop(.5, 'rgba(92,200,255,.85)');
+  splitGrad.addColorStop(1, 'rgba(92,200,255,.15)');
+  ctx.fillStyle = splitGrad;
+  ctx.fillRect(midX - 3, stageTop.y, 6, stageTop.h);
+  /* 顶端圆点装饰 */
+  ballAt(ctx, midX, stageTop.y - 2, 5, ['#bfe9ff', '#5cc8ff']);
+  ballAt(ctx, midX, stageTop.y + stageTop.h + 2, 5, ['#ffd9a0', '#ff9c5c']);
+  /* 左右图标题 */
   ctx.fillStyle = 'rgba(10,16,40,.72)';
   ctx.font = `700 15px system-ui, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('看一看', stageTop.x + stageTop.w - 52, stageTop.y - 16);
-  ctx.fillText('找一找（点这里）', stageBot.x + 150, stageBot.y - 16);
+  ctx.fillText('看一看', stageTop.x + stageTop.w / 2, stageTop.y - 16);
+  ctx.fillText('找一找（点这里）', stageBot.x + stageBot.w / 2, stageBot.y - 16);
 }
 
 /* ---------------- 主循环 ---------------- */
@@ -886,12 +1398,12 @@ requestAnimationFrame(frame);
 function showResult() {
   let title, medal;
   if (hintTotal === 0)      { title = '🥇 金牌小侦探！'; medal = '金牌'; }
-  else if (hintTotal <= 2)  { title = '🥈 银牌小侦探！'; medal = '银牌'; }
-  else if (hintTotal <= 4)  { title = '🥉 铜牌小侦探！'; medal = '铜牌'; }
+  else if (hintTotal <= 4)  { title = '🥈 银牌小侦探！'; medal = '银牌'; }
+  else if (hintTotal <= 8)  { title = '🥉 铜牌小侦探！'; medal = '铜牌'; }
   else                      { title = '🎉 观察小能手！'; medal = '参与奖'; }
   $('resultTitle').textContent = title;
   $('resultDesc').innerHTML =
-    `闯过 <b style="color:#ffd35c">4</b> 个场景（${medal}）<br>` +
+    `闯过 <b style="color:#ffd35c">9</b> 个场景（${medal}）<br>` +
     `使用提示 <b style="color:#ffd35c">${hintTotal}</b> 次 · 点错 <b style="color:#ffcf6b">${wrongTotal}</b> 次<br>` +
     `你的眼睛真尖，下次试试不用提示哦！`;
   $('result').classList.add('show');
