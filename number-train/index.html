@@ -84,7 +84,7 @@
 <canvas id="game"></canvas>
 <button id="btnMute" title="声音开关">🔊</button>
 <div class="hud">
-  <div class="hud-chip">第 <b id="hudLevel">1</b> / 9 关</div>
+  <div class="hud-chip">第 <b id="hudLevel">1</b> / 20 关</div>
   <div class="hud-chip">连对 <b id="hudStreak">0</b> 🔥</div>
   <div class="hud-chip">已挂 <b id="hudCoupled">0</b> / <b id="hudTotal">3</b> 节</div>
 </div>
@@ -102,9 +102,9 @@
   <p class="rules">
     车站的月台上停着好多车厢，上面写着数字。<br>
     听语音提示，<b>按顺序</b> 1 → 2 → 3 点击车厢，把它们挂到火车上！<br>
-    挂满整列火车就会呜呜地开走，一共 <b>9 站</b>哦～
+    挂满整列火车就会呜呜地开走，一共 <b>20 站</b>，最后能数到 20 哦～
   </p>
-  <p class="kbd-tip">挂车不用鼠标，直接按键盘 <kbd>1</kbd>-<kbd>9</kbd> 挂对应号码的车厢</p>
+  <p class="kbd-tip">挂车不用鼠标，直接按键盘数字挂对应车厢；两位数先按十位再按个位（如 <kbd>1</kbd><kbd>5</kbd> = 15 号）</p>
   <button id="btnStart">发车！</button>
 </div>
 <script>
@@ -228,7 +228,7 @@ function toast(text, good) {
 
 /* 关卡生成：月台随机摆 coupledTarget 节车厢（数字 1..N 乱序） */
 function buildLevel() {
-  coupledTarget = Math.min(3 + level - 1, 9);
+  coupledTarget = Math.min(3 + level - 1, 20);
   coupled = [];
   const nums = [];
   for (let i = 1; i <= coupledTarget; i++) nums.push(i);
@@ -237,13 +237,15 @@ function buildLevel() {
     [nums[i], nums[j]] = [nums[j], nums[i]];
   }
   cars = [];
-  const cw = Math.min(104, (W - 80) / Math.min(coupledTarget, 5));
+  /* 月台列数自适应：车厢越多列越多（≤8），保证行数 ≤3 行不超出屏 */
+  const cols = coupledTarget <= 4 ? coupledTarget : Math.min(8, Math.ceil(coupledTarget / 3));
+  const cw = Math.min(104, (W - 80) / Math.max(cols, Math.min(coupledTarget, 5)));
+  const rows = Math.ceil(coupledTarget / cols);
   nums.forEach((n, i) => {
-    const cols = coupledTarget <= 4 ? coupledTarget : 5;
     const col = i % cols;
     const row = Math.floor(i / cols);
     const x = W - 60 - cw - col * (cw + 24) + (Math.random() - 0.5) * 16;  /* 月台靠右（与列车同侧） */
-    const y = H * 0.52 + row * (cw * 0.85 + 24) + (Math.random() - 0.5) * 10;
+    const y = H * 0.52 + row * (cw * 0.82 + 22) + (Math.random() - 0.5) * 10;
     cars.push({
       num: n, x, y, w: cw, h: cw * 0.82,
       wiggle: 0, bob: Math.random() * 6.28,
@@ -361,7 +363,7 @@ function update(dt, t) {
         departT = -1;
         returnTrip = false;
         trainDir = -1;
-        if (level >= 9) {
+        if (level >= 20) {
           showResult();
         } else {
           nextT = 0.6;
@@ -483,15 +485,21 @@ function drawWagon(x, y, w, num, color, t, flying) {
   roundR(0, -52, w, 48, 8); ctx.fill();
   ctx.strokeStyle = 'rgba(30,30,30,.35)'; ctx.lineWidth = 3;
   roundR(0, -52, w, 48, 8); ctx.stroke();
-  /* 大数字牌 */
+  /* 大数字牌（两位数用加宽圆角牌） */
+  const twoDigit = num >= 10;
   ctx.fillStyle = '#fff';
-  ctx.beginPath();
-  ctx.arc(w / 2, -28, Math.min(22, w * 0.26), 0, Math.PI * 2);
-  ctx.fill();
+  if (twoDigit) {
+    roundR(w * 0.14, -28 - w * 0.24, w * 0.72, w * 0.48, w * 0.24);
+    ctx.fill();
+  } else {
+    ctx.beginPath();
+    ctx.arc(w / 2, -28, Math.min(22, w * 0.26), 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.fillStyle = '#1a2a55';
-  ctx.font = `bold ${Math.min(30, w * 0.34)}px system-ui, sans-serif`;
+  ctx.font = `bold ${Math.min(twoDigit ? 24 : 30, w * (twoDigit ? 0.30 : 0.34))}px system-ui, sans-serif`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(String(num), w / 2, -27);
+  ctx.fillText(String(num), w / 2, twoDigit ? -28 : -27);
   /* 车轮 */
   wheel(w * 0.22, 0, t); wheel(w * 0.78, 0, t);
   ctx.restore();
@@ -516,15 +524,21 @@ function drawCars(t) {
     roundR(0, 0, c.w, c.h, 10); ctx.fill();
     ctx.strokeStyle = 'rgba(20,40,20,.4)'; ctx.lineWidth = 3;
     roundR(0, 0, c.w, c.h, 10); ctx.stroke();
-    /* 数字牌 */
+    /* 数字牌（两位数用加宽圆角牌） */
+    const twoDigit = c.num >= 10;
     ctx.fillStyle = '#fff';
-    ctx.beginPath();
-    ctx.arc(c.w / 2, c.h * 0.46, c.w * 0.24, 0, Math.PI * 2);
-    ctx.fill();
+    if (twoDigit) {
+      roundR(c.w * 0.14, c.h * 0.22, c.w * 0.72, c.w * 0.48, c.w * 0.24);
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      ctx.arc(c.w / 2, c.h * 0.46, c.w * 0.24, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.fillStyle = '#1a2a55';
-    ctx.font = `bold ${c.w * 0.3}px system-ui, sans-serif`;
+    ctx.font = `bold ${(twoDigit ? c.w * 0.26 : c.w * 0.3)}px system-ui, sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(String(c.num), c.w / 2, c.h * 0.47);
+    ctx.fillText(String(c.num), c.w / 2, twoDigit ? c.h * 0.46 : c.h * 0.47);
     /* 小轮子 */
     ctx.fillStyle = '#2a2a2a';
     ctx.beginPath(); ctx.arc(c.w * 0.22, c.h + 8, 8, 0, Math.PI * 2); ctx.fill();
@@ -641,8 +655,10 @@ canvas.addEventListener('pointerdown', e => {
 });
 
 /* ---------------- 键盘直接输入数字 ---------------- */
-/* 按主键盘 1-8 或数字小键盘：直接点对应号码的月台车厢。
+/* 按主键盘或小键盘数字：直接点对应号码的月台车厢。
+ * 两位数（10-20）：先按十位（1 或 2），600ms 内按个位组成两位数。
  * clickCar 自带飞行中 / 开走中 / 顺序校验，键盘与鼠标同一入口。 */
+let kbFirst = null, kbTimer = null;
 window.addEventListener('keydown', e => {
   if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
   // 回车 / 空格：开始界面 → 发车；结算界面 → 再玩一次
@@ -659,10 +675,32 @@ window.addEventListener('keydown', e => {
     }
   }
   if (state !== STATE.RUNNING) return;
-  const n = e.key >= '1' && e.key <= '9' ? e.key : null;
-  if (n === null) return;
+  if (e.key < '0' || e.key > '9') return;
   e.preventDefault();
-  const c = cars.find(x => String(x.num) === n);
+  const d = e.key;
+  /* 两位数组合：已按十位 1/2，且本键能组成 10-20 范围内的有效号码 */
+  if (kbFirst !== null) {
+    clearTimeout(kbTimer);
+    const two = parseInt(kbFirst + d, 10);
+    kbFirst = null;
+    if (two >= 10 && two <= 20) {
+      const c = cars.find(x => x.num === two);
+      if (c) { clickCar(c); return; }
+    }
+    /* 组合无效：回退按本键数字 */
+  }
+  /* 十位候选：按 1 或 2 且场上存在两位数车厢时，短暂等待第二位 */
+  if ((d === '1' || d === '2') && cars.some(x => x.num >= 10 && x.num <= 20)) {
+    kbFirst = d;
+    kbTimer = setTimeout(() => {
+      /* 超时：按一位数处理 */
+      const c = cars.find(x => String(x.num) === kbFirst);
+      if (c && state === STATE.RUNNING) clickCar(c);
+      kbFirst = null;
+    }, 600);
+    return;
+  }
+  const c = cars.find(x => String(x.num) === d);
   if (c) clickCar(c);   // 号码不存在（如已挂走）由 clickCar 无声忽略
 });
 
@@ -689,15 +727,15 @@ function resetGame() {
 
 function showResult() {
   let title, medal;
-  if (bestStreak >= 6)      { title = '🥇 金牌小司机！'; medal = '金牌'; }
-  else if (bestStreak >= 4)  { title = '🥈 银牌小司机！'; medal = '银牌'; }
-  else if (bestStreak >= 2)  { title = '🥉 铜牌小司机！'; medal = '铜牌'; }
+  if (bestStreak >= 15)     { title = '🥇 金牌小司机！'; medal = '金牌'; }
+  else if (bestStreak >= 10) { title = '🥈 银牌小司机！'; medal = '银牌'; }
+  else if (bestStreak >= 5)  { title = '🥉 铜牌小司机！'; medal = '铜牌'; }
   else                       { title = '🚂 全线通车！';  medal = '继续加油'; }
   $('resultTitle').textContent = title;
   $('resultDesc').innerHTML =
-    `跑完 <b style="color:#0d5c0d">9</b> 站（${medal}）<br>` +
+    `跑完 <b style="color:#0d5c0d">20</b> 站（${medal}）<br>` +
     `最佳连挂 <b style="color:#0d5c0d">${bestStreak}</b> 站 · 挂错 <b style="color:#c22">${wrongTotal}</b> 次<br>` +
-    `数字顺序 1 到 9 全记住啦！`;
+    `数字顺序 1 到 20 全记住啦！`;
   $('result').classList.add('show');
   state = STATE.FINISH;
   say(`全线通车！你连续挂对了${bestStreak}站，获得${medal}！`);
