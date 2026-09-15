@@ -1,0 +1,38 @@
+name: Sync from Gitee (Manual)
+
+on:
+  workflow_dispatch:  # 允许在 GitHub 网页上手动点击触发
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout GitHub repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 拉取完整历史，便于合并
+          token: ${{ secrets.GITHUB_TOKEN }}  # 默认令牌，有推送权限
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add Gitee remote and fetch
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}  # 私有仓库才需要
+        run: |
+          # 如果是公开仓库，把下面这行替换为：
+          git remote add gitee https://gitee.com/zhoul.vic/at-ai-child-game.git
+          # git remote add gitee https://你的Gitee用户名:${GITEE_TOKEN}@gitee.com/你的Gitee用户名/你的Gitee仓库名.git
+          git fetch gitee master
+
+      - name: Merge Gitee code into current branch
+        run: |
+          # 将 Gitee 的提交合并进来，冲突时以 Gitee 为准
+          git merge gitee/master -m "Sync from Gitee" -X theirs
+
+      - name: Push to GitHub
+        run: |
+          git push origin HEAD:master
