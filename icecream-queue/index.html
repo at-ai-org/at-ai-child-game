@@ -362,17 +362,49 @@ canvas.addEventListener('pointerdown', e => {
 
 function animalAt(x, y) {
   const n = queue.length;
+  const r = queueBadgeR(n) + 14;      // 热区略大于底座，幼儿好点
   for (let i = 0; i < n; i++) {
     const pos = queuePos(i, n);
-    if (Math.hypot(x - pos.x, y - pos.y) < 52) return i;
+    if (Math.hypot(x - pos.x, y - pos.y) < r) return i;
   }
   return -1;
 }
+/* 冰淇淋车右边缘（队头从这里往右排） */
+function truckRightEdge() {
+  const tw = Math.min(190, W * 0.34);
+  const tx = Math.max(tw / 2 + 6, W * 0.135);
+  return tx + tw / 2;
+}
+/* 队列布局：一列能放下就一列；窄屏放不下时折成两行（蛇形队伍） */
+function queueLayout(n) {
+  const x0 = truckRightEdge() + Math.min(70, W * 0.075);   // 队头（离车留出窗口空间）
+  const avail = W * 0.955 - x0;
+  /* 单行可容纳的最大数量（保证底盘不重叠：gap ≥ 2*br，br 最小 20） */
+  const minGap = 44;
+  const maxPerRow = Math.max(2, Math.floor(avail / minGap) + 1);
+  const twoRow = n > maxPerRow;
+  const perRow = twoRow ? Math.ceil(n / 2) : n;
+  const gap = perRow > 1 ? Math.min(112, avail / (perRow - 1)) : 112;
+  return { x0, gap, twoRow, perRow };
+}
 function queuePos(i, n) {
-  /* 队列横排：i=0 最左（队头/前），朝冰淇淋车（车在右侧） */
-  const gap = Math.min(108, (W * 0.72) / (n + 1));
-  const x0 = W * 0.14 + (W * 0.66 - gap * (n - 1)) / 2;
-  return { x: x0 + i * gap, y: H * 0.72 };
+  /* 队列从冰淇淋车右侧排开：i=0 是队头（最前），紧挨着车。
+   * 单行：从左到右。窄屏两行：上行先满，再折回下行（蛇形）。 */
+  const L = queueLayout(n);
+  if (!L.twoRow) return { x: L.x0 + i * L.gap, y: H * 0.72 };
+  const row = Math.floor(i / L.perRow);
+  const col = i % L.perRow;
+  /* 下行倒过来（蛇形），队尾回到左边，视觉上是一条折返的队伍 */
+  const colPos = row === 0 ? col : (L.perRow - 1 - col);
+  return { x: L.x0 + colPos * L.gap, y: H * 0.72 - row * (H * 0.17) };
+}
+/* 队列动物字号：随间距自动缩放，保证不重叠 */
+function queueFontSize(n) {
+  return Math.max(26, Math.min(58, queueLayout(n).gap * 0.86));
+}
+/* 动物底盘半径 */
+function queueBadgeR(n) {
+  return Math.max(17, Math.min(38, queueLayout(n).gap * 0.46));
 }
 
 function answer(idx) {
@@ -466,40 +498,72 @@ function drawScene(t) {
 }
 
 function drawTruck(t) {
-  /* 冰淇淋车（右侧） */
-  const tx = W * 0.885, ty = H * 0.66;
+  /* 冰淇淋车（左侧）：队头在车的右边，所以窗口朝右。
+   * 车宽随屏幕自适应，窄屏不越界。 */
+  const tw = Math.min(190, W * 0.34);        // 车身宽
+  const k = tw / 190;                        // 尺寸缩放系数
+  const tx = Math.max(tw / 2 + 6, W * 0.135);  // 中心位置（保证左边缘不出屏）
+  const ty = H * 0.66;
   ctx.save();
   /* 车身 */
   ctx.fillStyle = '#ff8fab';
-  roundRect(tx - 95, ty - 130, 190, 130, 18);
+  roundRect(tx - tw / 2, ty - 130 * k, tw, 130 * k, 18 * k);
+  ctx.fill();
+  /* 侧面阴影（立体感） */
+  ctx.fillStyle = 'rgba(0,0,0,.06)';
+  roundRect(tx - tw / 2, ty - 30 * k, tw, 30 * k, 8 * k);
   ctx.fill();
   ctx.fillStyle = '#fff0f5';
-  roundRect(tx - 82, ty - 118, 164, 70, 12);
+  roundRect(tx - 82 * k, ty - 118 * k, 164 * k, 70 * k, 12 * k);
   ctx.fill();
   /* 顶棚条纹 */
   ctx.fillStyle = '#ff6b9d';
   for (let i = 0; i < 5; i++) {
-    ctx.fillRect(tx - 95 + i * 38, ty - 138, 19, 10);
+    ctx.fillRect(tx - tw / 2 + i * 38 * k, ty - 138 * k, 19 * k, 10 * k);
   }
   /* 招牌 */
   ctx.fillStyle = '#5a3820';
-  roundRect(tx - 70, ty - 108, 140, 50, 10);
+  roundRect(tx - 70 * k, ty - 108 * k, 140 * k, 50 * k, 10 * k);
   ctx.fill();
-  ctx.font = '38px system-ui, sans-serif';
+  ctx.font = Math.round(38 * k) + 'px system-ui, sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('🍦', tx, ty - 82);
+  ctx.fillText('🍦', tx, ty - 82 * k);
   /* 车轮 */
   ctx.fillStyle = '#3a2a1a';
-  ctx.beginPath(); ctx.arc(tx - 55, ty + 6, 16, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(tx + 55, ty + 6, 16, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(tx - 55 * k, ty + 6, 16 * k, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(tx + 55 * k, ty + 6, 16 * k, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
-  /* 窗口店员小手 */
+  /* 窗口店员小手（伸向右侧的顾客） */
   ctx.fillStyle = '#ffd7b0';
-  ctx.beginPath(); ctx.arc(tx - 40, ty - 40, 12, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(tx + 74 * k, ty - 40 * k, 13 * k, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#e8b48a'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(tx + 74 * k, ty - 40 * k, 13 * k, 0, Math.PI * 2); ctx.stroke();
+  /* 车顶小旗（营业中） */
+  ctx.strokeStyle = '#a06a2c'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(tx - 70 * k, ty - 138 * k); ctx.lineTo(tx - 70 * k, ty - 172 * k); ctx.stroke();
+  ctx.fillStyle = '#ffd166';
+  ctx.beginPath();
+  ctx.moveTo(tx - 70 * k, ty - 172 * k);
+  ctx.lineTo(tx - 24 * k, ty - 162 * k);
+  ctx.lineTo(tx - 70 * k, ty - 152 * k);
+  ctx.closePath();
+  ctx.fill();
 }
+
+/* 动物底座配色：饱和色轮换，浅色动物（兔子/熊猫/考拉）也能看清 */
+const BADGE_COLORS = [
+  { bg: '#ffd166', ring: '#e8a800' },   // 明黄
+  { bg: '#8ecae6', ring: '#3d9dc4' },   // 天蓝
+  { bg: '#b5e48c', ring: '#6cb83c' },   // 嫩绿
+  { bg: '#ffafcc', ring: '#e8709b' },   // 粉红
+  { bg: '#cdb4db', ring: '#9b7bc4' },   // 淡紫
+  { bg: '#ffc09f', ring: '#e08a5a' },   // 蜜桃
+];
 
 function drawQueue(t) {
   const n = queue.length;
+  const fs = queueFontSize(n);
+  const br = queueBadgeR(n);
   for (let i = 0; i < n; i++) {
     const a = queue[i];
     const pos = queuePos(i, n);
@@ -510,51 +574,120 @@ function drawQueue(t) {
     }
     const hop = a.hopT > 0 ? Math.sin(a.hopT * Math.PI * 3) * 18 * a.hopT : 0;
     const bob = Math.sin(t * 2.5 + i * 1.1) * 3;
-    const scale = countNum ? 1.25 : 1;
+    const scale = countNum ? 1.2 : 1;
+    const badge = BADGE_COLORS[i % BADGE_COLORS.length];
     ctx.save();
     ctx.translate(pos.x, pos.y + bob + hop);
     ctx.scale(scale, scale);
-    /* 阴影 */
-    ctx.fillStyle = 'rgba(90,56,32,.18)';
-    ctx.beginPath(); ctx.ellipse(0, 44, 34, 8, 0, 0, Math.PI * 2); ctx.fill();
-    /* 动物本体 */
-    ctx.font = '58px system-ui, sans-serif';
+    /* 地面投影 */
+    ctx.fillStyle = 'rgba(90,56,32,.22)';
+    ctx.beginPath(); ctx.ellipse(0, br + 10, br * 0.92, br * 0.24, 0, 0, Math.PI * 2); ctx.fill();
+    /* 彩色圆底座：给浅色动物提供对比背景 */
+    ctx.fillStyle = badge.bg;
+    ctx.beginPath(); ctx.arc(0, 0, br, 0, Math.PI * 2); ctx.fill();
+    /* 白描边（更亮更清楚） */
+    ctx.strokeStyle = 'rgba(255,255,255,.95)';
+    ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(0, 0, br, 0, Math.PI * 2); ctx.stroke();
+    /* 深色外圈（与奶油背景拉开层次） */
+    ctx.strokeStyle = badge.ring;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(0, 0, br + 2.5, 0, Math.PI * 2); ctx.stroke();
+    /* 动物本体（放大到接近底座直径）
+     * 用 canvas 阴影做白色外发光轮廓：浅色动物（兔子/熊猫/考拉/仓鼠）
+     * 在浅底或同色底盘上也能看清。
+     * 注意：emoji 是彩色字形，strokeText 对其无效，必须用 shadowBlur。 */
+    ctx.font = fs + 'px system-ui, sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(a.kind, 0, 0);
+    ctx.shadowColor = 'rgba(255,255,255,.95)';
+    ctx.shadowBlur = Math.max(6, fs * 0.22);
+    ctx.fillText(a.kind, 0, fs * 0.04);
+    ctx.fillText(a.kind, 0, fs * 0.04);        // 第二遍加重轮廓
+    ctx.shadowColor = 'rgba(90,56,32,.45)';
+    ctx.shadowBlur = Math.max(3, fs * 0.1);
+    ctx.fillText(a.kind, 0, fs * 0.04);        // 再叠一层淡褐，进一步界定边界
+    ctx.shadowBlur = 0;
     /* 拿到冰淇淋 */
     if (a.served || i === servingIdx) {
-      ctx.font = '34px system-ui, sans-serif';
-      ctx.fillText(a.flavor + '🍦', 0, -52);
+      const iceFs = Math.max(22, fs * 0.6);
+      ctx.font = iceFs + 'px system-ui, sans-serif';
+      ctx.shadowColor = 'rgba(255,255,255,.95)';
+      ctx.shadowBlur = Math.max(5, iceFs * 0.2);
+      ctx.fillText(a.flavor + '🍦', 0, -br - iceFs * 0.5);
+      ctx.fillText(a.flavor + '🍦', 0, -br - iceFs * 0.5);
+      ctx.shadowBlur = 0;
     }
     ctx.restore();
     /* 数数气泡序号 */
     if (countNum) {
+      const bx = pos.x + br * 0.95, by = pos.y - br * 0.95;
       ctx.fillStyle = '#ff9c3c';
-      ctx.beginPath(); ctx.arc(pos.x + 36, pos.y - 46, 18, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(bx, by, 19, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(bx, by, 19, 0, Math.PI * 2); ctx.stroke();
       ctx.fillStyle = '#fff';
-      ctx.font = 'bold 20px system-ui, sans-serif';
+      ctx.font = 'bold 21px system-ui, sans-serif';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(String(countNum), pos.x + 36, pos.y - 45);
+      ctx.fillText(String(countNum), bx, by + 1);
     }
     /* 答错闪红 */
     if (i === wrongFlashIdx) {
       ctx.strokeStyle = 'rgba(255,60,60,' + (0.5 + 0.5 * Math.sin(t * 20)) + ')';
       ctx.lineWidth = 5;
-      ctx.beginPath(); ctx.arc(pos.x, pos.y, 52, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(pos.x, pos.y, br + 12, 0, Math.PI * 2); ctx.stroke();
+    }
+    /* 答对高亮金环 */
+    if (i === servingIdx) {
+      ctx.strokeStyle = 'rgba(255,211,92,.9)';
+      ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.arc(pos.x, pos.y, br + 8, 0, Math.PI * 2); ctx.stroke();
     }
   }
 }
 
-function drawDirectionHint() {
-  /* 前后方向小箭头（队头/队尾标记） */
+function drawQueueGuide() {
+  /* 队列引导线：连接相邻动物底盘（体现队伍顺序），画在动物身后。
+   * 窄屏折行时这条蛇形线把"从前往后"的方向画出来，孩子顺着线数。 */
   const n = queue.length;
+  if (n < 2) return;
+  ctx.strokeStyle = 'rgba(255,156,60,.5)';
+  ctx.lineWidth = 6;
+  ctx.lineCap = 'round';
+  ctx.setLineDash([10, 9]);
+  ctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const p = queuePos(i, n);
+    if (i === 0) ctx.moveTo(p.x, p.y);
+    else ctx.lineTo(p.x, p.y);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+  /* 队头处的方向箭头（指向冰淇淋车） */
+  const head = queuePos(0, n);
+  const br = queueBadgeR(n);
+  ctx.fillStyle = 'rgba(255,156,60,.85)';
+  const ax = head.x - br - 26, ay = head.y;
+  ctx.beginPath();
+  ctx.moveTo(ax - 14, ay);
+  ctx.lineTo(ax + 8, ay - 11);
+  ctx.lineTo(ax + 8, ay + 11);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawDirectionHint() {
+  /* 队头 / 队尾文字标记（队头贴着冰淇淋车，在左侧） */
+  const n = queue.length;
+  const br = queueBadgeR(n);
   const head = queuePos(0, n), tail = queuePos(n - 1, n);
-  /* 队头（前）标记：朝冰淇淋车 */
-  ctx.fillStyle = '#ff9c3c';
   ctx.font = 'bold 15px system-ui, sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('最前 ↑', head.x, head.y + 78);
-  ctx.fillText('最后', tail.x, tail.y + 78);
+  ctx.fillStyle = '#ff9c3c';
+  ctx.fillText('最前（队头）', head.x, head.y + br + 32);
+  if (n > 1) {
+    ctx.fillStyle = '#a06a2c';
+    ctx.fillText('最后（队尾）', tail.x, tail.y + br + 32);
+  }
 }
 
 function roundRect(x, y, w, h, r) {
@@ -614,6 +747,7 @@ function render(t) {
   }
   drawScene(t);
   drawTruck(t);
+  drawQueueGuide();
   drawQueue(t);
   drawDirectionHint();
   ctx.restore();
