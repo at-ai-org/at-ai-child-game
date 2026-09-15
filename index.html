@@ -220,7 +220,7 @@ window.addEventListener('contextmenu', e => e.preventDefault());
       🎮 快捷游戏目录 <span class="arrow">▼</span>
     </button>
     <div id="quickList">
-      <div class="ql-title">全部 20 个游戏 · 点击直接开始</div>
+      <div class="ql-title">全部 20 个教育游戏 · 点击直接开始</div>
       <div class="ql-grid" id="quickGrid"></div>
     </div>
   </div>
@@ -358,6 +358,17 @@ window.addEventListener('contextmenu', e => e.preventDefault());
       </div>
       <span class="play">开始游戏</span>
     </a>
+    <a class="card" href="racing-3d/index.html" data-quick="off">
+      <div class="icon" aria-hidden="true">🏎️</div>
+      <div class="name">极速飞车 3D</div>
+      <div class="desc">真正的 3D 赛车（非教育向）！油门自动，只需左右键转向，在蜿蜒的公路赛道上跑 3 圈，从最后一名追到冠军。</div>
+      <div class="tags">
+        <span class="tag">3D 赛车</span>
+        <span class="tag">左右键操控</span>
+        <span class="tag">three.js</span>
+      </div>
+      <span class="play">开始游戏</span>
+    </a>
     <a class="card" href="pinyin-rain/index.html">
       <div class="icon" aria-hidden="true">🌧️</div>
       <div class="name">拼音气球雨</div>
@@ -473,6 +484,8 @@ window.addEventListener('contextmenu', e => e.preventDefault());
   /* 从主网格卡片提取游戏清单 */
   var cards = document.querySelectorAll('.grid .card');
   cards.forEach(function (card) {
+    /* data-quick="off" 的卡片只在主网格展示，不进快捷目录（如 3D 赛车） */
+    if (card.getAttribute('data-quick') === 'off') return;
     var href = card.getAttribute('href');
     var icon = card.querySelector('.icon');
     var name = card.querySelector('.name');
