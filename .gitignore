@@ -12,3 +12,6 @@
 .DS_Store
 _design.py
 *.tmp
+
+# 开发临时脚本（图形设计/调试用，不入库）
+tangram/_*.py

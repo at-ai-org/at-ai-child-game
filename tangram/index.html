@@ -180,7 +180,7 @@
 <!-- HUD -->
 <div class="hud">
   <div class="hud-chip">第 <b id="hudLevel">1</b> / <b id="hudTotalLevel">9</b> 关</div>
-  <div class="hud-chip">已拼 <b id="hudPlaced">0</b> / 7</div>
+  <div class="hud-chip">已拼 <b id="hudPlaced">0</b> / <b id="hudTotal">2</b></div>
   <div class="hud-chip">连对 <b id="hudStreak">0</b> 🔥</div>
 </div>
 
@@ -811,6 +811,7 @@ function updateHUD() {
   $('hudLevel').textContent = level + 1;
   if ($('hudTotalLevel')) $('hudTotalLevel').textContent = LEVELS.length;
   $('hudPlaced').textContent = placedCount;
+  if ($('hudTotal')) $('hudTotal').textContent = slots.length;
   $('hudStreak').textContent = streak;
 }
 let toastTimer = null;
