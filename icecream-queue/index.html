@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>排队买冰淇淋 · Ice Cream Queue</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  body {
+    background: #fff4e0;
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #game { display: block; width: 100vw; height: 100vh; }
+
+  .hud {
+    position: absolute; top: 72px; left: 14px; z-index: 10;
+    display: flex; gap: 10px; flex-wrap: wrap; pointer-events: none;
+  }
+  .hud-chip {
+    background: rgba(122, 78, 40, .82);
+    border: 1px solid rgba(255, 220, 160, .5);
+    border-radius: 14px;
+    color: #fff4e0;
+    padding: 7px 15px;
+    font-size: 17px;
+    font-weight: 600;
+    box-shadow: 0 4px 18px rgba(0,0,0,.2);
+  }
+  .hud-chip b { color: #ffe08a; font-size: 21px; }
+
+  #btnMute {
+    position: absolute; top: 12px; right: 12px; z-index: 60;
+    font-size: 20px; line-height: 1;
+    padding: 9px 13px; border-radius: 12px; cursor: pointer;
+    background: rgba(122, 78, 40, .82);
+    border: 1px solid rgba(255, 220, 160, .5);
+    color: #fff4e0;
+    min-width: 44px; min-height: 44px;
+  }
+
+  #captionBar {
+    position: absolute; left: 50%; top: 74px;
+    transform: translateX(-50%);
+    z-index: 25;
+    max-width: 92vw;
+    background: rgba(122, 78, 40, .88);
+    border: 1px solid rgba(255, 224, 138, .6);
+    border-radius: 16px;
+    padding: 10px 22px;
+    font-size: 18px; font-weight: 600;
+    color: #ffe9ad;
+    text-align: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .25s;
+    box-shadow: 0 6px 22px rgba(0,0,0,.25);
+    white-space: nowrap;
+  }
+  #captionBar.show { opacity: 1; }
+
+  /* 问题卡 */
+  #questionCard {
+    position: absolute; left: 50%; top: 13%;
+    transform: translateX(-50%);
+    z-index: 18;
+    text-align: center;
+    pointer-events: none;
+    max-width: 94vw;
+  }
+  #questionCard .word {
+    display: inline-block;
+    padding: 10px 30px;
+    font-size: 30px; font-weight: 800;
+    color: #7a4e28;
+    background: linear-gradient(160deg, #fff8ea, #ffefd0);
+    border: 3px solid #ffb84d;
+    border-radius: 22px;
+    text-shadow: 0 2px 0 #fff;
+    box-shadow: 0 10px 26px rgba(200,120,30,.3);
+    line-height: 1.4;
+  }
+
+  #toast {
+    position: absolute; left: 50%; top: 30%;
+    transform: translate(-50%, -50%) scale(1);
+    z-index: 30;
+    font-size: 56px; font-weight: 800;
+    color: #ff9c3c;
+    text-shadow: 0 3px 0 #fff, 0 6px 16px rgba(200,120,30,.4);
+    opacity: 0; pointer-events: none;
+    transition: opacity .25s, transform .25s;
+    white-space: nowrap;
+  }
+  #toast.pop { opacity: 1; transform: translate(-50%, -58%) scale(1.12); }
+
+  #result {
+    position: absolute; inset: 0; z-index: 40;
+    background: rgba(60, 34, 8, .5);
+    display: none;
+    align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  #result.show { display: flex; }
+  .result-card {
+    text-align: center; color: #5a3820;
+    background: linear-gradient(160deg, #fff8ea, #ffefd0);
+    border: 3px solid #ffb84d;
+    border-radius: 26px;
+    padding: 30px 44px;
+    box-shadow: 0 20px 60px rgba(120,70,20,.35);
+    max-width: 88vw;
+  }
+  .result-card h1 { font-size: 36px; color: #e07818; margin-bottom: 12px; }
+  .result-card p { font-size: 17px; color: #7a5a3a; margin: 6px 0 22px; line-height: 1.8; }
+  .result-card button {
+    font-size: 20px; padding: 12px 42px; border-radius: 999px;
+    border: none; cursor: pointer;
+    background: linear-gradient(90deg, #ff9c3c, #ffd35c);
+    color: #5a3820; font-weight: 800; letter-spacing: 4px;
+    box-shadow: 0 6px 20px rgba(255,160,60,.4);
+    font-family: inherit;
+    min-height: 48px;
+  }
+  .result-card button:active { transform: scale(.97); }
+
+  #start {
+    position: absolute; inset: 0; z-index: 50;
+    background: radial-gradient(1200px 600px at 50% 30%, #ffe9c4 0%, #fff4e0 70%);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: #5a3820; text-align: center;
+    padding: 20px;
+  }
+  #start h1 {
+    font-size: clamp(38px, 8vw, 60px); letter-spacing: 6px;
+    background: linear-gradient(90deg, #ff9c3c, #ff6b9d, #6bd5ff, #ff9c3c);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+    margin-bottom: 14px;
+  }
+  #start p { font-size: 16px; color: #8a6a4a; line-height: 2; max-width: 560px; }
+  #start .rules { margin: 22px 0 28px; }
+  #start button {
+    font-size: 21px; padding: 14px 56px; border-radius: 999px;
+    border: none; cursor: pointer;
+    background: linear-gradient(90deg, #ff9c3c, #ffd35c);
+    color: #5a3820; font-weight: 800; letter-spacing: 6px;
+    box-shadow: 0 8px 26px rgba(255,180,70,.45);
+    font-family: inherit;
+    min-height: 52px;
+  }
+  #start button:active { transform: scale(.97); }
+
+  #btnHome { position: absolute; top: 12px; left: 12px; z-index: 60; font-size: 20px; line-height: 1; padding: 9px 13px; border-radius: 12px; cursor: pointer; background: rgba(122, 78, 40, .82); border: 1px solid rgba(255, 220, 160, .5); color: #fff4e0; font-family: inherit; }
+  #btnHome:active { transform: scale(.94); }
+  #homeConfirm { position: absolute; inset: 0; z-index: 90; background: rgba(60, 34, 8, .45); display: none; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+  #homeConfirm.show { display: flex; }
+  #homeConfirm .hc-card { text-align: center; background: linear-gradient(160deg, #fff8ea, #ffefd0); border: 3px solid #ffb84d; border-radius: 22px; padding: 26px 34px; box-shadow: 0 18px 50px rgba(120,70,20,.35); max-width: 84vw; color: #5a3820; }
+  #homeConfirm .hc-card h2 { font-size: 24px; color: #5a3820; margin-bottom: 8px; letter-spacing: 2px; }
+  #homeConfirm .hc-card p { font-size: 15px; color: #8a6a4a; margin: 4px 0 18px; }
+  #homeConfirm .hc-btns { display: flex; gap: 14px; justify-content: center; }
+  #homeConfirm button { font-size: 17px; padding: 10px 26px; border-radius: 999px; border: none; cursor: pointer; font-weight: 700; letter-spacing: 2px; font-family: inherit; }
+  #homeConfirm button:active { transform: scale(.96); }
+  #hcOk { background: linear-gradient(90deg, #ff9c3c, #ffd35c); color: #5a3820; box-shadow: 0 6px 18px rgba(255,180,70,.4); }
+  #hcCancel { background: rgba(122,78,40,.15); color: #8a6a4a; border: 1px solid rgba(160,110,60,.4) !important; }
+</style>
+</head>
+<body>
+<button id="btnHome" title="返回主页">🏠</button>
+<div id="homeConfirm">
+  <div class="hc-card">
+    <h2>🏠 返回游戏主页？</h2>
+    <p>当前的游戏进度将会丢失哦</p>
+    <div class="hc-btns">
+      <button id="hcOk">确认返回</button>
+      <button id="hcCancel">再玩一会儿</button>
+    </div>
+  </div>
+</div>
+
+<canvas id="game"></canvas>
+<button id="btnMute" title="声音开关">🔊</button>
+
+<div class="hud">
+  <div class="hud-chip">得分 <b id="hudScore">0</b></div>
+  <div class="hud-chip">关卡 <b id="hudLevel">1</b>/10</div>
+</div>
+
+<div id="captionBar"></div>
+
+<div id="questionCard">
+  <div class="word" id="questionWord">？</div>
+</div>
+
+<div id="toast"></div>
+
+<div id="result">
+  <div class="result-card">
+    <h1 id="resultTitle">🍦 冰淇淋店老板！</h1>
+    <p id="resultDesc"></p>
+    <button id="btnRestart">再玩一次</button>
+  </div>
+</div>
+
+<div id="start">
+  <h1>🍦 排队买冰淇淋</h1>
+  <p class="rules">
+    冰淇淋车前面排了好长一队小动物～<br>
+    听一听：<b>「给从前面数第 3 只小动物冰淇淋」</b><br>
+    ✅ 点对 → 拿到冰淇淋开心蹦跳！　❌ 点错 → 数给你看：1、2、3……<br>
+    后面还会<b>从后往前数</b>哦，认真听题！答 10 单通关～
+  </p>
+  <button id="btnStart">开始营业</button>
+</div>
+
+<script>
+/* 屏蔽右键菜单 */
+window.addEventListener('contextmenu', e => e.preventDefault());
+
+/* =========================================================
+ * 排队买冰淇淋 —— 序数（第几个）
+ * 设计文档 G16 · 4-6 岁 · 点击
+ * 队列 5-8 只小动物，题目两种方向：
+ *   「从前面数第 N 个」「从后面数第 N 个」
+ * 点对发冰淇淋；点错逐个数给看（教育纠正）。
+ * 10 单通关（队列长度递增）。
+ * ========================================================= */
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0;
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+window.addEventListener('resize', resize);
+resize();
+
+const STATE = { START: 0, RUNNING: 1, FINISH: 2 };
+const QUIZ_TOTAL = 10;
+const ORD_WORDS = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
+
+let state = STATE.START;
+let quizIndex = 0, score = 0, streak = 0, bestStreak = 0, wrongTotal = 0;
+let queue = [];                // 队列：从队头（前）到队尾（后）
+let targetIdx = -1;            // 目标动物下标（queue 数组下标）
+let fromFront = true;          // 题目方向：true 从前往后数
+let targetOrd = 1;             // 第 N 个（口语数字）
+let answered = false;
+let resultT = 0;
+let shake = 0;
+let servingIdx = -1;           // 正在发冰淇淋动画的动物
+let wrongFlashIdx = -1;        // 答错高亮
+let counting = [];             // 逐个数动画（{idx, t}）
+let countingDir = 1;           // 数数方向（跟题目一致）
+
+const ANIMALS = ['🐰', '🐻', '🐸', '🐼', '🦊', '🐨', '🐷', '🐯', '🐵', '🐶', '🐹', '🦁'];
+const FLAVORS = ['🍓', '🍑', '🍇', '🥝', '🍍', '🍫', '🥭'];
+
+const $ = id => document.getElementById(id);
+const captionEl = $('captionBar');
+const questionEl = $('questionWord');
+const toastEl = $('toast');
+
+/* 语音 */
+const synth = window.speechSynthesis || null;
+let zhVoice = null;
+function pickVoice() {
+  if (!synth) return;
+  const vs = synth.getVoices();
+  zhVoice = vs.find(v => /zh[-_]CN/i.test(v.lang)) || vs.find(v => /^zh/i.test(v.lang)) || null;
+}
+if (synth) { pickVoice(); if (synth.onvoiceschanged !== undefined) synth.onvoiceschanged = pickVoice; }
+function speak(text) {
+  if (muted || !synth) return;
+  try {
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN'; if (zhVoice) u.voice = zhVoice;
+    u.rate = 0.9;
+    synth.speak(u);
+  } catch (e) {}
+}
+function caption(text) {
+  captionEl.textContent = text;
+  captionEl.classList.add('show');
+  clearTimeout(captionEl._t);
+  captionEl._t = setTimeout(() => captionEl.classList.remove('show'), 3200);
+}
+
+/* 音效 */
+let actx = null, muted = false;
+function initAudio() {
+  if (actx) return;
+  try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+}
+function beep(freq, dur, type, vol, sweepTo) {
+  if (!actx || muted) return;
+  try {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(freq, actx.currentTime);
+    if (sweepTo) o.frequency.exponentialRampToValueAtTime(sweepTo, actx.currentTime + dur);
+    g.gain.setValueAtTime(vol || 0.15, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + dur);
+    o.connect(g).connect(actx.destination);
+    o.start();
+    o.stop(actx.currentTime + dur);
+  } catch (e) {}
+}
+const sfxRight = () => { beep(660, .09, 'sine', .16); beep(990, .14, 'sine', .16); };
+const sfxWrong = () => beep(180, .22, 'sawtooth', .08);
+const sfxDing = () => { beep(1200, .1, 'sine', .12); beep(1600, .15, 'sine', .1, 1800); };
+const sfxCount = i => beep(500 + i * 90, .07, 'sine', .12);
+$('btnMute').addEventListener('click', () => {
+  muted = !muted;
+  $('btnMute').textContent = muted ? '🔇' : '🔊';
+  if (muted && synth) synth.cancel();
+});
+
+/* ---------------- 出题 ---------------- */
+function makeQuiz() {
+  answered = false;
+  resultT = 0; servingIdx = -1; wrongFlashIdx = -1; counting = [];
+
+  /* 队列长度 4→8 递进 */
+  const len = Math.min(8, 4 + Math.floor(quizIndex / 2));
+  /* 生成不重复动物队列 */
+  const pool = ANIMALS.slice();
+  queue = [];
+  for (let i = 0; i < len; i++) {
+    const k = Math.floor(Math.random() * pool.length);
+    queue.push({ kind: pool.splice(k, 1)[0], flavor: FLAVORS[Math.floor(Math.random() * FLAVORS.length)], hopT: 0, served: false });
+  }
+
+  /* 方向：前 4 题从前往后，后 6 题混合 */
+  fromFront = quizIndex < 4 ? true : Math.random() < 0.5;
+  /* 第 N 个：1..len */
+  targetOrd = 1 + Math.floor(Math.random() * len);
+  /* 目标下标 */
+  targetIdx = fromFront ? targetOrd - 1 : len - targetOrd;
+
+  const dirTxt = fromFront ? '从前面数' : '从后面数';
+  const ordTxt = targetOrd <= 9 ? ORD_WORDS[targetOrd] : String(targetOrd);
+  questionEl.textContent = '给' + dirTxt + '第 ' + ordTxt + ' 只小动物冰淇淋';
+  speak(dirTxt + '第' + ordTxt + '个！给它冰淇淋！');
+  caption('🔈 ' + dirTxt + '第 ' + ordTxt + ' 个');
+  updateHUD();
+}
+
+/* ---------------- 点击 ---------------- */
+canvas.addEventListener('pointerdown', e => {
+  if (state !== STATE.RUNNING || answered) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) * (W / rect.width);
+  const y = (e.clientY - rect.top) * (H / rect.height);
+  /* 命中队列中的动物 */
+  const hit = animalAt(x, y);
+  if (hit >= 0) answer(hit);
+});
+
+function animalAt(x, y) {
+  const n = queue.length;
+  for (let i = 0; i < n; i++) {
+    const pos = queuePos(i, n);
+    if (Math.hypot(x - pos.x, y - pos.y) < 52) return i;
+  }
+  return -1;
+}
+function queuePos(i, n) {
+  /* 队列横排：i=0 最左（队头/前），朝冰淇淋车（车在右侧） */
+  const gap = Math.min(108, (W * 0.72) / (n + 1));
+  const x0 = W * 0.14 + (W * 0.66 - gap * (n - 1)) / 2;
+  return { x: x0 + i * gap, y: H * 0.72 };
+}
+
+function answer(idx) {
+  if (idx === targetIdx) {
+    streak++; bestStreak = Math.max(bestStreak, streak);
+    score += 10;
+    answered = true;
+    servingIdx = idx;
+    queue[idx].hopT = 1;
+    sfxRight(); sfxDing();
+    toast('给对啦！');
+    speak('答对啦！' + (fromFront ? '从前面' : '从后面') + '数第' + (targetOrd <= 9 ? ORD_WORDS[targetOrd] : targetOrd) + '个，就是它！');
+    resultT = 1.8;
+  } else {
+    streak = 0;
+    wrongTotal++;
+    shake = 0.25;
+    sfxWrong();
+    wrongFlashIdx = idx;
+    /* 教育纠正：逐个数给看 */
+    const start = fromFront ? 0 : queue.length - 1;
+    const step = fromFront ? 1 : -1;
+    counting = [];
+    for (let k = 0; k < queue.length; k++) {
+      counting.push({ idx: start + k * step, num: k + 1, t: -k * 0.55 });   /* 依次高亮 */
+    }
+    speak('数一数：' + (fromFront ? '从前面' : '从后面') + '开始，' +
+      Array.from({ length: queue.length }, (_, k) => k + 1).join('、') + '！' +
+      '第' + (targetOrd <= 9 ? ORD_WORDS[targetOrd] : targetOrd) + '个是哪只呀？');
+    caption('🔊 ' + (fromFront ? '从前面' : '从后面') + '数：1、2、3……');
+    /* 1.5 秒后允许重试 */
+    setTimeout(() => { wrongFlashIdx = -1; }, 1400);
+  }
+  updateHUD();
+}
+
+/* ---------------- 更新 ---------------- */
+function update(dt) {
+  if (shake > 0) shake = Math.max(0, shake - dt);
+  for (const a of queue) {
+    if (a.hopT > 0) a.hopT = Math.max(0, a.hopT - dt);
+  }
+  /* 数数动画推进 */
+  for (const c of counting) c.t += dt;
+  if (resultT > 0) {
+    resultT -= dt;
+    if (resultT <= 0) {
+      quizIndex++;
+      if (quizIndex >= QUIZ_TOTAL) showResult();
+      else makeQuiz();
+    }
+  }
+}
+
+/* ---------------- 绘制 ---------------- */
+function drawScene(t) {
+  /* 傍晚暖色天空 */
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#ffe3c0');
+  sky.addColorStop(0.5, '#fff0d8');
+  sky.addColorStop(1, '#ffdcb8');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H);
+  /* 太阳 */
+  ctx.fillStyle = '#ffb84d';
+  ctx.beginPath(); ctx.arc(W * 0.12, H * 0.14, 44, 0, Math.PI * 2); ctx.fill();
+  /* 云朵 */
+  ctx.fillStyle = 'rgba(255,255,255,.85)';
+  for (const [cx, cy, s] of [[0.3, 0.1, 1], [0.58, 0.06, 0.8], [0.8, 0.12, 0.9]]) {
+    const x = W * cx, y = H * cy;
+    ctx.beginPath();
+    ctx.arc(x, y, 26 * s, 0, Math.PI * 2);
+    ctx.arc(x + 30 * s, y + 6 * s, 20 * s, 0, Math.PI * 2);
+    ctx.arc(x - 28 * s, y + 8 * s, 18 * s, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  /* 草地 */
+  const grass = ctx.createLinearGradient(0, H * 0.62, 0, H);
+  grass.addColorStop(0, '#9ee08a');
+  grass.addColorStop(1, '#6cc456');
+  ctx.fillStyle = grass;
+  ctx.fillRect(0, H * 0.62, W, H * 0.38);
+  /* 小花 */
+  for (let i = 0; i < 12; i++) {
+    const fx = (i * 89 + 30) % W, fy = H * 0.8 + (i % 3) * 40;
+    ctx.fillStyle = ['#ff8fab', '#ffd35c', '#6bd5ff'][i % 3];
+    ctx.beginPath(); ctx.arc(fx, fy, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(fx, fy, 2.5, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+function drawTruck(t) {
+  /* 冰淇淋车（右侧） */
+  const tx = W * 0.885, ty = H * 0.66;
+  ctx.save();
+  /* 车身 */
+  ctx.fillStyle = '#ff8fab';
+  roundRect(tx - 95, ty - 130, 190, 130, 18);
+  ctx.fill();
+  ctx.fillStyle = '#fff0f5';
+  roundRect(tx - 82, ty - 118, 164, 70, 12);
+  ctx.fill();
+  /* 顶棚条纹 */
+  ctx.fillStyle = '#ff6b9d';
+  for (let i = 0; i < 5; i++) {
+    ctx.fillRect(tx - 95 + i * 38, ty - 138, 19, 10);
+  }
+  /* 招牌 */
+  ctx.fillStyle = '#5a3820';
+  roundRect(tx - 70, ty - 108, 140, 50, 10);
+  ctx.fill();
+  ctx.font = '38px system-ui, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('🍦', tx, ty - 82);
+  /* 车轮 */
+  ctx.fillStyle = '#3a2a1a';
+  ctx.beginPath(); ctx.arc(tx - 55, ty + 6, 16, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(tx + 55, ty + 6, 16, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  /* 窗口店员小手 */
+  ctx.fillStyle = '#ffd7b0';
+  ctx.beginPath(); ctx.arc(tx - 40, ty - 40, 12, 0, Math.PI * 2); ctx.fill();
+}
+
+function drawQueue(t) {
+  const n = queue.length;
+  for (let i = 0; i < n; i++) {
+    const a = queue[i];
+    const pos = queuePos(i, n);
+    /* 数数高亮：当前数到的动物放大 + 显示序号气泡 */
+    let countNum = 0;
+    for (const c of counting) {
+      if (c.idx === i && c.t >= 0 && c.t < 1.2) countNum = c.num;
+    }
+    const hop = a.hopT > 0 ? Math.sin(a.hopT * Math.PI * 3) * 18 * a.hopT : 0;
+    const bob = Math.sin(t * 2.5 + i * 1.1) * 3;
+    const scale = countNum ? 1.25 : 1;
+    ctx.save();
+    ctx.translate(pos.x, pos.y + bob + hop);
+    ctx.scale(scale, scale);
+    /* 阴影 */
+    ctx.fillStyle = 'rgba(90,56,32,.18)';
+    ctx.beginPath(); ctx.ellipse(0, 44, 34, 8, 0, 0, Math.PI * 2); ctx.fill();
+    /* 动物本体 */
+    ctx.font = '58px system-ui, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(a.kind, 0, 0);
+    /* 拿到冰淇淋 */
+    if (a.served || i === servingIdx) {
+      ctx.font = '34px system-ui, sans-serif';
+      ctx.fillText(a.flavor + '🍦', 0, -52);
+    }
+    ctx.restore();
+    /* 数数气泡序号 */
+    if (countNum) {
+      ctx.fillStyle = '#ff9c3c';
+      ctx.beginPath(); ctx.arc(pos.x + 36, pos.y - 46, 18, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 20px system-ui, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(String(countNum), pos.x + 36, pos.y - 45);
+    }
+    /* 答错闪红 */
+    if (i === wrongFlashIdx) {
+      ctx.strokeStyle = 'rgba(255,60,60,' + (0.5 + 0.5 * Math.sin(t * 20)) + ')';
+      ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.arc(pos.x, pos.y, 52, 0, Math.PI * 2); ctx.stroke();
+    }
+  }
+}
+
+function drawDirectionHint() {
+  /* 前后方向小箭头（队头/队尾标记） */
+  const n = queue.length;
+  const head = queuePos(0, n), tail = queuePos(n - 1, n);
+  /* 队头（前）标记：朝冰淇淋车 */
+  ctx.fillStyle = '#ff9c3c';
+  ctx.font = 'bold 15px system-ui, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('最前 ↑', head.x, head.y + 78);
+  ctx.fillText('最后', tail.x, tail.y + 78);
+}
+
+function roundRect(x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function updateHUD() {
+  $('hudScore').textContent = score;
+  $('hudLevel').textContent = Math.min(quizIndex + 1, QUIZ_TOTAL);
+}
+function toast(text) {
+  toastEl.textContent = text;
+  toastEl.classList.add('pop');
+  clearTimeout(toastEl._t);
+  toastEl._t = setTimeout(() => toastEl.classList.remove('pop'), 1100);
+}
+
+function showResult() {
+  let title, medal;
+  if (wrongTotal === 0)      { title = '🥇 序数小博士！'; medal = '金牌'; }
+  else if (wrongTotal <= 3)  { title = '🥈 序数小能手！'; medal = '银牌'; }
+  else                        { title = '🥉 序数小学员！'; medal = '铜牌'; }
+  $('resultTitle').textContent = title;
+  $('resultDesc').innerHTML =
+    `得分 <b style="color:#e07818">${score}</b> 分<br>` +
+    `最佳连对 <b style="color:#4ca84c">${bestStreak}</b> 单<br>` +
+    `第 1 个、第 2 个……你都学会啦！（${medal}）`;
+  $('result').classList.add('show');
+  state = STATE.FINISH;
+  speak('太棒了！从前面数、从后面数，你都会啦！');
+}
+
+/* ---------------- 主循环 ---------------- */
+let lastT = 0;
+function frame(now) {
+  const dt = Math.min(0.05, lastT === 0 ? 0.016 : (now - lastT) / 1000);
+  lastT = now;
+  const t = now / 1000;
+  if (state === STATE.RUNNING) update(dt);
+  render(t);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+function render(t) {
+  ctx.save();
+  if (shake > 0) {
+    const m = shake * 8;
+    ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m);
+  }
+  drawScene(t);
+  drawTruck(t);
+  drawQueue(t);
+  drawDirectionHint();
+  ctx.restore();
+}
+
+/* 开始 / 重开 */
+$('btnStart').addEventListener('click', () => {
+  initAudio();
+  $('start').style.display = 'none';
+  resetGame();
+  state = STATE.RUNNING;
+  makeQuiz();
+});
+$('btnRestart').addEventListener('click', () => {
+  $('result').classList.remove('show');
+  resetGame();
+  state = STATE.RUNNING;
+  makeQuiz();
+});
+function resetGame() {
+  quizIndex = 0; score = 0; streak = 0; bestStreak = 0; wrongTotal = 0;
+  resultT = 0; servingIdx = -1; wrongFlashIdx = -1; counting = [];
+  updateHUD();
+}
+
+/* 测试钩子 */
+window.__test = {
+  start: () => { initAudio(); $('start').style.display = 'none'; resetGame(); state = STATE.RUNNING; makeQuiz(); },
+  state: () => ({ state, quizIndex, queueLen: queue.length, fromFront, targetOrd, targetIdx, score, streak, wrongTotal, answered, resultT }),
+  answer: idx => { if (!answered) answer(idx); },
+  tick: ms => { let total = ms; const step = 16.7; while (total > 0) { update(step / 1000); total -= step; } },
+};
+
+/* 返回主页确认弹窗 */
+(function () {
+  const btn = $('btnHome'), dlg = $('homeConfirm');
+  if (!btn || !dlg) return;
+  btn.addEventListener('click', e => { e.stopPropagation(); dlg.classList.add('show'); });
+  $('hcOk').addEventListener('click', () => {
+    try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (err) {}
+    window.location.replace('../index.html');
+  });
+  $('hcCancel').addEventListener('click', () => dlg.classList.remove('show'));
+  dlg.addEventListener('pointerdown', e => { if (e.target === dlg) dlg.classList.remove('show'); });
+})();
+
+/* 禁用浏览器回退 */
+(function () {
+  const dlg = $('homeConfirm');
+  function guardBack() {
+    try { history.pushState({ g: 1 }, '', '#guard'); } catch (e) {}
+    if (dlg) {
+      dlg.classList.add('show');
+      try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (e) {}
+    }
+  }
+  try {
+    history.pushState({ g: 1 }, '', '#guard');
+    window.addEventListener('popstate', guardBack);
+    window.addEventListener('pageshow', e => {
+      if (e.persisted) { try { history.pushState({ g: 1 }, '', '#guard'); } catch (err) {} }
+    });
+  } catch (e) {}
+})();
+</script>
+</body>
+</html>

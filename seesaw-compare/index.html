@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>数字跷跷板 · Number Seesaw</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  body {
+    background: #1a1230;
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #game { display: block; width: 100vw; height: 100vh; }
+
+  .hud {
+    position: absolute; top: 72px; left: 14px; z-index: 10;
+    display: flex; gap: 10px; flex-wrap: wrap; pointer-events: none;
+  }
+  .hud-chip {
+    background: rgba(18, 14, 40, .72);
+    border: 1px solid rgba(190, 160, 255, .35);
+    border-radius: 14px;
+    color: #f0eaff;
+    padding: 7px 15px;
+    font-size: 17px;
+    font-weight: 600;
+    box-shadow: 0 4px 18px rgba(0,0,0,.35);
+    backdrop-filter: blur(6px);
+  }
+  .hud-chip b { color: #ffd35c; font-size: 21px; }
+
+  #btnMute {
+    position: absolute; top: 12px; right: 12px; z-index: 60;
+    font-size: 20px; line-height: 1;
+    padding: 9px 13px; border-radius: 12px; cursor: pointer;
+    background: rgba(18, 14, 40, .72);
+    border: 1px solid rgba(190, 160, 255, .35);
+    color: #f0eaff;
+    min-width: 44px; min-height: 44px;
+  }
+
+  #captionBar {
+    position: absolute; left: 50%; top: 74px;
+    transform: translateX(-50%);
+    z-index: 25;
+    max-width: 92vw;
+    background: rgba(18, 14, 40, .82);
+    border: 1px solid rgba(255, 211, 92, .5);
+    border-radius: 16px;
+    padding: 10px 22px;
+    font-size: 18px; font-weight: 600;
+    color: #ffe9ad;
+    text-align: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .25s;
+    box-shadow: 0 6px 22px rgba(0,0,0,.4);
+    white-space: nowrap;
+  }
+  #captionBar.show { opacity: 1; }
+
+  #toast {
+    position: absolute; left: 50%; top: 26%;
+    transform: translate(-50%, -50%) scale(1);
+    z-index: 30;
+    font-size: 58px; font-weight: 800;
+    color: #ffd35c;
+    text-shadow: 0 4px 18px rgba(0,0,0,.6);
+    opacity: 0; pointer-events: none;
+    transition: opacity .25s, transform .25s;
+    white-space: nowrap;
+  }
+  #toast.pop { opacity: 1; transform: translate(-50%, -58%) scale(1.12); }
+
+  #result {
+    position: absolute; inset: 0; z-index: 40;
+    background: rgba(8, 4, 20, .82);
+    display: none;
+    align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  #result.show { display: flex; }
+  .result-card {
+    text-align: center; color: #f0eaff;
+    background: linear-gradient(160deg, #2c2050, #1a1230);
+    border: 2px solid #b06bff;
+    border-radius: 26px;
+    padding: 30px 44px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.55);
+    max-width: 88vw;
+  }
+  .result-card h1 { font-size: 38px; color: #ffd35c; margin-bottom: 12px; }
+  .result-card p { font-size: 17px; color: #c8b8ef; margin: 6px 0 22px; line-height: 1.8; }
+  .result-card button {
+    font-size: 20px; padding: 12px 42px; border-radius: 999px;
+    border: none; cursor: pointer;
+    background: linear-gradient(90deg, #b06bff, #59d1ff);
+    color: #fff; font-weight: 700; letter-spacing: 4px;
+    box-shadow: 0 6px 20px rgba(176,107,255,.45);
+    font-family: inherit;
+    min-height: 48px;
+  }
+  .result-card button:active { transform: scale(.97); }
+
+  #start {
+    position: absolute; inset: 0; z-index: 50;
+    background: radial-gradient(1200px 600px at 50% 30%, #2c2050 0%, #1a1230 70%);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: #f0eaff; text-align: center;
+    padding: 20px;
+  }
+  #start h1 {
+    font-size: clamp(38px, 8vw, 60px); letter-spacing: 6px;
+    background: linear-gradient(90deg, #ffd35c, #6bd5ff, #ff8fab, #ffd35c);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+    margin-bottom: 14px;
+  }
+  #start p { font-size: 16px; color: #b8a8d8; line-height: 2; max-width: 560px; }
+  #start .rules { margin: 22px 0 28px; }
+  #start button {
+    font-size: 21px; padding: 14px 56px; border-radius: 999px;
+    border: none; cursor: pointer;
+    background: linear-gradient(90deg, #ff9c5c, #ffd35c);
+    color: #3a2200; font-weight: 800; letter-spacing: 6px;
+    box-shadow: 0 8px 26px rgba(255,180,70,.45);
+    font-family: inherit;
+    min-height: 52px;
+  }
+  #start button:active { transform: scale(.97); }
+
+  #btnHome { position: absolute; top: 12px; left: 12px; z-index: 60; font-size: 20px; line-height: 1; padding: 9px 13px; border-radius: 12px; cursor: pointer; background: rgba(18, 14, 40, .72); border: 1px solid rgba(190, 160, 255, .35); color: #f0eaff; font-family: inherit; }
+  #btnHome:active { transform: scale(.94); }
+  #homeConfirm { position: absolute; inset: 0; z-index: 90; background: rgba(8, 4, 20, .62); display: none; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+  #homeConfirm.show { display: flex; }
+  #homeConfirm .hc-card { text-align: center; background: linear-gradient(160deg, #2c2050, #1a1230); border: 2px solid #b06bff; border-radius: 22px; padding: 26px 34px; box-shadow: 0 18px 50px rgba(0,0,0,.5); max-width: 84vw; }
+  #homeConfirm .hc-card h2 { font-size: 24px; color: #f0eaff; margin-bottom: 8px; letter-spacing: 2px; }
+  #homeConfirm .hc-card p { font-size: 15px; color: #b8a8d8; margin: 4px 0 18px; }
+  #homeConfirm .hc-btns { display: flex; gap: 14px; justify-content: center; }
+  #homeConfirm button { font-size: 17px; padding: 10px 26px; border-radius: 999px; border: none; cursor: pointer; font-weight: 700; letter-spacing: 2px; font-family: inherit; }
+  #homeConfirm button:active { transform: scale(.96); }
+  #hcOk { background: linear-gradient(90deg, #ff9c5c, #ffd35c); color: #3a2200; box-shadow: 0 6px 18px rgba(255,180,70,.4); }
+  #hcCancel { background: rgba(255,255,255,.12); color: #f0eaff; border: 1px solid rgba(190,160,255,.4) !important; }
+</style>
+</head>
+<body>
+<button id="btnHome" title="返回主页">🏠</button>
+<div id="homeConfirm">
+  <div class="hc-card">
+    <h2>🏠 返回游戏主页？</h2>
+    <p>当前的游戏进度将会丢失哦</p>
+    <div class="hc-btns">
+      <button id="hcOk">确认返回</button>
+      <button id="hcCancel">再玩一会儿</button>
+    </div>
+  </div>
+</div>
+
+<canvas id="game"></canvas>
+<button id="btnMute" title="声音开关">🔊</button>
+
+<div class="hud">
+  <div class="hud-chip">得分 <b id="hudScore">0</b></div>
+  <div class="hud-chip">关卡 <b id="hudLevel">1</b>/10</div>
+</div>
+
+<div id="captionBar"></div>
+<div id="toast"></div>
+
+<div id="result">
+  <div class="result-card">
+    <h1 id="resultTitle">🎉 跷跷板大师！</h1>
+    <p id="resultDesc"></p>
+    <button id="btnRestart">再玩一次</button>
+  </div>
+</div>
+
+<div id="start">
+  <h1>⚖️ 数字跷跷板</h1>
+  <p class="rules">
+    跷跷板两边坐着数字小伙伴～<br>
+    听一听：<b>哪边的数字大？</b>（或者：哪边的小动物多？）<br>
+    ✅ 点对了 → 重的那边咣当沉下去！　❌ 点错了 → 跷跷板晃一晃再想一想<br>
+    会从 <b>看小动物数数</b> 慢慢变成 <b>直接比数字</b> 哦<br>
+    答 10 题通关！
+  </p>
+  <button id="btnStart">开始游戏</button>
+</div>
+
+<script>
+/* 屏蔽右键菜单 */
+window.addEventListener('contextmenu', e => e.preventDefault());
+
+/* =========================================================
+ * 数字跷跷板 —— 比较多少 / 比较大小
+ * 设计文档 G15 · 3-5 岁 · 点击
+ * 三阶段递进：
+ *   1-3 关：两边动物群（点数比较，一一对应排布）
+ *   4-6 关：五格阵点阵（结构化群数）
+ *   7-10 关：纯数字比较（含两位数）
+ * 点重的一边 → 跷跷板下沉动画 + 庆祝。
+ * ========================================================= */
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0;
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+window.addEventListener('resize', resize);
+resize();
+
+const STATE = { START: 0, RUNNING: 1, FINISH: 2 };
+const QUIZ_TOTAL = 10;
+
+let state = STATE.START;
+let quizIndex = 0, score = 0, streak = 0, bestStreak = 0, wrongTotal = 0;
+let leftVal = 0, rightVal = 0;       // 两边数值
+let quizMode = 'animals';           // animals | dots | numbers
+let settled = 0;                    // 跷跷板角度动画（0 平，-1 左沉，+1 右沉）
+let settleTarget = 0;
+let shake = 0;
+let answered = false;
+let resultT = 0;                    // 结果展示后延时出下一题
+let animalsL = [], animalsR = [];   // 动物队列
+const ANIMAL_KINDS = ['🐻', '🐰', '🐸', '🐼', '🐯', '🦊', '🐨', '🐷'];
+let dotSide = 0;                    // 五格阵用
+
+const $ = id => document.getElementById(id);
+const captionEl = $('captionBar');
+const toastEl = $('toast');
+
+/* 语音 */
+const synth = window.speechSynthesis || null;
+let zhVoice = null;
+function pickVoice() {
+  if (!synth) return;
+  const vs = synth.getVoices();
+  zhVoice = vs.find(v => /zh[-_]CN/i.test(v.lang)) || vs.find(v => /^zh/i.test(v.lang)) || null;
+}
+if (synth) { pickVoice(); if (synth.onvoiceschanged !== undefined) synth.onvoiceschanged = pickVoice; }
+function speak(text) {
+  if (muted || !synth) return;
+  try {
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN'; if (zhVoice) u.voice = zhVoice;
+    u.rate = 0.92;
+    synth.speak(u);
+  } catch (e) {}
+}
+function caption(text) {
+  captionEl.textContent = text;
+  captionEl.classList.add('show');
+  clearTimeout(captionEl._t);
+  captionEl._t = setTimeout(() => captionEl.classList.remove('show'), 3200);
+}
+
+/* 音效 */
+let actx = null, muted = false;
+function initAudio() {
+  if (actx) return;
+  try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+}
+function beep(freq, dur, type, vol, sweepTo) {
+  if (!actx || muted) return;
+  try {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(freq, actx.currentTime);
+    if (sweepTo) o.frequency.exponentialRampToValueAtTime(sweepTo, actx.currentTime + dur);
+    g.gain.setValueAtTime(vol || 0.15, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + dur);
+    o.connect(g).connect(actx.destination);
+    o.start();
+    o.stop(actx.currentTime + dur);
+  } catch (e) {}
+}
+const sfxRight = () => { beep(660, .09, 'sine', .16); beep(990, .14, 'sine', .16); };
+const sfxWrong = () => beep(180, .22, 'sawtooth', .08);
+const sfxThud = () => { beep(120, .2, 'triangle', .3, 60); beep(90, .3, 'sine', .25, 40); };
+const sfxTick = () => beep(880, .05, 'square', .07);
+$('btnMute').addEventListener('click', () => {
+  muted = !muted;
+  $('btnMute').textContent = muted ? '🔇' : '🔊';
+  if (muted && synth) synth.cancel();
+});
+
+/* ---------------- 出题 ---------------- */
+function makeQuiz() {
+  answered = false;
+  settled = 0; settleTarget = 0; resultT = 0;
+  /* 关卡模式 */
+  quizMode = quizIndex < 3 ? 'animals' : quizIndex < 6 ? 'dots' : 'numbers';
+
+  /* 数值范围：动物 1-5，点阵 2-9，数字 3-19 */
+  let lo, hi;
+  if (quizMode === 'animals') { lo = 1; hi = 5; }
+  else if (quizMode === 'dots') { lo = 2; hi = 9; }
+  else { lo = 3; hi = 19; }
+
+  /* 生成两个不同的数（相等没法比） */
+  do {
+    leftVal = lo + Math.floor(Math.random() * (hi - lo + 1));
+    rightVal = lo + Math.floor(Math.random() * (hi - lo + 1));
+  } while (leftVal === rightVal);
+
+  /* 动物队列 */
+  animalsL = [];
+  animalsR = [];
+  if (quizMode === 'animals') {
+    const kindL = ANIMAL_KINDS[Math.floor(Math.random() * ANIMAL_KINDS.length)];
+    const kindR = ANIMAL_KINDS[Math.floor(Math.random() * ANIMAL_KINDS.length)];
+    for (let i = 0; i < leftVal; i++) animalsL.push(kindL);
+    for (let i = 0; i < rightVal; i++) animalsR.push(kindR);
+  } else if (quizMode === 'dots') {
+    /* 点阵也画成小熊脸（好可爱版五格阵） */
+    for (let i = 0; i < leftVal; i++) animalsL.push('dot');
+    for (let i = 0; i < rightVal; i++) animalsR.push('dot');
+  }
+
+  const q = quizMode === 'animals'
+    ? '哪边的小动物多？'
+    : quizMode === 'dots'
+      ? '哪边的点点多？'
+      : '哪个数字大？';
+  speak(q);
+  caption('🔈 ' + q);
+  updateHUD();
+}
+
+/* ---------------- 几何 ---------------- */
+function pivotX() { return W / 2; }
+function pivotY() { return H * 0.62; }
+function plankHalf() { return Math.min(W * 0.38, 340); }
+/* 跷跷板角度（弧度）：settled -1→左沉(左低) +1→右沉 */
+function plankAngle() { return settled * 0.22; }
+/* 板端点位置 */
+function seatPos(side) {   /* side: -1 左, +1 右 */
+  const a = plankAngle();
+  const x = pivotX() + side * plankHalf() * Math.cos(a);
+  const y = pivotY() + side * plankHalf() * Math.sin(a) * -1 + plankHalf() * 0;  /* 板在支点上方 */
+  return { x, y: pivotY() - 14 - side * plankHalf() * Math.sin(a) * -1 };
+}
+
+/* ---------------- 点击 ---------------- */
+canvas.addEventListener('pointerdown', e => {
+  if (state !== STATE.RUNNING || answered) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) * (W / rect.width);
+  const y = (e.clientY - rect.top) * (H / rect.height);
+  /* 命中左半 / 右半区域（板端附近大热区） */
+  const lSeat = seatPos(-1), rSeat = seatPos(1);
+  if (Math.hypot(x - lSeat.x, y - (lSeat.y - 80)) < plankHalf() * 0.62) answer(-1);
+  else if (Math.hypot(x - rSeat.x, y - (rSeat.y - 80)) < plankHalf() * 0.62) answer(1);
+});
+
+function answer(side) {
+  answered = true;
+  const correctSide = leftVal > rightVal ? -1 : 1;
+  if (side === correctSide) {
+    streak++; bestStreak = Math.max(bestStreak, streak);
+    score += 10;
+    settleTarget = side;             /* 重的一边沉下去 */
+    sfxThud();
+    const winner = side === -1 ? leftVal : rightVal;
+    const loser = side === -1 ? rightVal : leftVal;
+    toast('答对啦！');
+    const explain = quizMode === 'numbers'
+      ? winner + ' 比 ' + loser + ' 大！'
+      : winner + ' 个比 ' + loser + ' 个多！';
+    speak('答对啦！' + explain + winner + '，' + winner + '！');
+    caption('✅ ' + explain);
+    sfxRight();
+  } else {
+    streak = 0;
+    wrongTotal++;
+    shake = 0.3;
+    sfxWrong();
+    const winnerVal = leftVal > rightVal ? leftVal : rightVal;
+    const loserVal = leftVal > rightVal ? rightVal : leftVal;
+    const explain = quizMode === 'numbers'
+      ? winnerVal + ' 比 ' + loserVal + ' 大，再想一想'
+      : '数一数：左边 ' + leftVal + ' 个，右边 ' + rightVal + ' 个，' + winnerVal + ' 个更多哦';
+    speak(explain);
+    caption('🔊 ' + explain);
+    /* 答错允许重试（answered 复位） */
+    setTimeout(() => { if (state === STATE.RUNNING) { answered = false; } }, 900);
+    return;
+  }
+  resultT = 1.6;   /* 展示 1.6 秒后下一题 */
+}
+
+/* ---------------- 更新 ---------------- */
+function update(dt) {
+  if (shake > 0) shake = Math.max(0, shake - dt);
+  /* 跷跷板角度动画（弹簧感） */
+  settled += (settleTarget - settled) * Math.min(1, dt * 5);
+  if (resultT > 0) {
+    resultT -= dt;
+    if (resultT <= 0) {
+      quizIndex++;
+      if (quizIndex >= QUIZ_TOTAL) showResult();
+      else makeQuiz();
+    }
+  }
+}
+
+/* ---------------- 绘制 ---------------- */
+function drawScene(t) {
+  /* 梦幻夜空 */
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#221740');
+  sky.addColorStop(0.55, '#2c2050');
+  sky.addColorStop(1, '#3a2c60');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H);
+  /* 星星 */
+  for (let i = 0; i < 40; i++) {
+    const sx = (i * 137.5) % W, sy = (i * 91.3) % (H * 0.5);
+    ctx.fillStyle = 'rgba(255,255,255,' + (0.3 + 0.4 * Math.sin(t * 2 + i)) + ')';
+    ctx.beginPath(); ctx.arc(sx, sy, 1.5, 0, Math.PI * 2); ctx.fill();
+  }
+  /* 月亮 */
+  ctx.fillStyle = '#ffefc4';
+  ctx.beginPath(); ctx.arc(W * 0.14, H * 0.14, 42, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#221740';
+  ctx.beginPath(); ctx.arc(W * 0.14 + 16, H * 0.14 - 10, 38, 0, Math.PI * 2); ctx.fill();
+  /* 地面 */
+  ctx.fillStyle = '#2e2450';
+  ctx.beginPath();
+  ctx.moveTo(0, H * 0.82);
+  for (let x = 0; x <= W; x += 30) ctx.lineTo(x, H * 0.82 + Math.sin(x * 0.03) * 5);
+  ctx.lineTo(W, H); ctx.lineTo(0, H);
+  ctx.fill();
+  /* 草丛 */
+  ctx.fillStyle = '#3d2f66';
+  for (let x = 20; x < W; x += 90) {
+    ctx.beginPath(); ctx.arc(x, H * 0.86, 16, Math.PI, 0); ctx.fill();
+  }
+}
+
+function drawSeesaw(t) {
+  const px = pivotX(), py = pivotY();
+  const a = plankAngle();
+  /* 支架三角 */
+  ctx.fillStyle = '#8a6a3e';
+  ctx.beginPath();
+  ctx.moveTo(px - 46, py + 90);
+  ctx.lineTo(px + 46, py + 90);
+  ctx.lineTo(px, py - 8);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#6b4f2e';
+  ctx.fillRect(px - 56, py + 86, 112, 12);
+  /* 板（旋转） */
+  ctx.save();
+  ctx.translate(px, py - 14);
+  ctx.rotate(a);
+  ctx.fillStyle = '#c98f3a';
+  roundRect(-plankHalf() - 20, -10, (plankHalf() + 20) * 2, 20, 10);
+  ctx.fill();
+  ctx.strokeStyle = '#a06a2c'; ctx.lineWidth = 3;
+  roundRect(-plankHalf() - 20, -10, (plankHalf() + 20) * 2, 20, 10);
+  ctx.stroke();
+  /* 座位标记 */
+  ctx.fillStyle = '#ffd35c';
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.arc(s * plankHalf(), 0, 8, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawAnimals(t) {
+  if (quizMode === 'numbers') return;
+  const drawList = (list, side) => {
+    const seat = seatPos(side);
+    /* 一一对应排布：纵向堆叠或横排 */
+    const perRow = Math.min(list.length, 5);
+    for (let i = 0; i < list.length; i++) {
+      const row = Math.floor(i / 5), col = i % 5;
+      const ax = seat.x + (col - (perRow - 1) / 2) * 58 * side + 0;   /* 靠板端收拢 */
+      const ay = seat.y - 100 - row * 64;
+      const bob = Math.sin(t * 3 + i * 1.3) * 3;
+      if (list[i] === 'dot') {
+        /* 点阵圆点 */
+        ctx.fillStyle = side < 0 ? '#6bd5ff' : '#ff8fab';
+        ctx.beginPath(); ctx.arc(ax, ay + bob, 17, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(ax, ay + bob, 17, 0, Math.PI * 2); ctx.stroke();
+      } else {
+        ctx.font = '46px system-ui, sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(list[i], ax, ay + bob);
+      }
+    }
+    /* 数量牌 */
+    ctx.fillStyle = 'rgba(18,14,40,.85)';
+    const bw = 84;
+    roundRect(seat.x - bw / 2, seat.y + 6, bw, 44, 12);
+    ctx.fill();
+    ctx.fillStyle = '#ffd35c';
+    ctx.font = 'bold 28px system-ui, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(list.length), seat.x, seat.y + 28);
+  };
+  drawList(animalsL, -1);
+  drawList(animalsR, 1);
+}
+
+function drawNumbers(t) {
+  if (quizMode !== 'numbers') return;
+  const drawOne = (val, side) => {
+    const seat = seatPos(side);
+    /* 大数字牌 */
+    ctx.fillStyle = 'rgba(18,14,40,.85)';
+    roundRect(seat.x - 74, seat.y - 170, 148, 128, 20);
+    ctx.fill();
+    ctx.strokeStyle = side < 0 ? '#6bd5ff' : '#ff8fab';
+    ctx.lineWidth = 3;
+    roundRect(seat.x - 74, seat.y - 170, 148, 128, 20);
+    ctx.stroke();
+    ctx.fillStyle = side < 0 ? '#6bd5ff' : '#ff8fab';
+    ctx.font = 'bold 76px system-ui, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(val), seat.x, seat.y - 105 + Math.sin(t * 2) * 3);
+  };
+  drawOne(leftVal, -1);
+  drawOne(rightVal, 1);
+}
+
+function drawQuestionText() {
+  const q = quizMode === 'animals' ? '哪边的小动物多？'
+    : quizMode === 'dots' ? '哪边的点点多？'
+    : '哪个数字大？';
+  ctx.fillStyle = '#ffe9ad';
+  ctx.font = 'bold 34px system-ui, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(q, W / 2, H * 0.16);
+}
+
+function roundRect(x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function updateHUD() {
+  $('hudScore').textContent = score;
+  $('hudLevel').textContent = Math.min(quizIndex + 1, QUIZ_TOTAL);
+}
+function toast(text) {
+  toastEl.textContent = text;
+  toastEl.classList.add('pop');
+  clearTimeout(toastEl._t);
+  toastEl._t = setTimeout(() => toastEl.classList.remove('pop'), 1100);
+}
+
+function showResult() {
+  let title, medal;
+  if (wrongTotal === 0)       { title = '🥇 比较小神童！'; medal = '金牌'; }
+  else if (wrongTotal <= 3)  { title = '🥈 比较小能手！'; medal = '银牌'; }
+  else                        { title = '🥉 比较小达人！'; medal = '铜牌'; }
+  $('resultTitle').textContent = title;
+  $('resultDesc').innerHTML =
+    `得分 <b style="color:#ffd35c">${score}</b> 分<br>` +
+    `最佳连对 <b style="color:#8affa1">${bestStreak}</b> 题<br>` +
+    `你已经会比较大小和多少啦！（${medal}）`;
+  $('result').classList.add('show');
+  state = STATE.FINISH;
+  speak('太棒了！你会比较大和小、多和少啦！');
+}
+
+/* ---------------- 主循环 ---------------- */
+let lastT = 0;
+function frame(now) {
+  const dt = Math.min(0.05, lastT === 0 ? 0.016 : (now - lastT) / 1000);
+  lastT = now;
+  const t = now / 1000;
+  if (state === STATE.RUNNING) update(dt);
+  render(t);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+function render(t) {
+  ctx.save();
+  if (shake > 0) {
+    const m = shake * 10;
+    ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m);
+  }
+  drawScene(t);
+  drawSeesaw(t);
+  drawAnimals(t);
+  drawNumbers(t);
+  drawQuestionText();
+  ctx.restore();
+}
+
+/* 开始 / 重开 */
+$('btnStart').addEventListener('click', () => {
+  initAudio();
+  $('start').style.display = 'none';
+  resetGame();
+  state = STATE.RUNNING;
+  makeQuiz();
+});
+$('btnRestart').addEventListener('click', () => {
+  $('result').classList.remove('show');
+  resetGame();
+  state = STATE.RUNNING;
+  makeQuiz();
+});
+function resetGame() {
+  quizIndex = 0; score = 0; streak = 0; bestStreak = 0; wrongTotal = 0;
+  settled = 0; settleTarget = 0; resultT = 0;
+  updateHUD();
+}
+
+/* 测试钩子 */
+window.__test = {
+  start: () => { initAudio(); $('start').style.display = 'none'; resetGame(); state = STATE.RUNNING; makeQuiz(); },
+  state: () => ({ state, quizIndex, mode: quizMode, leftVal, rightVal, score, streak, wrongTotal, answered, settled, settleTarget }),
+  answer: side => { if (!answered) answer(side); },
+  tick: ms => { let total = ms; const step = 16.7; while (total > 0) { update(step / 1000); total -= step; } },
+};
+
+/* 返回主页确认弹窗 */
+(function () {
+  const btn = $('btnHome'), dlg = $('homeConfirm');
+  if (!btn || !dlg) return;
+  btn.addEventListener('click', e => { e.stopPropagation(); dlg.classList.add('show'); });
+  $('hcOk').addEventListener('click', () => {
+    try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (err) {}
+    window.location.replace('../index.html');
+  });
+  $('hcCancel').addEventListener('click', () => dlg.classList.remove('show'));
+  dlg.addEventListener('pointerdown', e => { if (e.target === dlg) dlg.classList.remove('show'); });
+})();
+
+/* 禁用浏览器回退 */
+(function () {
+  const dlg = $('homeConfirm');
+  function guardBack() {
+    try { history.pushState({ g: 1 }, '', '#guard'); } catch (e) {}
+    if (dlg) {
+      dlg.classList.add('show');
+      try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (e) {}
+    }
+  }
+  try {
+    history.pushState({ g: 1 }, '', '#guard');
+    window.addEventListener('popstate', guardBack);
+    window.addEventListener('pageshow', e => {
+      if (e.persisted) { try { history.pushState({ g: 1 }, '', '#guard'); } catch (err) {} }
+    });
+  } catch (e) {}
+})();
+</script>
+</body>
+</html>
