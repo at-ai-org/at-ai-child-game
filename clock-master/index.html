@@ -80,9 +80,11 @@
   <h1>时钟小管家</h1>
   <p class="rules">
     大时钟需要你来调！听语音说：<b>"小明 8 点要刷牙"</b>。<br>
-    点击表盘上的<b>数字刻度</b>，时针就会转过去。<br>
-    半点的题目有 <b>00 分 / 30 分</b> 两个大按钮；五分钟的题目要点表盘<b>外圈的分钟刻度</b>（比如 2 点 30 分 → 点「30」）。<br>
-    一共 14 题：整点、半点，还有 2 点 30 分、4 点 50 分这样的五分钟时刻，看看你是不是时间小管家！
+    先点<b>小时数字</b>让时针转过去，再定分针：<br>
+    · <b>整点</b>（如 9 点整）→ 先点 <b>9</b>，再点 <b>12</b>（分针指 12）<br>
+    · <b>半点</b>（如 9 点半）→ 先点 <b>9</b>，再点 <b>「30 分」</b>按钮<br>
+    · <b>五分钟</b>（如 2 点 30 分）→ 先点 <b>2</b>，再点表盘<b>外圈的分钟刻度</b><br>
+    一共 14 题，看看你是不是时间小管家！
   </p>
   <button id="btnStart">开始挑战</button>
 </div>
@@ -254,7 +256,7 @@ function askQuestion() {
   settleT = -1;
   const m = question.minutes;
   if (m === 0) {
-    say(`小明 ${hourName(question.hour)} 点要${question.scene.text}，把时针转到 ${hourName(question.hour)} 点，再点一次让分针指到 12！`);
+    say(`小明 ${hourName(question.hour)} 点要${question.scene.text}。整点要这样做：先点数字 ${hourName(question.hour)} 让时针指过去，再点数字 12 让分针指到 12！`);
   } else {
     say(`小明要${question.scene.text}啦，把时钟调到 ${timeText(question.hour, m)}！先点数字 ${hourName(question.hour)} 的刻度`);
   }
@@ -283,7 +285,8 @@ function setHour(h) {
     minuteShown = -1;
     const m = question.minutes;
     if (m === 0) {
-      say(`${hourName(h)} 点的时针转好啦！再点一次 ${hourName(h)}，让分针也指到 ${hourName(h)}（12 的方向）！`);
+      /* 整点：0 分 = 分针指 12。第二下点 12，不是再点小时数字 */
+      say(`时针指到 ${hourName(h)} 啦！整点时，分针要指着 12——点一下数字 12！`);
     } else if (m === 30) {
       say(`时针对啦！现在点「30 分」，分针转到下面！`);
     } else {
@@ -441,6 +444,15 @@ function drawClock(t) {
     ctx.font = `bold ${Math.round(r * 0.16)}px system-ui, sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(String(hNum), nx, ny + 1);
+    /* 整点题等分针时：在 12 上画呼吸光圈，明确提示「该点这里」 */
+    if (i === 0 && minPhase === 'ask-min' && question && question.minutes === 0) {
+      const pulse = 0.5 + 0.5 * Math.sin(t * 6);
+      ctx.strokeStyle = 'rgba(79,140,255,' + (0.55 + 0.45 * pulse) + ')';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(nx, ny, r * 0.135 + 7 + pulse * 4, 0, Math.PI * 2);
+      ctx.stroke();
+    }
     /* 小刻度点 */
     const dx = Math.cos(a) * r * 0.94, dy = Math.sin(a) * r * 0.94;
     ctx.fillStyle = '#8a6a42';
@@ -659,7 +671,9 @@ canvas.addEventListener('pointerdown', e => {
       /* 点了其他地方：提示 */
       return;
     }
-    /* 整点题：第二次点击同一小时刻度 → 分针指 0（12 点方向） */
+    /* 整点题：第二次点「12」刻度 → 分针指 12（0 分）
+     * 注意：0 分 = 分针指向 12，所以整点题第二下必须点 12，
+     * 而不是再点一次小时数字（否则会让孩子误以为分针该指小时数）。 */
     if (question && question.minutes === 0) {
       const { cx, cy, r } = clockCenter();
       const dx = x - cx, dy = y - cy;
@@ -672,13 +686,13 @@ canvas.addEventListener('pointerdown', e => {
         if (d < bestD) { bestD = d; best = i; }
       }
       if (bestD <= r * 0.2) {
-        /* 整点：分针指 12（0 分）。要求点在时针同一小时刻度上 */
-        if (best === question.hour) {
+        if (best === 0) {
+          /* 点在 12 上：分针转到 12，正确 */
           setMinute(0);
         } else {
           sfxWrong();
           shake = 0.2;
-          say(`分针要和时针一样指到 ${hourName(question.hour)}（12 点方向）哦！`);
+          say(`分针要指到 12 哦——0 分的时候，分针指着 12。点一下数字 12 试试！`);
         }
       }
       return;
