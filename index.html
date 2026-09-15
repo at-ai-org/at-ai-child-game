@@ -107,6 +107,64 @@
     color: #6c7ca6; font-size: 13px; letter-spacing: 1px;
   }
 
+  /* ---------- 快捷游戏目录 ---------- */
+  #quickNav {
+    position: relative; z-index: 1;
+    max-width: 900px; margin: 0 auto 8px;
+    padding: 0 24px;
+    text-align: center;
+  }
+  #quickBtn {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 15px; font-weight: 700; letter-spacing: 2px;
+    color: #cdd9f6;
+    background: rgba(40, 52, 96, .55);
+    border: 1px solid rgba(125, 180, 255, .35);
+    border-radius: 999px;
+    padding: 11px 26px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: border-color .2s, background .2s;
+  }
+  #quickBtn:hover, #quickBtn:focus-visible { border-color: rgba(125, 180, 255, .8); background: rgba(40, 52, 96, .8); outline: none; }
+  #quickBtn .arrow { transition: transform .25s; font-size: 12px; }
+  #quickBtn.open .arrow { transform: rotate(180deg); }
+  #quickList {
+    display: none;
+    margin-top: 12px;
+    background: rgba(16, 22, 52, .92);
+    border: 1px solid rgba(125, 180, 255, .3);
+    border-radius: 18px;
+    padding: 16px 18px;
+    box-shadow: 0 18px 44px rgba(4, 8, 28, .65);
+    backdrop-filter: blur(8px);
+  }
+  #quickList.show { display: block; }
+  #quickList .ql-title { font-size: 13px; color: #8fa3d0; letter-spacing: 2px; margin-bottom: 10px; }
+  #quickList .ql-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 8px;
+  }
+  #quickList a {
+    display: flex; align-items: center; gap: 8px;
+    text-decoration: none; color: #dce6ff;
+    font-size: 14px; font-weight: 600;
+    background: rgba(125, 180, 255, .1);
+    border: 1px solid rgba(125, 180, 255, .18);
+    border-radius: 12px;
+    padding: 9px 12px;
+    transition: background .15s, border-color .15s, transform .15s;
+  }
+  #quickList a:hover, #quickList a:focus-visible {
+    background: rgba(125, 180, 255, .22);
+    border-color: rgba(125, 180, 255, .55);
+    transform: translateY(-2px);
+    outline: none;
+  }
+  #quickList a .qi { font-size: 20px; line-height: 1; }
+  #quickList a .qcat { font-size: 11px; color: #8fa3d0; margin-left: auto; padding-left: 6px; white-space: nowrap; }
+
   footer {
     position: relative; z-index: 1;
     text-align: center;
@@ -154,7 +212,20 @@ window.addEventListener('contextmenu', e => e.preventDefault());
 
 <div class="wrap">
   <h1>少儿 AI 游戏乐园</h1>
-  <p class="sub">边玩边学 · 点击卡片开始游戏</p>  <div class="grid">
+  <p class="sub">边玩边学 · 点击卡片开始游戏</p>
+
+  <!-- 快捷游戏入口目录 -->
+  <div id="quickNav">
+    <button id="quickBtn" aria-expanded="false">
+      🎮 快捷游戏目录 <span class="arrow">▼</span>
+    </button>
+    <div id="quickList">
+      <div class="ql-title">全部 20 个教育游戏 · 点击直接开始</div>
+      <div class="ql-grid" id="quickGrid"></div>
+    </div>
+  </div>
+
+  <div class="grid">
     <a class="card" href="number-car/index.html">
       <div class="icon" aria-hidden="true">🏎️</div>
       <div class="name">数字赛车</div>
@@ -199,6 +270,50 @@ window.addEventListener('contextmenu', e => e.preventDefault());
       </div>
       <span class="play">开始游戏</span>
     </a>
+    <a class="card" href="squirrel-pinecone/index.html">
+      <div class="icon" aria-hidden="true">🐿️</div>
+      <div class="name">松鼠摘松果</div>
+      <div class="desc">松鼠妈妈要囤松果过冬啦！听一听要摘几颗，点一点树上的松果掉进篮子，跟着数 1、2、3……摘多了会有好心的提示让你放回去哦。按数取物，数概念的根基！</div>
+      <div class="tags">
+        <span class="tag">按数取物 1-9</span>
+        <span class="tag">基数概念</span>
+        <span class="tag">点击操作</span>
+      </div>
+      <span class="play">开始游戏</span>
+    </a>
+    <a class="card" href="seesaw-compare/index.html">
+      <div class="icon" aria-hidden="true">⚖️</div>
+      <div class="name">数字跷跷板</div>
+      <div class="desc">跷跷板两边坐着数字小伙伴！从数小动物比多少，到看点点，再到直接比数字——点对重的一边，跷跷板咣当沉下去！比较大小和多少的启蒙必备。</div>
+      <div class="tags">
+        <span class="tag">比较多少/大小</span>
+        <span class="tag">三阶段递进</span>
+        <span class="tag">点击操作</span>
+      </div>
+      <span class="play">开始游戏</span>
+    </a>
+    <a class="card" href="icecream-queue/index.html">
+      <div class="icon" aria-hidden="true">🍦</div>
+      <div class="name">排队买冰淇淋</div>
+      <div class="desc">冰淇淋车前排了长长一队小动物！听清楚：给从前面数第 3 只小动物冰淇淋～点对开心蹦跳，点错会数给你看：1、2、3……后面还有从后面数的挑战哦。第几个 vs 几个，序数启蒙。</div>
+      <div class="tags">
+        <span class="tag">序数 第N个</span>
+        <span class="tag">前后双向数</span>
+        <span class="tag">情境故事</span>
+      </div>
+      <span class="play">开始游戏</span>
+    </a>
+    <a class="card" href="frog-jump/index.html">
+      <div class="icon" aria-hidden="true">🐸</div>
+      <div class="name">青蛙跳荷叶</div>
+      <div class="desc">小青蛙要回家！一次跳 2 片荷叶：「2、4、6、8……」跟着数数跳到对岸。还有 3 片、5 片、10 片的挑战！跳数是乘法和钱币学习的根基。</div>
+      <div class="tags">
+        <span class="tag">跳数 2/3/5/10</span>
+        <span class="tag">数感进阶</span>
+        <span class="tag">6 大关卡</span>
+      </div>
+      <span class="play">开始游戏</span>
+    </a>
     <a class="card" href="math-monster/index.html">
       <div class="icon" aria-hidden="true">👾</div>
       <div class="name">加法小怪兽</div>
@@ -229,6 +344,17 @@ window.addEventListener('contextmenu', e => e.preventDefault());
         <span class="tag">汉字启蒙 30 字</span>
         <span class="tag">点选操作</span>
         <span class="tag">3 级字库</span>
+      </div>
+      <span class="play">开始游戏</span>
+    </a>
+    <a class="card" href="hanzi-quest/index.html">
+      <div class="icon" aria-hidden="true">📖</div>
+      <div class="name">汉字闯关</div>
+      <div class="desc">听语音读字，从四个选项里找出它！9 关 × 11 字，一共学会 99 个常用汉字——从数字、身体、自然，到家人、动作、方位颜色，一路闯到识字小达人！</div>
+      <div class="tags">
+        <span class="tag">常用汉字 99 个</span>
+        <span class="tag">9 大关卡</span>
+        <span class="tag">语音读字</span>
       </div>
       <span class="play">开始游戏</span>
     </a>
@@ -279,11 +405,11 @@ window.addEventListener('contextmenu', e => e.preventDefault());
     <a class="card" href="tangram/index.html">
       <div class="icon" aria-hidden="true">🧩</div>
       <div class="name">七巧板</div>
-      <div class="desc">七块彩色拼板：大三角、小三角、正方形、平行四边形……点选拼板、旋转方向，拼出小猫、房子、小船和火箭！</div>
+      <div class="desc">七块彩色拼板：大三角、小三角、正方形、平行四边形……点选拼板、旋转方向，拼出小猫、房子、小船、火箭、小鱼、蜡烛、风车、天平和皇冠！</div>
       <div class="tags">
         <span class="tag">图形拼组</span>
         <span class="tag">旋转操作</span>
-        <span class="tag">4 大关卡</span>
+        <span class="tag">9 大关卡</span>
       </div>
       <span class="play">开始游戏</span>
     </a>
@@ -320,10 +446,10 @@ window.addEventListener('contextmenu', e => e.preventDefault());
       </div>
       <span class="play">开始游戏</span>
     </a>
-    <a class="card" href="racing-3d/index.html">
+    <a class="card" href="racing-3d/index.html" data-quick="off">
       <div class="icon" aria-hidden="true">🏎️</div>
       <div class="name">极速飞车 3D</div>
-      <div class="desc">真正的 3D 赛车！油门自动，只需左右键转向，在蜿蜒的公路赛道上跑 3 圈，从最后一名追到冠军。实时软阴影、速度感 FOV、漂移烟，60fps 流畅竞速！</div>
+      <div class="desc">真正的 3D 赛车（娱乐向，非教育游戏）！油门自动，只需左右键转向，在蜿蜒的公路赛道上跑 3 圈，从最后一名追到冠军。实时软阴影、速度感 FOV、漂移烟，60fps 流畅竞速！</div>
       <div class="tags">
         <span class="tag">3D 赛车</span>
         <span class="tag">左右键操控</span>
@@ -337,6 +463,52 @@ window.addEventListener('contextmenu', e => e.preventDefault());
 </div>
 
 <footer>at-ai-child-game · 用 AI 编写的少儿教育游戏 · MIT License</footer>
+
+<script>
+/* ---- 快捷游戏目录：从卡片网格自动生成，点击展开直接跳转 ---- */
+(function () {
+  var btn = document.getElementById('quickBtn');
+  var list = document.getElementById('quickList');
+  var grid = document.getElementById('quickGrid');
+  if (!btn || !list || !grid) return;
+
+  /* 分类规则：按卡片 tag 第一项归类 */
+  function catOf(tagsText) {
+    if (/数字|数序|口算|按数取物|跳数|序数/.test(tagsText)) return '数学';
+    if (/拼音|汉字|识字/.test(tagsText)) return '语文';
+    if (/观察|记忆|拼组/.test(tagsText)) return '思维';
+    if (/交通|时间/.test(tagsText)) return '生活';
+    return '综合';
+  }
+
+  /* 从主网格卡片提取游戏清单 */
+  var cards = document.querySelectorAll('.grid .card');
+  cards.forEach(function (card) {
+    /* data-quick="off" 的卡片只在主网格展示，不进快捷目录（如 3D 赛车） */
+    if (card.getAttribute('data-quick') === 'off') return;
+    var href = card.getAttribute('href');
+    var icon = card.querySelector('.icon');
+    var name = card.querySelector('.name');
+    var tag = card.querySelector('.tag');
+    if (!href || !icon || !name) return;
+    var a = document.createElement('a');
+    a.href = href;
+    a.innerHTML = '<span class="qi">' + icon.textContent.trim() + '</span>' +
+      '<span>' + name.textContent.trim() + '</span>' +
+      '<span class="qcat">' + (tag ? catOf(tag.textContent + (card.textContent || '')) : '综合') + '</span>';
+    grid.appendChild(a);
+  });
+
+  /* 展开 / 收起 */
+  btn.addEventListener('click', function () {
+    var open = list.classList.toggle('show');
+    btn.classList.toggle('open', open);
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+
+  /* 点击目录项跳转后，下次回主页保持收起（默认收起即可） */
+})();
+</script>
 
 <script>
 /* ---- 主页：垫住回退键，防止回退到游戏页造成状态错乱 ---- */

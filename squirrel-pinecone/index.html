@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>松鼠摘松果 · Squirrel Pinecone</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  body {
+    background: #0e1a12;
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #game { display: block; width: 100vw; height: 100vh; }
+
+  .hud {
+    position: absolute; top: 72px; left: 14px; z-index: 10;
+    display: flex; gap: 10px; flex-wrap: wrap; pointer-events: none;
+  }
+  .hud-chip {
+    background: rgba(8, 22, 14, .72);
+    border: 1px solid rgba(140, 230, 160, .35);
+    border-radius: 14px;
+    color: #e2ffea;
+    padding: 7px 15px;
+    font-size: 17px;
+    font-weight: 600;
+    box-shadow: 0 4px 18px rgba(0,0,0,.35);
+    backdrop-filter: blur(6px);
+  }
+  .hud-chip b { color: #ffd35c; font-size: 21px; }
+
+  #btnMute {
+    position: absolute; top: 12px; right: 12px; z-index: 60;
+    font-size: 20px; line-height: 1;
+    padding: 9px 13px; border-radius: 12px; cursor: pointer;
+    background: rgba(8, 22, 14, .72);
+    border: 1px solid rgba(140, 230, 160, .35);
+    color: #e2ffea;
+    min-width: 44px; min-height: 44px;
+  }
+
+  #captionBar {
+    position: absolute; left: 50%; top: 74px;
+    transform: translateX(-50%);
+    z-index: 25;
+    max-width: 92vw;
+    background: rgba(8, 22, 14, .8);
+    border: 1px solid rgba(255, 211, 92, .5);
+    border-radius: 16px;
+    padding: 10px 22px;
+    font-size: 18px; font-weight: 600;
+    color: #ffe9ad;
+    text-align: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .25s;
+    box-shadow: 0 6px 22px rgba(0,0,0,.4);
+    white-space: nowrap;
+  }
+  #captionBar.show { opacity: 1; }
+
+  /* 目标牌 */
+  #targetCard {
+    position: absolute; left: 50%; top: 12%;
+    transform: translateX(-50%);
+    z-index: 18;
+    text-align: center;
+    pointer-events: none;
+  }
+  #targetCard .word {
+    display: inline-block;
+    min-width: 92px;
+    padding: 8px 24px;
+    font-size: 52px; font-weight: 800;
+    color: #ffd35c;
+    background: linear-gradient(160deg, #1c3524, #0e1f16);
+    border: 2px solid rgba(255, 211, 92, .65);
+    border-radius: 20px;
+    text-shadow: 0 4px 14px rgba(0,0,0,.5);
+    box-shadow: 0 10px 30px rgba(0,0,0,.45);
+    line-height: 1.2;
+  }
+  #targetCard .hint { margin-top: 7px; font-size: 15px; font-weight: 600; color: #9dd8ae; letter-spacing: 1px; }
+
+  #toast {
+    position: absolute; left: 50%; top: 30%;
+    transform: translate(-50%, -50%) scale(1);
+    z-index: 30;
+    font-size: 62px; font-weight: 800;
+    color: #ffd35c;
+    text-shadow: 0 4px 18px rgba(0,0,0,.6);
+    opacity: 0; pointer-events: none;
+    transition: opacity .25s, transform .25s;
+    white-space: nowrap;
+  }
+  #toast.pop {
+    opacity: 1;
+    transform: translate(-50%, -58%) scale(1.12);
+  }
+
+  #result {
+    position: absolute; inset: 0; z-index: 40;
+    background: rgba(3, 10, 6, .82);
+    display: none;
+    align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  #result.show { display: flex; }
+  .result-card {
+    text-align: center; color: #eaf4ff;
+    background: linear-gradient(160deg, #1c3524, #0e1f16);
+    border: 2px solid #4f8cff;
+    border-radius: 26px;
+    padding: 30px 44px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.55);
+    max-width: 88vw;
+  }
+  .result-card h1 { font-size: 38px; color: #ffd35c; margin-bottom: 12px; }
+  .result-card p { font-size: 17px; color: #b9d8c0; margin: 6px 0 22px; line-height: 1.8; }
+  .result-card button {
+    font-size: 20px; padding: 12px 42px; border-radius: 999px;
+    border: none; cursor: pointer;
+    background: linear-gradient(90deg, #4f8cff, #59d1ff);
+    color: #fff; font-weight: 700; letter-spacing: 4px;
+    box-shadow: 0 6px 20px rgba(79,140,255,.45);
+    font-family: inherit;
+    min-height: 48px;
+  }
+  .result-card button:active { transform: scale(.97); }
+
+  #start {
+    position: absolute; inset: 0; z-index: 50;
+    background: radial-gradient(1200px 600px at 50% 30%, #173425 0%, #0e1a12 70%);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: #eaf4ff; text-align: center;
+    padding: 20px;
+  }
+  #start h1 {
+    font-size: clamp(38px, 8vw, 60px); letter-spacing: 6px;
+    background: linear-gradient(90deg, #ffd35c, #8affa1, #ffd35c);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+    margin-bottom: 14px;
+  }
+  #start p { font-size: 16px; color: #9dd8ae; line-height: 2; max-width: 560px; }
+  #start .rules { margin: 22px 0 28px; }
+  #start button {
+    font-size: 21px; padding: 14px 56px; border-radius: 999px;
+    border: none; cursor: pointer;
+    background: linear-gradient(90deg, #ff9c5c, #ffd35c);
+    color: #3a2200; font-weight: 800; letter-spacing: 6px;
+    box-shadow: 0 8px 26px rgba(255,180,70,.45);
+    font-family: inherit;
+    min-height: 52px;
+  }
+  #start button:active { transform: scale(.97); }
+
+  #btnHome { position: absolute; top: 12px; left: 12px; z-index: 60; font-size: 20px; line-height: 1; padding: 9px 13px; border-radius: 12px; cursor: pointer; background: rgba(8, 22, 14, .72); border: 1px solid rgba(140, 230, 160, .35); color: #e2ffea; font-family: inherit; }
+  #btnHome:active { transform: scale(.94); }
+  #homeConfirm { position: absolute; inset: 0; z-index: 90; background: rgba(3, 10, 6, .62); display: none; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+  #homeConfirm.show { display: flex; }
+  #homeConfirm .hc-card { text-align: center; background: linear-gradient(160deg, #1c3524, #0e1f16); border: 2px solid #4f8cff; border-radius: 22px; padding: 26px 34px; box-shadow: 0 18px 50px rgba(0,0,0,.5); max-width: 84vw; }
+  #homeConfirm .hc-card h2 { font-size: 24px; color: #eaf4ff; margin-bottom: 8px; letter-spacing: 2px; }
+  #homeConfirm .hc-card p { font-size: 15px; color: #9dd8ae; margin: 4px 0 18px; }
+  #homeConfirm .hc-btns { display: flex; gap: 14px; justify-content: center; }
+  #homeConfirm button { font-size: 17px; padding: 10px 26px; border-radius: 999px; border: none; cursor: pointer; font-weight: 700; letter-spacing: 2px; font-family: inherit; }
+  #homeConfirm button:active { transform: scale(.96); }
+  #hcOk { background: linear-gradient(90deg, #ff9c5c, #ffd35c); color: #3a2200; box-shadow: 0 6px 18px rgba(255,180,70,.4); }
+  #hcCancel { background: rgba(255,255,255,.12); color: #e2ffea; border: 1px solid rgba(140,230,160,.4) !important; }
+</style>
+</head>
+<body>
+<button id="btnHome" title="返回主页">🏠</button>
+<div id="homeConfirm">
+  <div class="hc-card">
+    <h2>🏠 返回游戏主页？</h2>
+    <p>当前的游戏进度将会丢失哦</p>
+    <div class="hc-btns">
+      <button id="hcOk">确认返回</button>
+      <button id="hcCancel">再玩一会儿</button>
+    </div>
+  </div>
+</div>
+
+<canvas id="game"></canvas>
+<button id="btnMute" title="声音开关">🔊</button>
+
+<div class="hud">
+  <div class="hud-chip">得分 <b id="hudScore">0</b></div>
+  <div class="hud-chip">关卡 <b id="hudLevel">1</b>/8</div>
+</div>
+
+<div id="captionBar"></div>
+
+<div id="targetCard">
+  <div class="word" id="targetWord">？</div>
+  <div class="hint" id="targetHint">听一听，摘几颗松果</div>
+</div>
+
+<div id="toast"></div>
+
+<div id="result">
+  <div class="result-card">
+    <h1 id="resultTitle">🎉 全部摘完啦！</h1>
+    <p id="resultDesc"></p>
+    <button id="btnRestart">再玩一次</button>
+  </div>
+</div>
+
+<div id="start">
+  <h1>🐿️ 松鼠摘松果</h1>
+  <p class="rules">
+    松鼠妈妈要囤松果过冬啦～<br>
+    听一听要摘 <b>几颗</b>，点一点树上的松果：<br>
+    ✅ 摘对数量 → 松果掉进篮子，拿去藏进树洞<br>
+    ❌ 摘多了 → 好心的松鼠妈妈会让你放回去几颗哦<br>
+    摘满 8 筐就过冬啦！
+  </p>
+  <button id="btnStart">开始摘松果</button>
+</div>
+
+<script>
+/* 屏蔽右键菜单：防止误触 */
+window.addEventListener('contextmenu', e => e.preventDefault());
+
+/* =========================================================
+ * 松鼠摘松果 —— 按数取物（数字 → 数量）
+ * 设计文档 G14 · 3-4 岁 · 点击
+ * 听目标数 N → 点树上的松果掉进篮子（带 1、2、3…的实时计数）
+ * 摘满自动入洞结算；摘多了会提示放回（隐含减法）。
+ * 8 筐通关（数量 1-9 递进）。
+ * ========================================================= */
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0;
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+window.addEventListener('resize', resize);
+resize();
+
+const STATE = { START: 0, RUNNING: 1, FINISH: 2 };
+const LEVELS_TOTAL = 8;
+
+let state = STATE.START;
+let level = 1;                // 1..8
+let score = 0;
+let targetN = 0;              // 本关目标数量
+let basketCount = 0;          // 篮子里已有数量
+let pinecones = [];           // 树上的松果
+let falling = [];             // 掉落动画中的松果
+let basketFruit = [];         // 篮内（已收集的松果布局）
+let toTreeHole = [];          // 飞去树洞的松果
+let holes = [];               // 树洞内已藏松果计数显示
+let nextT = 0;                // 关卡切换倒计时
+let shake = 0;
+let holeCount = 0;            // 已藏进树洞总数
+let basketFeedback = '';      // 篮子旁反馈文案
+
+const $ = id => document.getElementById(id);
+const captionEl = $('captionBar');
+const targetWordEl = $('targetWord');
+const targetHintEl = $('targetHint');
+const toastEl = $('toast');
+
+/* ---------------- 语音 ---------------- */
+const synth = window.speechSynthesis || null;
+let zhVoice = null;
+function pickVoice() {
+  if (!synth) return;
+  const vs = synth.getVoices();
+  zhVoice = vs.find(v => /zh[-_]CN/i.test(v.lang)) || vs.find(v => /^zh/i.test(v.lang)) || null;
+}
+if (synth) { pickVoice(); if (synth.onvoiceschanged !== undefined) synth.onvoiceschanged = pickVoice; }
+function speak(text) {
+  if (muted || !synth) return;
+  try {
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN'; if (zhVoice) u.voice = zhVoice;
+    u.rate = 0.92;
+    synth.speak(u);
+  } catch (e) {}
+}
+function caption(text) {
+  captionEl.textContent = text;
+  captionEl.classList.add('show');
+  clearTimeout(captionEl._t);
+  captionEl._t = setTimeout(() => captionEl.classList.remove('show'), 3200);
+}
+
+/* ---------------- 音效 ---------------- */
+let actx = null, muted = false;
+function initAudio() {
+  if (actx) return;
+  try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+}
+function beep(freq, dur, type, vol, sweepTo) {
+  if (!actx || muted) return;
+  try {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(freq, actx.currentTime);
+    if (sweepTo) o.frequency.exponentialRampToValueAtTime(sweepTo, actx.currentTime + dur);
+    g.gain.setValueAtTime(vol || 0.15, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + dur);
+    o.connect(g).connect(actx.destination);
+    o.start();
+    o.stop(actx.currentTime + dur);
+  } catch (e) {}
+}
+const sfxPick  = () => { beep(500, .07, 'sine', .16); beep(700, .09, 'sine', .13, 900); };
+const sfxOk   = () => { beep(660, .09, 'sine', .16); beep(990, .14, 'sine', .16); };
+const sfxOver = () => { beep(300, .18, 'square', .12, 180); };
+const sfxPut  = () => beep(280, .1, 'sine', .14, 200);
+const sfxFly  = () => { beep(400, .1, 'sine', .1, 800); };
+$('btnMute').addEventListener('click', () => {
+  muted = !muted;
+  $('btnMute').textContent = muted ? '🔇' : '🔊';
+  if (muted && synth) synth.cancel();
+});
+
+/* ---------------- 场景几何 ---------------- */
+function treeBaseX() { return W * 0.16; }
+function treeBaseY() { return H * 0.62; }
+function basketX() { return W * 0.55; }
+function basketY() { return H * 0.86; }
+function holeX() { return W * 0.84; }
+function holeY() { return H * 0.60; }
+
+/* ---------------- 出题 ---------------- */
+function makeLevel() {
+  /* 8 关递进：1-3 → 4-6 → 7-9 */
+  const tier = Math.min(2, Math.floor((level - 1) / 3)); // 0,1,2
+  const lo = 1 + tier * 3, hi = 3 + tier * 3;
+  targetN = lo + Math.floor(Math.random() * (hi - lo + 1));
+  basketCount = 0;
+  nextT = 0;                 /* 复位关卡切换计时（上一关可能倒数过头成负值） */
+  falling = [];
+  basketFruit = [];
+  toTreeHole = [];
+  basketFeedback = '';
+
+  /* 树上挂 targetN+3 ~ targetN+6 颗可选松果（有富余防摘死） */
+  const treeCount = targetN + 3 + Math.floor(Math.random() * 4);
+  pinecones = [];
+  for (let i = 0; i < treeCount; i++) {
+    pinecones.push({
+      fx: 0.05 + Math.random() * 0.26,       // 树冠内相对坐标
+      fy: 0.12 + Math.random() * 0.42,
+      phase: Math.random() * 6.28,
+      taken: false,
+      putback: 0,     // 放回动画标记
+    });
+  }
+
+  targetWordEl.textContent = targetN;
+  targetHintEl.textContent = '摘 ' + targetN + ' 颗松果放进篮子';
+  speak('摘' + targetN + '颗松果！' + targetN + '，' + targetN + '！');
+  caption('🔈 摘 ' + targetN + ' 颗松果');
+  updateHUD();
+}
+
+/* ---------------- 点击 ---------------- */
+canvas.addEventListener('pointerdown', e => {
+  if (state !== STATE.RUNNING) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) * (W / rect.width);
+  const y = (e.clientY - rect.top) * (H / rect.height);
+
+  /* 命中树上的松果 */
+  for (const p of pinecones) {
+    if (p.taken) continue;
+    const px = treeBaseX() + p.fx * W * 0.36, py = treeBaseY() - p.fy * H * 0.52;
+    if (Math.hypot(x - px, y - py) < 44) { pickPinecone(p, px, py); return; }
+  }
+  /* 命中篮内松果：摘多了后点篮子放回一颗 */
+  if (basketCount > targetN && Math.abs(x - basketX()) < 110 && Math.abs(y - (basketY() - 40)) < 90) {
+    putBackOne();
+  }
+});
+
+function pickPinecone(p, px, py) {
+  p.taken = true;
+  const willBe = basketCount + falling.filter(f => f.kind === 'toBasket').length + 1;
+  if (willBe <= targetN) {
+    /* 正确采摘：飞向篮子（语音报数在落篮时统一播） */
+    falling.push({ x: px, y: py, tx: basketX(), ty: basketY() - 30, t: 0, dur: 0.45, kind: 'toBasket' });
+    sfxPick();
+  } else {
+    /* 摘多：飞到篮子后提示放回 */
+    falling.push({ x: px, y: py, tx: basketX(), ty: basketY() - 30, t: 0, dur: 0.45, kind: 'toBasket' });
+    sfxOver();
+  }
+}
+
+function putBackOne() {
+  if (basketCount <= targetN) return;   // 没多就无需放回
+  const last = basketFruit.pop();
+  if (last) {
+    basketCount--;
+    toTreeHole.push({ ...last, kind: 'backToTree', x: basketX(), y: basketY() - 30, t: 0, dur: 0.5 });
+    sfxPut();
+    speak('放回一颗');
+    basketFeedback = basketCount > targetN ? '多了 ' + (basketCount - targetN) + ' 颗' : '';
+  }
+}
+
+/* ---------------- 更新 ---------------- */
+function update(dt) {
+  if (shake > 0) shake = Math.max(0, shake - dt);
+  /* 掉落动画 */
+  for (const f of falling) {
+    f.t += dt / f.dur;
+    if (f.t >= 1) {
+      if (f.kind === 'toBasket') {
+        basketCount++;
+        basketFruit.push({ ox: (Math.random() - 0.5) * 2, oy: 0 });
+        if (basketCount > targetN) {
+          basketFeedback = '多了 ' + (basketCount - targetN) + ' 颗';
+          speak('够了够了！只要' + targetN + '颗，多了，放回去吧');
+          caption('🔊 只要 ' + targetN + ' 颗，放回 ' + (basketCount - targetN) + ' 颗');
+          shake = 0.3;
+        } else {
+          speak(String(basketCount));   /* 落篮即报数：1、2、3…（基数概念核心） */
+        }
+      }
+      f.dead = true;
+    }
+  }
+  falling = falling.filter(f => !f.dead);
+  /* 判定过关：篮子正好 = 目标 且 没有在途/待放回的松果（连点快摘也稳） */
+  if (state === STATE.RUNNING && nextT === 0 && basketCount === targetN && falling.length === 0 && toTreeHole.length === 0) {
+    celebrate();
+  }
+  /* 放回动画 */
+  for (const f of toTreeHole) {
+    f.t += dt / f.dur;
+    if (f.t >= 1) f.dead = true;
+  }
+  toTreeHole = toTreeHole.filter(f => !f.dead);
+  /* 关卡切换 */
+  if (nextT > 0) {
+    nextT -= dt;
+    if (nextT <= 0) {
+      if (level >= LEVELS_TOTAL) showResult();
+      else { level++; makeLevel(); }
+    }
+  }
+}
+
+function celebrate() {
+  score += targetN;              // 数量越大奖励越高
+  holeCount += basketCount;
+  sfxOk();
+  toast('摘对啦！+' + targetN + '颗');
+  speak(['摘对啦！一共' + targetN + '颗！', '真棒！不多不少' + targetN + '颗！'][Math.floor(Math.random() * 2)]);
+  basketFeedback = '';
+  /* 篮子里的松果飞进树洞 */
+  const n = basketFruit.length;
+  for (let i = 0; i < n; i++) {
+    const f = basketFruit[i];
+    toTreeHole.push({ ...f, kind: 'toHole', x: basketX() + (i - n / 2) * 18, y: basketY() - 40, t: 0, dur: 0.55 + i * 0.06 });
+  }
+  sfxFly();
+  basketFruit = [];
+  basketCount = 0;
+  nextT = 1.2 + n * 0.08;       // 等飞洞动画 + 一点缓冲
+  updateHUD();
+}
+
+/* ---------------- 绘制 ---------------- */
+function drawScene(t) {
+  /* 夜晚森林渐变 */
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#0c1e33');
+  sky.addColorStop(0.5, '#123524');
+  sky.addColorStop(1, '#1a4a2e');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H);
+  /* 月亮 */
+  ctx.fillStyle = '#ffefc4';
+  ctx.beginPath(); ctx.arc(W * 0.85, H * 0.12, 36, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#0c1e33';
+  ctx.beginPath(); ctx.arc(W * 0.85 + 14, H * 0.12 - 8, 32, 0, Math.PI * 2); ctx.fill();
+  /* 远山两层 */
+  ctx.fillStyle = '#0d2818';
+  ctx.beginPath();
+  ctx.moveTo(0, H * 0.58);
+  for (let x = 0; x <= W; x += 40) ctx.lineTo(x, H * 0.58 - Math.sin(x * 0.008) * 26 - 10);
+  ctx.lineTo(W, H); ctx.lineTo(0, H);
+  ctx.fill();
+  ctx.fillStyle = '#10391f';
+  ctx.beginPath();
+  ctx.moveTo(0, H * 0.66);
+  for (let x = 0; x <= W; x += 40) ctx.lineTo(x, H * 0.66 - Math.cos(x * 0.012) * 20);
+  ctx.lineTo(W, H); ctx.lineTo(0, H);
+  ctx.fill();
+  /* 地面 */
+  ctx.fillStyle = '#2b5232';
+  ctx.fillRect(0, H * 0.78, W, H * 0.22);
+  ctx.fillStyle = '#3a6a40';
+  ctx.beginPath();
+  ctx.moveTo(0, H * 0.78);
+  for (let x = 0; x <= W; x += 30) ctx.lineTo(x, H * 0.78 + Math.sin(x * 0.05) * 4);
+  ctx.lineTo(W, H); ctx.lineTo(0, H);
+  ctx.fill();
+}
+
+function drawBigTree(t) {
+  const bx = treeBaseX(), by = treeBaseY();
+  /* 树干 */
+  ctx.fillStyle = '#5a3d24';
+  roundRect(bx - 22, by - H * 0.1, 44, H * 0.4, 8);
+  ctx.fill();
+  /* 树冠三层 */
+  ctx.fillStyle = '#1f6b38';
+  ctx.beginPath(); ctx.arc(bx - 70, by - H * 0.22, 90, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(bx + 70, by - H * 0.22, 90, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(bx, by - H * 0.34, 110, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#27844a';
+  ctx.beginPath(); ctx.arc(bx - 40, by - H * 0.28, 80, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(bx + 45, by - H * 0.3, 78, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#2f9a55';
+  ctx.beginPath(); ctx.arc(bx, by - H * 0.4, 70, 0, Math.PI * 2); ctx.fill();
+  /* 树洞（右上独立小屋——存松果的地方） */
+  drawTreeHole(t);
+}
+
+function drawTreeHole(t) {
+  const hx = holeX(), hy = holeY();
+  /* 洞口的树干 */
+  ctx.fillStyle = '#6b4b2e';
+  roundRect(hx - 26, hy - 40, 52, 100, 14);
+  ctx.fill();
+  /* 黑洞 */
+  ctx.fillStyle = '#231a10';
+  ctx.beginPath(); ctx.ellipse(hx, hy + 4, 26, 34, 0, 0, Math.PI * 2); ctx.fill();
+  /* 内藏松果数（洞口上方木牌） */
+  ctx.fillStyle = '#8a6a3e';
+  roundRect(hx - 40, hy - 88, 80, 46, 10);
+  ctx.fill();
+  ctx.fillStyle = '#ffe9ad';
+  ctx.font = 'bold 22px system-ui, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('藏 ' + holeCount, hx, hy - 64);
+  /* 小松鼠蹲在洞口（简单几何） */
+  drawSquirrel(hx - 60, hy + 46, 0.8);
+}
+
+function drawSquirrel(x, y, s) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(s, s);
+  /* 尾巴 */
+  ctx.fillStyle = '#c97b3a';
+  ctx.beginPath();
+  ctx.moveTo(20, 0);
+  ctx.quadraticCurveTo(52, -18, 44, -52);
+  ctx.quadraticCurveTo(30, -30, 12, -14);
+  ctx.fill();
+  /* 身体 */
+  ctx.fillStyle = '#d89a4e';
+  ctx.beginPath(); ctx.ellipse(0, 0, 22, 26, 0, 0, Math.PI * 2); ctx.fill();
+  /* 头 */
+  ctx.beginPath(); ctx.arc(-14, -30, 14, 0, Math.PI * 2); ctx.fill();
+  /* 耳朵 */
+  ctx.beginPath(); ctx.arc(-18, -44, 6, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(-8, -44, 6, 0, Math.PI * 2); ctx.fill();
+  /* 眼睛 */
+  ctx.fillStyle = '#221';
+  ctx.beginPath(); ctx.arc(-18, -32, 2.5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(-10, -32, 2.5, 0, Math.PI * 2); ctx.fill();
+  /* 肚皮 */
+  ctx.fillStyle = '#f0d9a8';
+  ctx.beginPath(); ctx.ellipse(-4, 4, 12, 16, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+function drawBasket(t) {
+  const bx = basketX(), by = basketY();
+  /* 篮子体 */
+  ctx.fillStyle = '#a06a2c';
+  roundRect(bx - 80, by - 60, 160, 66, 12);
+  ctx.fill();
+  /* 编织纹 */
+  ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 3;
+  for (let i = 1; i < 4; i++) {
+    ctx.beginPath();
+    ctx.moveTo(bx - 80 + i * 4, by - 60 + (i * 66) / 4);
+    ctx.lineTo(bx + 80 - i * 4, by - 60 + (i * 66) / 4);
+    ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.moveTo(bx - 60, by - 50);
+  ctx.lineTo(bx + 60, by - 50);
+  ctx.stroke();
+  /* 篮内松果 */
+  for (let i = 0; i < basketFruit.length; i++) {
+    const f = basketFruit[i];
+    drawPineconeShape(bx - 50 + (i % 8) * 13 + (i > 7 ? 6 : 0), by - 66 - Math.floor(i / 8) * 22, 16, t);
+  }
+  /* 数量徽标（篮口） */
+  ctx.fillStyle = '#1c3524';
+  ctx.beginPath(); ctx.arc(bx + 92, by - 66, 24, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#ffd35c'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(bx + 92, by - 66, 24, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = basketCount > targetN ? '#ff7c6c' : basketCount === targetN ? '#8affa1' : '#ffe9ad';
+  ctx.font = 'bold 26px system-ui, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(String(basketCount), bx + 92, by - 65);
+  ctx.font = 'bold 13px system-ui, sans-serif';
+  ctx.fillStyle = '#9dd8ae';
+  ctx.fillText('/ ' + targetN, bx + 92, by - 48);
+  /* 反馈 */
+  if (basketFeedback) {
+    ctx.fillStyle = '#ff9c8a';
+    ctx.font = 'bold 20px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(basketFeedback, bx, by + 24);
+    ctx.font = '15px system-ui, sans-serif';
+    ctx.fillStyle = '#ffd8ce';
+    ctx.fillText(basketCount > targetN ? '点篮子放回一颗' : '', bx, by + 46);
+  }
+}
+
+function drawPineconeShape(x, y, r, t) {
+  ctx.save();
+  ctx.translate(x, y);
+  /* 底盘 */
+  ctx.fillStyle = '#8a5a28';
+  ctx.beginPath(); ctx.ellipse(0, 0, r, r * 1.25, 0, 0, Math.PI * 2); ctx.fill();
+  /* 鳞片纹理 */
+  ctx.fillStyle = '#a8732e';
+  for (let row = -2; row <= 2; row++) {
+    for (let col = -1; col <= 1; col++) {
+      if (Math.abs(row) === 2 && col === 0) continue;
+      ctx.beginPath();
+      ctx.arc(col * r * 0.42, row * r * 0.38, r * 0.24, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.fillStyle = '#c98f3a';
+  ctx.beginPath(); ctx.arc(0, -r * 1.05, r * 0.3, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+function drawTreePinecones(t) {
+  for (const p of pinecones) {
+    if (p.taken) continue;
+    const px = treeBaseX() + p.fx * W * 0.36;
+    const py = treeBaseY() - p.fy * H * 0.52 + Math.sin(t * 2 + p.phase) * 3;
+    drawPineconeShape(px, py, 20, t);
+    /* 光圈提示（目标未满时微光） */
+    if (basketCount < targetN) {
+      ctx.strokeStyle = 'rgba(255, 211, 92, .3)';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(px, py, 26 + Math.sin(t * 3 + p.phase) * 3, 0, Math.PI * 2); ctx.stroke();
+    }
+  }
+}
+
+function drawFalling(t) {
+  for (const f of falling) {
+    const p = Math.min(1, f.t);
+    const x = f.x + (f.tx - f.x) * ease(p);
+    const y = f.y + (f.ty - f.y) * ease(p) - Math.sin(p * Math.PI) * 60;
+    drawPineconeShape(x, y, 17, t);
+  }
+  for (const f of toTreeHole) {
+    const p = Math.min(1, f.t);
+    let tx, ty;
+    if (f.kind === 'toHole') { tx = holeX(); ty = holeY() + 10; }
+    else { tx = treeBaseX() + W * 0.36 * 0.4; ty = treeBaseY() - H * 0.52 * 0.4; }
+    const x = f.x + (tx - f.x) * ease(p);
+    const y = f.y + (ty - f.y) * ease(p) - Math.sin(p * Math.PI) * 50;
+    drawPineconeShape(x, y, 17, t);
+  }
+}
+
+function ease(x) { return x * x * (3 - 2 * x); }
+
+function roundRect(x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function drawMama() {
+  /* 松鼠妈妈站在树旁等待 */
+  drawSquirrel(treeBaseX() + 150, H * 0.8, 1.0);
+  /* 头顶气泡提示当前目标 */
+  const mx = treeBaseX() + 150, my = H * 0.8;
+  ctx.fillStyle = 'rgba(255,255,255,.92)';
+  roundRect(mx - 64, my - 128, 128, 52, 18);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(mx - 8, my - 76);
+  ctx.lineTo(mx + 10, my - 62);
+  ctx.lineTo(mx + 16, my - 78);
+  ctx.fill();
+  ctx.fillStyle = '#221';
+  ctx.font = 'bold 26px system-ui, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(targetN + ' 颗', mx, my - 102);
+}
+
+function updateHUD() {
+  $('hudScore').textContent = score;
+  $('hudLevel').textContent = level;
+}
+
+function toast(text) {
+  toastEl.textContent = text;
+  toastEl.classList.add('pop');
+  clearTimeout(toastEl._t);
+  toastEl._t = setTimeout(() => toastEl.classList.remove('pop'), 1100);
+}
+
+function showResult() {
+  let title, medal;
+  if (score >= 100)      { title = '🥇 囤松果大师！'; medal = '金牌'; }
+  else if (score >= 60)  { title = '🥈 囤松果达人！'; medal = '银牌'; }
+  else                   { title = '🥉 囤松果新手！'; medal = '铜牌'; }
+  $('resultTitle').textContent = title;
+  $('resultDesc').innerHTML =
+    `一共藏了 <b style="color:#ffd35c">${holeCount}</b> 颗松果过冬<br>` +
+    `得分 <b style="color:#8affa1">${score}</b> 分（${medal}）<br>` +
+    `你已经会按数取物啦，真棒！`;
+  $('result').classList.add('show');
+  state = STATE.FINISH;
+  speak('太棒了！你帮松鼠藏了' + holeCount + '颗松果过冬！按数取物，你学会啦！');
+}
+
+/* ---------------- 主循环 ---------------- */
+let lastT = 0;
+function frame(now) {
+  const dt = Math.min(0.05, lastT === 0 ? 0.016 : (now - lastT) / 1000);
+  lastT = now;
+  const t = now / 1000;
+  if (state === STATE.RUNNING) update(dt);
+  render(t);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+function render(t) {
+  ctx.save();
+  if (shake > 0) {
+    const m = shake * 10;
+    ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m);
+  }
+  drawScene(t);
+  drawBigTree(t);
+  drawTreePinecones(t);
+  drawMama();
+  drawBasket(t);
+  drawFalling(t);
+  ctx.restore();
+}
+
+/* ---------------- 开始 / 重开 ---------------- */
+$('btnStart').addEventListener('click', () => {
+  initAudio();
+  $('start').style.display = 'none';
+  resetGame();
+  state = STATE.RUNNING;
+  makeLevel();
+});
+$('btnRestart').addEventListener('click', () => {
+  $('result').classList.remove('show');
+  resetGame();
+  state = STATE.RUNNING;
+  makeLevel();
+});
+function resetGame() {
+  level = 1; score = 0; holeCount = 0;
+  pinecones = []; falling = []; basketFruit = []; toTreeHole = [];
+  nextT = 0;
+  updateHUD();
+}
+
+/* 测试钩子 */
+window.__test = {
+  start: () => {
+    initAudio();
+    $('start').style.display = 'none';
+    resetGame();
+    state = STATE.RUNNING;
+    makeLevel();
+  },
+  state: () => ({ state, level, targetN, basketCount, over: basketCount - targetN, score, holeCount, treeCount: pinecones.filter(p => !p.taken).length }),
+  pickN: n => { for (let i = 0; i < n; i++) { const p = pinecones.find(p => !p.taken); if (p) pickPinecone(p, 0, 0); } },
+  putback: n => { for (let i = 0; i < n; i++) putBackOne(); },
+  tick: ms => { let e = performance.now(); const step = 16.7; for (let s = 0; s < ms; s += step) update(step / 1000); },
+};
+
+/* ---- 返回主页：确认弹窗 ---- */
+(function () {
+  const btn = $('btnHome'), dlg = $('homeConfirm');
+  if (!btn || !dlg) return;
+  btn.addEventListener('click', e => { e.stopPropagation(); dlg.classList.add('show'); });
+  $('hcOk').addEventListener('click', () => {
+    try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (err) {}
+    window.location.replace('../index.html');
+  });
+  $('hcCancel').addEventListener('click', () => dlg.classList.remove('show'));
+  dlg.addEventListener('pointerdown', e => { if (e.target === dlg) dlg.classList.remove('show'); });
+})();
+
+/* ---- 禁用浏览器回退 ---- */
+(function () {
+  const dlg = $('homeConfirm');
+  function guardBack() {
+    try { history.pushState({ g: 1 }, '', '#guard'); } catch (e) {}
+    if (dlg) {
+      dlg.classList.add('show');
+      try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (e) {}
+    }
+  }
+  try {
+    history.pushState({ g: 1 }, '', '#guard');
+    window.addEventListener('popstate', guardBack);
+    window.addEventListener('pageshow', e => {
+      if (e.persisted) { try { history.pushState({ g: 1 }, '', '#guard'); } catch (err) {} }
+    });
+  } catch (e) {}
+})();
+</script>
+</body>
+</html>

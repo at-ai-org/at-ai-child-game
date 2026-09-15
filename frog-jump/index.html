@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>青蛙跳荷叶 · Frog Jump</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  body {
+    background: #062036;
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #game { display: block; width: 100vw; height: 100vh; }
+
+  .hud {
+    position: absolute; top: 72px; left: 14px; z-index: 10;
+    display: flex; gap: 10px; flex-wrap: wrap; pointer-events: none;
+  }
+  .hud-chip {
+    background: rgba(6, 26, 40, .78);
+    border: 1px solid rgba(120, 230, 190, .35);
+    border-radius: 14px;
+    color: #d8fff0;
+    padding: 7px 15px;
+    font-size: 17px;
+    font-weight: 600;
+    box-shadow: 0 4px 18px rgba(0,0,0,.35);
+    backdrop-filter: blur(6px);
+  }
+  .hud-chip b { color: #ffd35c; font-size: 21px; }
+
+  #btnMute {
+    position: absolute; top: 12px; right: 12px; z-index: 60;
+    font-size: 20px; line-height: 1;
+    padding: 9px 13px; border-radius: 12px; cursor: pointer;
+    background: rgba(6, 26, 40, .78);
+    border: 1px solid rgba(120, 230, 190, .35);
+    color: #d8fff0;
+    min-width: 44px; min-height: 44px;
+  }
+
+  #captionBar {
+    position: absolute; left: 50%; top: 74px;
+    transform: translateX(-50%);
+    z-index: 25;
+    max-width: 92vw;
+    background: rgba(6, 26, 40, .85);
+    border: 1px solid rgba(255, 211, 92, .5);
+    border-radius: 16px;
+    padding: 10px 22px;
+    font-size: 18px; font-weight: 600;
+    color: #ffe9ad;
+    text-align: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .25s;
+    box-shadow: 0 6px 22px rgba(0,0,0,.4);
+    white-space: nowrap;
+  }
+  #captionBar.show { opacity: 1; }
+
+  #toast {
+    position: absolute; left: 50%; top: 28%;
+    transform: translate(-50%, -50%) scale(1);
+    z-index: 30;
+    font-size: 58px; font-weight: 800;
+    color: #8fffc9;
+    text-shadow: 0 4px 18px rgba(0,0,0,.6);
+    opacity: 0; pointer-events: none;
+    transition: opacity .25s, transform .25s;
+    white-space: nowrap;
+  }
+  #toast.pop { opacity: 1; transform: translate(-50%, -58%) scale(1.12); }
+
+  #result {
+    position: absolute; inset: 0; z-index: 40;
+    background: rgba(2, 10, 18, .82);
+    display: none;
+    align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  #result.show { display: flex; }
+  .result-card {
+    text-align: center; color: #e8fff4;
+    background: linear-gradient(160deg, #0c3a54, #062036);
+    border: 2px solid #4fd8a8;
+    border-radius: 26px;
+    padding: 30px 44px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.55);
+    max-width: 88vw;
+  }
+  .result-card h1 { font-size: 38px; color: #ffd35c; margin-bottom: 12px; }
+  .result-card p { font-size: 17px; color: #a8e0d0; margin: 6px 0 22px; line-height: 1.8; }
+  .result-card button {
+    font-size: 20px; padding: 12px 42px; border-radius: 999px;
+    border: none; cursor: pointer;
+    background: linear-gradient(90deg, #4fd8a8, #59d1ff);
+    color: #04222e; font-weight: 700; letter-spacing: 4px;
+    box-shadow: 0 6px 20px rgba(79,216,168,.45);
+    font-family: inherit;
+    min-height: 48px;
+  }
+  .result-card button:active { transform: scale(.97); }
+
+  #start {
+    position: absolute; inset: 0; z-index: 50;
+    background: radial-gradient(1200px 600px at 50% 30%, #0c3a54 0%, #062036 70%);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: #e8fff4; text-align: center;
+    padding: 20px;
+  }
+  #start h1 {
+    font-size: clamp(38px, 8vw, 60px); letter-spacing: 6px;
+    background: linear-gradient(90deg, #8fffc9, #ffd35c, #6bd5ff, #8fffc9);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+    margin-bottom: 14px;
+  }
+  #start p { font-size: 16px; color: #8ac0b8; line-height: 2; max-width: 560px; }
+  #start .rules { margin: 22px 0 28px; }
+  #start button {
+    font-size: 21px; padding: 14px 56px; border-radius: 999px;
+    border: none; cursor: pointer;
+    background: linear-gradient(90deg, #4fd8a8, #ffd35c);
+    color: #04222e; font-weight: 800; letter-spacing: 6px;
+    box-shadow: 0 8px 26px rgba(79,216,168,.45);
+    font-family: inherit;
+    min-height: 52px;
+  }
+  #start button:active { transform: scale(.97); }
+
+  #btnHome { position: absolute; top: 12px; left: 12px; z-index: 60; font-size: 20px; line-height: 1; padding: 9px 13px; border-radius: 12px; cursor: pointer; background: rgba(6, 26, 40, .78); border: 1px solid rgba(120, 230, 190, .35); color: #d8fff0; font-family: inherit; }
+  #btnHome:active { transform: scale(.94); }
+  #homeConfirm { position: absolute; inset: 0; z-index: 90; background: rgba(2, 10, 18, .62); display: none; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+  #homeConfirm.show { display: flex; }
+  #homeConfirm .hc-card { text-align: center; background: linear-gradient(160deg, #0c3a54, #062036); border: 2px solid #4fd8a8; border-radius: 22px; padding: 26px 34px; box-shadow: 0 18px 50px rgba(0,0,0,.5); max-width: 84vw; }
+  #homeConfirm .hc-card h2 { font-size: 24px; color: #e8fff4; margin-bottom: 8px; letter-spacing: 2px; }
+  #homeConfirm .hc-card p { font-size: 15px; color: #8ac0b8; margin: 4px 0 18px; }
+  #homeConfirm .hc-btns { display: flex; gap: 14px; justify-content: center; }
+  #homeConfirm button { font-size: 17px; padding: 10px 26px; border-radius: 999px; border: none; cursor: pointer; font-weight: 700; letter-spacing: 2px; font-family: inherit; }
+  #homeConfirm button:active { transform: scale(.96); }
+  #hcOk { background: linear-gradient(90deg, #4fd8a8, #ffd35c); color: #04222e; box-shadow: 0 6px 18px rgba(79,216,168,.4); }
+  #hcCancel { background: rgba(255,255,255,.12); color: #d8fff0; border: 1px solid rgba(120,230,190,.4) !important; }
+</style>
+</head>
+<body>
+<button id="btnHome" title="返回主页">🏠</button>
+<div id="homeConfirm">
+  <div class="hc-card">
+    <h2>🏠 返回游戏主页？</h2>
+    <p>当前的游戏进度将会丢失哦</p>
+    <div class="hc-btns">
+      <button id="hcOk">确认返回</button>
+      <button id="hcCancel">再玩一会儿</button>
+    </div>
+  </div>
+</div>
+
+<canvas id="game"></canvas>
+<button id="btnMute" title="声音开关">🔊</button>
+
+<div class="hud">
+  <div class="hud-chip">得分 <b id="hudScore">0</b></div>
+  <div class="hud-chip">关卡 <b id="hudLevel">1</b>/6</div>
+  <div class="hud-chip">荷叶 <b id="hudPad">0</b>/<b id="hudPadTotal">0</b></div>
+</div>
+
+<div id="captionBar"></div>
+<div id="toast"></div>
+
+<div id="result">
+  <div class="result-card">
+    <h1 id="resultTitle">🐸 跳数小青蛙！</h1>
+    <p id="resultDesc"></p>
+    <button id="btnRestart">再玩一次</button>
+  </div>
+</div>
+
+<div id="start">
+  <h1>🐸 青蛙跳荷叶</h1>
+  <p class="rules">
+    小青蛙要回家，池塘里有一串荷叶～<br>
+    先听清楚：<b>「一次跳 2 片！」</b>（也有 3 片、5 片和 10 片）<br>
+    ✅ 点对下一片荷叶 → 青蛙蹦过去，「2、4、6……」跟着数！<br>
+    ❌ 点错荷叶 → 扑通掉水里，再来一次<br>
+    6 关通关，跳数真好玩！
+  </p>
+  <button id="btnStart">开始跳荷叶</button>
+</div>
+
+<script>
+/* 屏蔽右键菜单 */
+window.addEventListener('contextmenu', e => e.preventDefault());
+
+/* =========================================================
+ * 青蛙跳荷叶 —— 跳数（数轴上加/乘的前置）
+ * 设计文档 G17 · 4-6 岁 · 点击
+ * 荷叶标数字（从起点开始 +N 递增），点「下一片应该跳到」
+ * 的荷叶。三个候选荷叶（正确 + 干扰），点对蛙跳 + 报数。
+ * 关卡：2、2、3、3、5、10 六关。
+ * ========================================================= */
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0;
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+window.addEventListener('resize', resize);
+resize();
+
+const STATE = { START: 0, RUNNING: 1, FINISH: 2 };
+const STEP_SEQ = [2, 2, 3, 3, 5, 10];     // 每关步长
+const QUIZ_TOTAL = 6;
+
+let state = STATE.START;
+let level = 1;
+let score = 0, streak = 0, bestStreak = 0, wrongTotal = 0;
+let stepN = 2;                  // 本关步长
+let pads = [];                  // {num, x, y, isNext, decoy}
+let frog = { x: 0, y: 0, on: -1, jumping: null, wet: false };  // on = pads 下标
+let seqCount = 0;               // 已跳步数（报数用）
+let answered = false;
+let resultT = 0;
+let shake = 0;
+let ripples = [];               // 水波纹
+let splashes = [];              // 落水水花
+
+const $ = id => document.getElementById(id);
+const captionEl = $('captionBar');
+const toastEl = $('toast');
+
+/* 语音 */
+const synth = window.speechSynthesis || null;
+let zhVoice = null;
+function pickVoice() {
+  if (!synth) return;
+  const vs = synth.getVoices();
+  zhVoice = vs.find(v => /zh[-_]CN/i.test(v.lang)) || vs.find(v => /^zh/i.test(v.lang)) || null;
+}
+if (synth) { pickVoice(); if (synth.onvoiceschanged !== undefined) synth.onvoiceschanged = pickVoice; }
+function speak(text) {
+  if (muted || !synth) return;
+  try {
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN'; if (zhVoice) u.voice = zhVoice;
+    u.rate = 0.92;
+    synth.speak(u);
+  } catch (e) {}
+}
+function caption(text) {
+  captionEl.textContent = text;
+  captionEl.classList.add('show');
+  clearTimeout(captionEl._t);
+  captionEl._t = setTimeout(() => captionEl.classList.remove('show'), 3200);
+}
+
+/* 音效 */
+let actx = null, muted = false;
+function initAudio() {
+  if (actx) return;
+  try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+}
+function beep(freq, dur, type, vol, sweepTo) {
+  if (!actx || muted) return;
+  try {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(freq, actx.currentTime);
+    if (sweepTo) o.frequency.exponentialRampToValueAtTime(sweepTo, actx.currentTime + dur);
+    g.gain.setValueAtTime(vol || 0.15, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + dur);
+    o.connect(g).connect(actx.destination);
+    o.start();
+    o.stop(actx.currentTime + dur);
+  } catch (e) {}
+}
+const sfxRight = () => { beep(660, .09, 'sine', .16); beep(990, .14, 'sine', .16); };
+const sfxWrong = () => { beep(180, .22, 'sawtooth', .08); };
+const sfxJump = () => beep(400, .18, 'sine', .14, 800);
+const sfxSplash = () => { beep(300, .25, 'triangle', .2, 80); beep(150, .3, 'sine', .18, 60); };
+const sfxCount = n => beep(440 + n * 40, .08, 'sine', .12);
+$('btnMute').addEventListener('click', () => {
+  muted = !muted;
+  $('btnMute').textContent = muted ? '🔇' : '🔊';
+  if (muted && synth) synth.cancel();
+});
+
+/* ---------------- 出题 ---------------- */
+function makeLevel() {
+  stepN = STEP_SEQ[level - 1];
+  answered = false;
+  resultT = 0;
+  ripples = []; splashes = [];
+  seqCount = 0;
+  /* 主路径荷叶：起点 0，步长 stepN，共 5 跳 + 起点 */
+  const hops = 5;
+  pads = [];
+  for (let i = 0; i <= hops; i++) {
+    pads.push({ num: i * stepN, decoy: false, landed: i === 0, glow: 0 });
+  }
+  /* 干扰荷叶：数字是主数列附近的"陷阱"（不在主数列上），布置在上下错位的行 */
+  spawnDecoys();
+  layoutPads();
+
+  frog.on = 0;
+  frog.jumping = null;
+  frog.wet = false;
+  const p0 = padXY(pads[0]);
+  frog.x = p0.x; frog.y = p0.y;
+
+  speak('一次跳' + stepN + '片荷叶！从' + pads[0].num + '开始，下一片是' + stepN + '！');
+  caption('🔈 一次跳 ' + stepN + ' 片，跳到哪片？');
+  updateHUD();
+}
+
+function spawnDecoys() {
+  /* 干扰数字：正确数字 ±1、±step 附近（绝不在主数列上） */
+  const mainNums = new Set(pads.filter(p => !p.decoy).map(p => p.num));
+  const pool = new Set();
+  for (const base of [stepN, stepN * 2, stepN * 3]) {
+    pool.add(base - 1);
+    pool.add(base + 1);
+    if (base + 2 <= stepN * 5) pool.add(base + 2);
+  }
+  const decoyNums = [...pool]
+    .filter(v => v > 0 && !mainNums.has(v))
+    .sort(() => Math.random() - 0.5)
+    .slice(0, 2);
+  for (const dn of decoyNums) {
+    pads.push({ num: dn, decoy: true, landed: false, glow: 0 });
+  }
+}
+
+function layoutPads() {
+  /* 主路径一行（fy 0.62±小起伏），干扰荷叶上下错位（0.45 / 0.8 两行） */
+  const main = pads.filter(p => !p.decoy);
+  const n = main.length;
+  main.forEach((p, i) => {
+    p.fx = 0.08 + 0.84 * i / (n - 1);
+    p.fy = 0.62 + Math.sin(i * 1.7) * 0.04;
+  });
+  pads.filter(p => p.decoy).forEach((p, i) => {
+    /* 放在主路径跳跃区间内的水平位置，垂直错位 */
+    const slot = (i + 1) / (pads.filter(q => q.decoy).length + 1);
+    p.fx = 0.12 + 0.7 * slot;
+    p.fy = i % 2 === 0 ? 0.42 : 0.82;
+  });
+  $('hudPadTotal').textContent = n - 1;
+}
+
+function padXY(p) {
+  return { x: p.fx * W, y: p.fy * H };
+}
+
+/* ---------------- 点击 ---------------- */
+canvas.addEventListener('pointerdown', e => {
+  if (state !== STATE.RUNNING || answered) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) * (W / rect.width);
+  const y = (e.clientY - rect.top) * (H / rect.height);
+  for (let i = 0; i < pads.length; i++) {
+    const p = padXY(pads[i]);
+    if (Math.hypot(x - p.x, y - p.y) < 64) { answerPad(i); return; }
+  }
+});
+
+function answerPad(idx) {
+  /* 判定只看数字：青蛙脚下的数字 + stepN === 点的荷叶数字 */
+  const curNum = pads[frog.on].num;
+  const target = pads[idx];
+  if (idx === frog.on) return;               /* 点自己脚下，忽略 */
+  if (target.num === curNum + stepN && !target.decoy) {
+    /* 正确：跳！ */
+    answered = true;
+    const from = padXY(pads[frog.on]);
+    const to = padXY(target);
+    frog.jumping = { from, to, t: 0, dur: 0.5, target: idx };
+    sfxJump();
+  } else {
+    /* 错误：落水 */
+    streak = 0;
+    wrongTotal++;
+    shake = 0.3;
+    sfxSplash();
+    const p = padXY(target);
+    splashes.push({ x: p.x, y: p.y, t: 0 });
+    ripples.push({ x: p.x, y: p.y, t: 0 });
+    const right = curNum + stepN;
+    speak('扑通！要跳' + right + '哦！' + curNum + '加' + stepN + '是' + right + '，' + right + '！');
+    caption('🔊 ' + curNum + ' + ' + stepN + ' = ' + right + '，跳到 ' + right + '！');
+    updateHUD();
+  }
+}
+
+/* ---------------- 更新 ---------------- */
+function update(dt) {
+  if (shake > 0) shake = Math.max(0, shake - dt);
+  /* 跳跃动画 */
+  if (frog.jumping) {
+    frog.jumping.t += dt / frog.jumping.dur;
+    const j = frog.jumping;
+    if (j.t >= 1) {
+      frog.on = j.target;
+      pads[frog.on].landed = true;
+      frog.x = j.to.x; frog.y = j.to.y;
+      frog.jumping = null;
+      seqCount++;
+      /* 报数：跳到的数字 */
+      sfxCount(seqCount);
+      speak(String(pads[frog.on].num));
+      ripples.push({ x: frog.x, y: frog.y, t: 0 });
+      /* 到对岸判定：当前数字 = 主路径最大数字 */
+      const mainMax = Math.max(...pads.filter(p => !p.decoy).map(p => p.num));
+      if (pads[frog.on].num === mainMax) {
+        /* 本关完成 */
+        score += 20;
+        toast('过关！+' + pads[frog.on].num);
+        sfxRight();
+        const nums = pads.filter(p => !p.decoy).map(p => p.num);
+        speak('到对岸啦！' + nums.slice(1).join('、') + '，跳' + stepN + '数真棒！');
+        resultT = 2.0;
+      } else {
+        /* 下一跳 */
+        answered = false;
+      }
+    } else {
+      const p = Math.min(1, j.t);
+      frog.x = j.from.x + (j.to.x - j.from.x) * p;
+      frog.y = j.from.y + (j.to.y - j.from.y) * p - Math.sin(p * Math.PI) * 90;
+    }
+  }
+  /* 水波纹 */
+  for (const r of ripples) r.t += dt;
+  ripples = ripples.filter(r => r.t < 1.4);
+  for (const s of splashes) s.t += dt;
+  splashes = splashes.filter(s => s.t < 0.6);
+  /* 关卡切换 */
+  if (resultT > 0) {
+    resultT -= dt;
+    if (resultT <= 0) {
+      if (level >= QUIZ_TOTAL) showResult();
+      else { level++; makeLevel(); }
+    }
+  }
+}
+
+/* ---------------- 绘制 ---------------- */
+function drawScene(t) {
+  /* 池塘 */
+  const sky = ctx.createLinearGradient(0, 0, 0, H * 0.45);
+  sky.addColorStop(0, '#1a5a7a');
+  sky.addColorStop(1, '#7ac8e8');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H * 0.45);
+  /* 太阳 */
+  ctx.fillStyle = '#ffd35c';
+  ctx.beginPath(); ctx.arc(W * 0.86, H * 0.1, 38, 0, Math.PI * 2); ctx.fill();
+  /* 水面 */
+  const water = ctx.createLinearGradient(0, H * 0.4, 0, H);
+  water.addColorStop(0, '#2a8a6a');
+  water.addColorStop(0.4, '#1a6a8a');
+  water.addColorStop(1, '#0c4a6a');
+  ctx.fillStyle = water;
+  ctx.fillRect(0, H * 0.45, W, H * 0.55);
+  /* 水面波光 */
+  ctx.strokeStyle = 'rgba(255,255,255,.14)';
+  ctx.lineWidth = 2;
+  for (let i = 0; i < 10; i++) {
+    const wy = H * 0.47 + i * H * 0.05;
+    ctx.beginPath();
+    for (let x = 0; x <= W; x += 24) {
+      ctx.lineTo(x, wy + Math.sin(x * 0.03 + t * (1 + i * 0.2) + i) * 4);
+    }
+    ctx.stroke();
+  }
+  /* 岸（起点左） */
+  ctx.fillStyle = '#3a8a4a';
+  ctx.beginPath();
+  ctx.moveTo(0, H * 0.42);
+  ctx.lineTo(W * 0.07, H * 0.42);
+  ctx.quadraticCurveTo(W * 0.02, H * 0.55, 0, H * 0.72);
+  ctx.closePath();
+  ctx.fill();
+  /* 终点岸（右） */
+  ctx.fillStyle = '#3a8a4a';
+  ctx.beginPath();
+  ctx.moveTo(W, H * 0.42);
+  ctx.lineTo(W * 0.93, H * 0.44);
+  ctx.quadraticCurveTo(W * 0.98, H * 0.58, W, H * 0.75);
+  ctx.closePath();
+  ctx.fill();
+  /* 小房子（家） */
+  ctx.fillStyle = '#e8d0a0';
+  ctx.fillRect(W * 0.94, H * 0.3, 44, 34);
+  ctx.fillStyle = '#c94f4f';
+  ctx.beginPath();
+  ctx.moveTo(W * 0.94 - 6, H * 0.3);
+  ctx.lineTo(W * 0.94 + 22, H * 0.3 - 24);
+  ctx.lineTo(W * 0.94 + 50, H * 0.3);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawPads(t) {
+  for (let i = 0; i < pads.length; i++) {
+    const p = pads[i];
+    const pos = padXY(p);
+    const bob = Math.sin(t * 1.8 + i * 1.4) * 4;
+    const isNext = !p.decoy && frog.on >= 0 && p.num === pads[frog.on].num + stepN;
+    ctx.save();
+    ctx.translate(pos.x, pos.y + bob);
+    /* 荷叶本体 */
+    ctx.fillStyle = p.landed ? '#3aa860' : p.decoy ? '#7ab86a' : '#4fc878';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 56, 30, 0, 0, Math.PI * 2);
+    ctx.fill();
+    /* 荷叶缺口（荷叶经典 V 形口） */
+    ctx.fillStyle = 'rgba(12,74,106,.9)';
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, 30, -0.5, 0.5);
+    ctx.closePath();
+    ctx.fill();
+    /* 叶脉 */
+    ctx.strokeStyle = 'rgba(20,90,50,.5)';
+    ctx.lineWidth = 2;
+    for (let k = -2; k <= 2; k++) {
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(k * 20, (k === 0 ? -22 : 12) * (k % 2 === 0 ? 1 : 1));
+      ctx.stroke();
+    }
+    /* 数字（荷叶中心大数字） */
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 30px system-ui, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(p.num), 0, 0);
+    ctx.restore();
+    /* 下一片提示光环 */
+    if (isNext && !answered) {
+      ctx.strokeStyle = 'rgba(255, 211, 92, ' + (0.5 + 0.4 * Math.sin(t * 5)) + ')';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.ellipse(pos.x, pos.y + bob, 64, 38, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+}
+
+function drawFrog(t) {
+  if (frog.wet) return;
+  ctx.save();
+  ctx.translate(frog.x, frog.y - 22);
+  /* 跳跃中旋转/压缩 */
+  if (frog.jumping) {
+    const p = Math.min(1, frog.jumping.t);
+    const squash = 1 + Math.sin(p * Math.PI) * 0.2;
+    ctx.scale(1 / squash, squash);
+  }
+  /* 身体 */
+  ctx.fillStyle = '#5cd860';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 26, 20, 0, 0, Math.PI * 2);
+  ctx.fill();
+  /* 肚皮 */
+  ctx.fillStyle = '#b8ffb0';
+  ctx.beginPath();
+  ctx.ellipse(0, 6, 16, 10, 0, 0, Math.PI * 2);
+  ctx.fill();
+  /* 眼睛 */
+  ctx.fillStyle = '#5cd860';
+  ctx.beginPath(); ctx.arc(-11, -16, 9, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(11, -16, 9, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(-11, -16, 6, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(11, -16, 6, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#222';
+  const look = frog.jumping ? 3 : Math.sin(t * 2) * 2;
+  ctx.beginPath(); ctx.arc(-11 + look, -16, 2.6, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(11 + look, -16, 2.6, 0, Math.PI * 2); ctx.fill();
+  /* 嘴 */
+  ctx.strokeStyle = '#2a7a30'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(0, -6, 8, 0.3, Math.PI - 0.3); ctx.stroke();
+  ctx.restore();
+}
+
+function drawRipples(t) {
+  for (const r of ripples) {
+    const p = r.t / 1.4;
+    ctx.strokeStyle = 'rgba(255,255,255,' + (0.5 * (1 - p)) + ')';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.ellipse(r.x, r.y, 20 + p * 70, 8 + p * 30, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  for (const s of splashes) {
+    const p = s.t / 0.6;
+    ctx.fillStyle = 'rgba(200,240,255,' + (0.7 * (1 - p)) + ')';
+    for (let i = 0; i < 6; i++) {
+      const a = i * Math.PI / 3;
+      ctx.beginPath();
+      ctx.arc(s.x + Math.cos(a) * p * 50, s.y + Math.sin(a) * p * 50 - p * 30, 4 * (1 - p), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+function drawStepBanner() {
+  /* 顶部步长提示 */
+  ctx.fillStyle = 'rgba(6,26,40,.8)';
+  const bw = 170;
+  roundRect(W / 2 - bw / 2, H * 0.05, bw, 54, 16);
+  ctx.fill();
+  ctx.strokeStyle = '#ffd35c'; ctx.lineWidth = 2;
+  roundRect(W / 2 - bw / 2, H * 0.05, bw, 54, 16);
+  ctx.stroke();
+  ctx.fillStyle = '#ffd35c';
+  ctx.font = 'bold 22px system-ui, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('一次跳 ' + stepN + ' 片', W / 2, H * 0.05 + 27);
+}
+
+function roundRect(x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function updateHUD() {
+  $('hudScore').textContent = score;
+  $('hudLevel').textContent = level;
+  $('hudPad').textContent = frog.on >= 0 && pads.length ? pads.filter((p, i) => p.landed && !p.decoy).length - 1 : 0;
+}
+function toast(text) {
+  toastEl.textContent = text;
+  toastEl.classList.add('pop');
+  clearTimeout(toastEl._t);
+  toastEl._t = setTimeout(() => toastEl.classList.remove('pop'), 1100);
+}
+
+function showResult() {
+  let title, medal;
+  if (wrongTotal === 0)      { title = '🥇 跳数小神蛙！'; medal = '金牌'; }
+  else if (wrongTotal <= 3)  { title = '🥈 跳数小青蛙！'; medal = '银牌'; }
+  else                        { title = '🥉 跳数小蝌蚪！'; medal = '铜牌'; }
+  $('resultTitle').textContent = title;
+  $('resultDesc').innerHTML =
+    `得分 <b style="color:#ffd35c">${score}</b> 分<br>` +
+    `跳过了 2 个 2 个数、3 个 3 个数、5 个 5 个数、10 个 10 个数！<br>` +
+    `你已经会跳数啦！（${medal}）`;
+  $('result').classList.add('show');
+  state = STATE.FINISH;
+  speak('太棒了！两个两个数、五个五个数，你都会啦！');
+}
+
+/* ---------------- 主循环 ---------------- */
+let lastT = 0;
+function frame(now) {
+  const dt = Math.min(0.05, lastT === 0 ? 0.016 : (now - lastT) / 1000);
+  lastT = now;
+  const t = now / 1000;
+  if (state === STATE.RUNNING) update(dt);
+  render(t);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+function render(t) {
+  ctx.save();
+  if (shake > 0) {
+    const m = shake * 8;
+    ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m);
+  }
+  drawScene(t);
+  drawPads(t);
+  drawRipples(t);
+  drawFrog(t);
+  drawStepBanner();
+  ctx.restore();
+}
+
+/* 开始 / 重开 */
+$('btnStart').addEventListener('click', () => {
+  initAudio();
+  $('start').style.display = 'none';
+  resetGame();
+  state = STATE.RUNNING;
+  makeLevel();
+});
+$('btnRestart').addEventListener('click', () => {
+  $('result').classList.remove('show');
+  resetGame();
+  state = STATE.RUNNING;
+  makeLevel();
+});
+function resetGame() {
+  level = 1; score = 0; streak = 0; bestStreak = 0; wrongTotal = 0;
+  pads = []; ripples = []; splashes = [];
+  frog = { x: 0, y: 0, on: -1, jumping: null, wet: false };
+  resultT = 0;
+  updateHUD();
+}
+
+/* 测试钩子 */
+window.__test = {
+  start: () => { initAudio(); $('start').style.display = 'none'; resetGame(); state = STATE.RUNNING; makeLevel(); },
+  state: () => ({
+    state, level, step: stepN, score, wrongTotal, frogOn: frog.on,
+    frogNum: frog.on >= 0 ? pads[frog.on].num : null,
+    nextNum: frog.on >= 0 ? pads[frog.on].num + stepN : null,
+    mainNums: pads.filter(p => !p.decoy).map(p => p.num),
+    padsNums: pads.map(p => p.num),
+    decoys: pads.filter(p => p.decoy).length,
+    answered, jumping: !!frog.jumping,
+  }),
+  answer: idx => { if (!answered) answerPad(idx); },
+  findPad: num => pads.findIndex(p => p.num === num),
+  tick: ms => { let total = ms; const step = 16.7; while (total > 0) { update(step / 1000); total -= step; } },
+};
+
+/* 返回主页确认弹窗 */
+(function () {
+  const btn = $('btnHome'), dlg = $('homeConfirm');
+  if (!btn || !dlg) return;
+  btn.addEventListener('click', e => { e.stopPropagation(); dlg.classList.add('show'); });
+  $('hcOk').addEventListener('click', () => {
+    try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (err) {}
+    window.location.replace('../index.html');
+  });
+  $('hcCancel').addEventListener('click', () => dlg.classList.remove('show'));
+  dlg.addEventListener('pointerdown', e => { if (e.target === dlg) dlg.classList.remove('show'); });
+})();
+
+/* 禁用浏览器回退 */
+(function () {
+  const dlg = $('homeConfirm');
+  function guardBack() {
+    try { history.pushState({ g: 1 }, '', '#guard'); } catch (e) {}
+    if (dlg) {
+      dlg.classList.add('show');
+      try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (e) {}
+    }
+  }
+  try {
+    history.pushState({ g: 1 }, '', '#guard');
+    window.addEventListener('popstate', guardBack);
+    window.addEventListener('pageshow', e => {
+      if (e.persisted) { try { history.pushState({ g: 1 }, '', '#guard'); } catch (err) {} }
+    });
+  } catch (e) {}
+})();
+</script>
+</body>
+</html>
