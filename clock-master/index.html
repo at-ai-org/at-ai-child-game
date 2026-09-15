@@ -120,14 +120,43 @@ let shake = 0;
 let bounceBack = false;         // 答错弹回动画
 let settleT = -1;               // 答对后停顿 1s 计时
 
-/* 情境库 */
-const SCENES = [
-  { key: 'brush', text: '刷牙',  emoji: '🪥' },
-  { key: 'eat',   text: '吃午饭', emoji: '🍜' },
-  { key: 'sleep', text: '睡觉',  emoji: '😴' },
-  { key: 'play',  text: '玩耍',  emoji: '⚽' },
-  { key: 'read',  text: '看书',  emoji: '📖' },
-  { key: 'school',text: '上学',  emoji: '🎒' },
+/* 情境库：活动与真实时间绑定（贴近幼儿一日生活）
+ * hour: 0..11（0 = 12 点）；period: 时段（说给孩子听的说法）
+ * 每个活动只配它在现实中真正会发生的时间，避免"下午 5 点睡觉"这种离谱组合。 */
+const PERIODS = {
+  morning:   '早上',
+  forenoon:  '上午',
+  noon:      '中午',
+  afternoon: '下午',
+  evening:   '晚上',
+};
+/* 全部候选：{hour, minutes, period, text, emoji} */
+const ACTIVITIES = [
+  /* ---- 整点 ---- */
+  { hour: 7,  minutes: 0, period: 'morning',   text: '起床',       emoji: '🛏️' },
+  { hour: 8,  minutes: 0, period: 'morning',   text: '上幼儿园',   emoji: '🎒' },
+  { hour: 0,  minutes: 0, period: 'noon',      text: '吃午饭',     emoji: '🍜' },   /* 0 = 表盘上的 12 点 */
+  { hour: 3,  minutes: 0, period: 'afternoon', text: '吃点心',     emoji: '🍪' },
+  { hour: 6,  minutes: 0, period: 'afternoon', text: '吃晚饭',     emoji: '🍚' },
+  { hour: 9,  minutes: 0, period: 'evening',   text: '睡觉',       emoji: '😴' },
+  { hour: 10, minutes: 0, period: 'morning',   text: '做早操',     emoji: '🤸' },
+  { hour: 5,  minutes: 0, period: 'afternoon', text: '去公园玩',   emoji: '🛝' },
+  /* ---- 半点 ---- */
+  { hour: 7,  minutes: 30, period: 'morning',   text: '刷牙',      emoji: '🪥' },
+  { hour: 8,  minutes: 30, period: 'morning',   text: '吃早饭',    emoji: '🥛' },
+  { hour: 11, minutes: 30, period: 'forenoon',  text: '准备吃午饭', emoji: '🍽️' },
+  { hour: 1,  minutes: 30, period: 'afternoon', text: '睡午觉',    emoji: '😪' },
+  { hour: 4,  minutes: 30, period: 'afternoon', text: '看图画书',  emoji: '📖' },
+  { hour: 8,  minutes: 30, period: 'evening',   text: '洗澡',      emoji: '🛁' },
+  /* ---- 五分钟 ---- */
+  { hour: 7,  minutes: 45, period: 'morning',   text: '出门上学',  emoji: '👟' },
+  { hour: 9,  minutes: 20, period: 'forenoon',  text: '做手工',    emoji: '✂️' },
+  { hour: 10, minutes: 10, period: 'forenoon',  text: '吃水果',    emoji: '🍎' },
+  { hour: 2,  minutes: 15, period: 'afternoon', text: '画画',      emoji: '🎨' },
+  { hour: 5,  minutes: 40, period: 'afternoon', text: '收拾玩具',  emoji: '🧸' },
+  { hour: 8,  minutes: 50, period: 'evening',   text: '听故事',    emoji: '📚' },
+  { hour: 6,  minutes: 20, period: 'afternoon', text: '散步',      emoji: '🚶' },
+  { hour: 4,  minutes: 10, period: 'afternoon', text: '和小朋友玩耍', emoji: '⚽' },
 ];
 function hourName(h) { return h === 0 ? '12' : String(h); }
 /* 分钟部分读法：0→"整"，30→"半"，5→"5分"，50→"50分"（2点30分 = 两点半） */
@@ -137,6 +166,10 @@ function minutePhrase(m) {
   return `点${m}分`;
 }
 function timeText(h, m) { return `${hourName(h)}${minutePhrase(m)}`; }
+/* 带时段的说法，如「晚上 9 点」「下午 3 点半」 */
+function periodText(q) { return `${PERIODS[q.period] || ''}${hourName(q.hour)}${minutePhrase(q.minutes)}`.trim(); }
+/* 完整情境句，如「早上 7 点该起床啦」 */
+function sceneText(q) { return `${periodText(q)}要${q.text}`; }
 /* 分针角度（0=12点方向，顺时针） */
 function minuteAngle(m) { return -Math.PI / 2 + (m / 60) * Math.PI * 2; }
 /* 时针角度（真实钟表：随分钟连续偏移。2:30 → 指在 2 和 3 正中间）
@@ -233,29 +266,42 @@ function toast(text, good) {
 
 /* 出题：14 题 = 整点 6 + 半点 3 + 5分钟粒度 5（如 2:05、4:50、7:20、9:35、10:45） */
 function buildQuestions() {
+  /* 从真实情境库抽题：整点 6 + 半点 3 + 五分钟 5 = 14 题
+   * 同一局内不重复用同一个活动，时段也尽量分散 */
+  const pick = (pred, count, exclude) => {
+    /* hour 必须是表盘索引 0..11（0 = 12 点）；配置写错时直接暴露出来，
+     * 而不是让孩子遇到一道永远答不对的题 */
+    const pool = ACTIVITIES.filter(pred).filter(a => {
+      if (!(a.hour >= 0 && a.hour <= 11)) {
+        console.error('[clock] 活动时段配置错误，hour 必须在 0..11：', a);
+        return false;
+      }
+      return !exclude.has(a.text);
+    });
+    const out = [];
+    while (out.length < count && pool.length) {
+      const i = Math.floor(Math.random() * pool.length);
+      out.push(pool.splice(i, 1)[0]);
+    }
+    return out;
+  };
+  const used = new Set();
   const qs = [];
-  const usedH = new Set();
-  // 整点 6 题
-  for (let i = 0; i < 6; i++) {
-    let h; do { h = Math.floor(Math.random() * 12); } while (usedH.has(h));
-    usedH.add(h);
-    const sc = SCENES[i % SCENES.length];
-    qs.push({ hour: h, minutes: 0, scene: sc });
-  }
-  // 半点 3 题
-  for (let i = 0; i < 3; i++) {
-    let h; do { h = Math.floor(Math.random() * 12); } while (usedH.has(h));
-    usedH.add(h);
-    const sc = SCENES[(i + 3) % SCENES.length];
-    qs.push({ hour: h, minutes: 30, scene: sc });
-  }
-  // 5 分钟粒度 5 题（排除 0 和 30，避免与上面重复；小时允许复用——共 14 题但只有 12 个小时）
-  const fiveMinPool = [5, 10, 15, 20, 25, 35, 40, 45, 50, 55];
-  for (let i = 0; i < 5; i++) {
-    const h = Math.floor(Math.random() * 12);
-    const m = fiveMinPool[Math.floor(Math.random() * fiveMinPool.length)];
-    const sc = SCENES[(i + 1) % SCENES.length];
-    qs.push({ hour: h, minutes: m, scene: sc });
+  const push = list => list.forEach(a => {
+    used.add(a.text);
+    qs.push({ hour: a.hour, minutes: a.minutes, period: a.period, scene: { text: a.text, emoji: a.emoji } });
+  });
+  /* 按题型抽，且保证时段有多样性：分别从不同时段里轮着取 */
+  const onHour = pick(a => a.minutes === 0, 6, used);
+  push(onHour);
+  const onHalf = pick(a => a.minutes === 30, 3, used);
+  push(onHalf);
+  const onFive = pick(a => a.minutes !== 0 && a.minutes !== 30, 5, used);
+  push(onFive);
+  /* 打乱顺序，避免题型成块出现 */
+  for (let i = qs.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [qs[i], qs[j]] = [qs[j], qs[i]];
   }
   return qs;
 }
@@ -273,12 +319,13 @@ function askQuestion() {
   bounceBack = false;
   settleT = -1;
   const m = question.minutes;
+  const when = periodText(question);          // 如「晚上 9 点」
   if (m === 0) {
-    say(`小明 ${hourName(question.hour)} 点要${question.scene.text}。整点要这样做：先点数字 ${hourName(question.hour)} 让时针指过去，再点数字 12 让分针指到 12！`);
+    say(`小明${when}要${question.scene.text}。整点要这样做：先点数字 ${hourName(question.hour)} 让时针指过去，再点数字 12 让分针指到 12！`);
   } else {
     say(m === 30
-      ? `小明 ${hourName(question.hour)} 点半要${question.scene.text}。先点数字 ${hourName(question.hour)} 让时针过去，再点数字 6 让分针指到 6！`
-      : `小明要${question.scene.text}啦，把时钟调到 ${timeText(question.hour, m)}！先点数字 ${hourName(question.hour)} 的刻度`);
+      ? `小明${when}要${question.scene.text}。先点数字 ${hourName(question.hour)} 让时针过去，再点数字 6 让分针指到 6！`
+      : `小明${when}要${question.scene.text}，把时钟调到 ${hourName(question.hour)}${minutePhrase(m)}！先点数字 ${hourName(question.hour)} 的刻度`);
   }
 }
 
@@ -402,43 +449,109 @@ function minuteTicks() {
 
 /* 绘制 */
 function drawScene(t) {
+  /* 背景随"时段"变化：早上/上午明亮、中午最亮、下午暖橙、晚上深蓝夜色
+   * （让孩子从画面直接感受到上午 / 下午 / 晚上的区别） */
+  const SKY = {
+    morning:   ['#7fc4f0', '#dff0ff'],
+    forenoon:  ['#5ab4ea', '#e8f6ff'],
+    noon:      ['#3fa8e8', '#fff6dc'],
+    afternoon: ['#e8a45c', '#ffe0b8'],
+    evening:   ['#1a2352', '#2c3a72'],
+  };
+  const sky = SKY[question ? question.period : 'forenoon'] || SKY.forenoon;
   const bg = ctx.createLinearGradient(0, 0, 0, H);
-  bg.addColorStop(0, '#101a3c');
-  bg.addColorStop(1, '#0b1026');
+  bg.addColorStop(0, sky[0]);
+  bg.addColorStop(1, sky[1]);
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
-  /* 星点 */
-  ctx.fillStyle = 'rgba(220,235,255,.5)';
-  for (let i = 0; i < 36; i++) {
-    const x = (i * 137.5) % W, y = (i * 89.3) % (H * 0.35);
-    ctx.globalAlpha = 0.15 + 0.25 * (0.5 + 0.5 * Math.sin(t + i));
-    ctx.fillRect(x, y, 2, 2);
+  const isNight = question && question.period === 'evening';
+  if (isNight) {
+    /* 夜里：星星 + 月亮 */
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    for (let i = 0; i < 34; i++) {
+      const x = (i * 137.5) % W, y = (i * 89.3) % (H * 0.5);
+      ctx.globalAlpha = 0.25 + 0.5 * (0.5 + 0.5 * Math.sin(t * 1.6 + i));
+      ctx.beginPath(); ctx.arc(x, y, 1.6, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#fff4c8';
+    ctx.beginPath(); ctx.arc(W * 0.12, H * 0.13, 30, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = sky[0];
+    ctx.beginPath(); ctx.arc(W * 0.12 + 12, H * 0.13 - 7, 26, 0, Math.PI * 2); ctx.fill();
+  } else {
+    /* 白天：太阳，中午最高最亮 */
+    const sunY = question && question.period === 'noon' ? H * 0.08 : H * 0.14;
+    const glow = question && question.period === 'afternoon' ? '#ffb45c' : '#fff0a8';
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(W * 0.12, sunY, 30, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.35)';
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4 + t * 0.3;
+      ctx.beginPath();
+      ctx.arc(W * 0.12 + Math.cos(a) * 46, sunY + Math.sin(a) * 46, 5, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
-  ctx.globalAlpha = 1;
-  /* 情境小场景（右下角提示当前活动） */
+  /* 情境卡片（右侧提示当前时段 + 要做的事）
+   * 时段用不同背景色区分：早上/上午=晨光黄，中午=亮白，下午=暖橙，晚上=深夜蓝 */
   if (question) {
+    const periodColor = {
+      morning:   ['#ffe9ad', '#c9922a'],
+      forenoon:  ['#d9f0ff', '#3d7ea6'],
+      noon:      ['#fff4d0', '#c98f2a'],
+      afternoon: ['#ffd9b0', '#c46a2a'],
+      evening:   ['#c9d6ff', '#5a6bb0'],
+    }[question.period] || ['#ffe9ad', '#c9922a'];
+    const cx0 = W * 0.84, cy0 = H * 0.78;
     ctx.save();
-    ctx.globalAlpha = 0.95;
-    ctx.font = '52px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(question.scene.emoji, W * 0.86, H * 0.82);
-    ctx.font = 'bold 18px system-ui, sans-serif';
-    ctx.fillStyle = '#b9cdf0';
-    ctx.fillText(`小明要${question.scene.text}`, W * 0.86, H * 0.82 + 44);
+    /* 卡片底 */
+    ctx.fillStyle = 'rgba(16,26,60,.72)';
+    roundRR(cx0 - 108, cy0 - 74, 216, 150, 20);
+    ctx.fill();
+    ctx.strokeStyle = periodColor[0];
+    ctx.lineWidth = 3;
+    roundRR(cx0 - 108, cy0 - 74, 216, 150, 20);
+    ctx.stroke();
+    /* 时段标签（大字） */
+    ctx.fillStyle = periodColor[0];
+    ctx.font = 'bold 26px system-ui, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(PERIODS[question.period] || '', cx0, cy0 - 46);
+    /* 活动 emoji */
+    ctx.font = '54px system-ui, sans-serif';
+    ctx.fillText(question.scene.emoji, cx0, cy0 + 6);
+    /* 活动文字 */
+    ctx.fillStyle = '#eaf4ff';
+    ctx.font = 'bold 20px system-ui, sans-serif';
+    ctx.fillText(`要${question.scene.text}`, cx0, cy0 + 52);
     ctx.restore();
   }
+}
+/* 圆角矩形（本文件内的绘制辅助） */
+function roundRR(x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
 }
 function drawClock(t) {
   const { cx, cy, r } = clockCenter();
   ctx.save();
   ctx.translate(cx, cy);
-  /* 表盘 */
+  /* 表盘：浅色盘面 + 深色投影外圈（背景随时段变亮变暗都能看清） */
+  ctx.shadowColor = 'rgba(20,30,60,.45)';
+  ctx.shadowBlur = 24;
+  ctx.shadowOffsetY = 6;
   const g = ctx.createRadialGradient(0, 0, r * 0.1, 0, 0, r);
   g.addColorStop(0, '#fdf6e3');
   g.addColorStop(1, '#e8d9b8');
   ctx.fillStyle = g;
   ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
   ctx.strokeStyle = '#8a6a42'; ctx.lineWidth = 8;
   ctx.stroke();
   ctx.strokeStyle = 'rgba(138,106,66,.4)'; ctx.lineWidth = 3;
@@ -618,8 +731,8 @@ function update(dt, t) {
       if (streak > bestStreak) bestStreak = streak;
       popT = 1.2;
       sfxRight();
-      toast(`${timeText(question.hour, question.minutes)} ✓`, true);
-      speak(`答对啦！${timeText(question.hour, question.minutes)}，小明去${question.scene.text}喽！`);
+      toast(`${periodText(question)} ✓`, true);
+      speak(`答对啦！${periodText(question)}，小明要${question.scene.text}啦！`);
       updateHUD();
       question = null;
       settleT = 1.4;      /* 多留一点时间让孩子看清时针偏移后的钟面 */
