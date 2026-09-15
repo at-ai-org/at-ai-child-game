@@ -64,7 +64,7 @@
 <canvas id="game"></canvas>
 <button id="btnMute" title="声音开关">🔊</button>
 <div class="hud">
-  <div class="hud-chip">答对 <b id="hudRight">0</b> / 12 题</div>
+  <div class="hud-chip">答对 <b id="hudRight">0</b> / 14 题</div>
   <div class="hud-chip">连对 <b id="hudStreak">0</b> 🔥</div>
 </div>
 <div id="caption" style="display:none"></div>
@@ -81,8 +81,8 @@
   <p class="rules">
     大时钟需要你来调！听语音说：<b>"小明 8 点要刷牙"</b>。<br>
     点击表盘上的<b>数字刻度</b>，时针就会转过去。<br>
-    半点的题目还有两个大按钮：选 <b>00 分</b> 还是 <b>30 分</b>。<br>
-    一共 12 题，看看你是不是时间小管家！
+    半点的题目有 <b>00 分 / 30 分</b> 两个大按钮；五分钟的题目要点表盘<b>外圈的分钟刻度</b>（比如 2 点 30 分 → 点「30」）。<br>
+    一共 14 题：整点、半点，还有 2 点 30 分、4 点 50 分这样的五分钟时刻，看看你是不是时间小管家！
   </p>
   <button id="btnStart">开始挑战</button>
 </div>
@@ -92,7 +92,7 @@ window.addEventListener('contextmenu', e => e.preventDefault());
 
 /* =========================================================
  * 时钟小管家 Clock Master —— 单文件 Canvas 小游戏（G12）
- * 点击表盘刻度设时针；半点题点 00/30 大按钮。12 题。
+ * 点击表盘刻度设时针；半点题点 00/30 大按钮，5 分钟题点表盘外圈分钟刻度。14 题。
  * ========================================================= */
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -105,14 +105,18 @@ const STATE = { START: 0, RUNNING: 1, FINISH: 2 };
 let state = STATE.START;
 let qIndex = 0;                 // 第几题（0 起）
 let rightCount = 0, streak = 0, bestStreak = 0, wrongTotal = 0;
-let question = null;            // {hour, half, sceneKey, askText}
-let hourAngle = 0;              // 当前时针角度（弧度，0=12点方向）
-let hourTarget = 0;
-let minPhase = null;            // 半点题：'ask-min' 待选分钟
-let minuteShown = 0;            // 显示的分钟（0 或 30）
+let question = null;            // {hour, minutes, sceneKey, askText}
+let hourAngle = -Math.PI / 2;   // 时针当前角度（canvas 弧度：-π/2 = 12 点方向）
+let hourTarget = 0;             // 时针目标小时（0..11，12 点存 0）
+let minuteHandAngle = -Math.PI / 2;  // 分针当前角度（-π/2 = 12 点，初始指向 12）
+let hourAnim = null;            // 时针转动动画 {from, sweep, t, dur}
+let minuteAnim = null;          // 分针转动动画 {from, sweep, t, dur}
+let minPhase = null;            // 'ask-min' = 等待分针（整点题=再点一次；半点/5分题=选分钟）
+let minuteShown = 0;            // 分针指向的分钟值
 let popT = 0;                   // 答对庆祝
 let shake = 0;
 let bounceBack = false;         // 答错弹回动画
+let settleT = -1;               // 答对后停顿 1s 计时
 
 /* 情境库 */
 const SCENES = [
@@ -124,7 +128,20 @@ const SCENES = [
   { key: 'school',text: '上学',  emoji: '🎒' },
 ];
 function hourName(h) { return h === 0 ? '12' : String(h); }
-function timeText(h, m) { return m === 30 ? `${hourName(h)} 点半` : `${hourName(h)} 点整`; }
+/* 分钟部分读法：0→"整"，30→"半"，5→"5分"，50→"50分"（2点30分 = 两点半） */
+function minutePhrase(m) {
+  if (m === 0) return '点整';
+  if (m === 30) return '点半';
+  return `点${m}分`;
+}
+function timeText(h, m) { return `${hourName(h)}${minutePhrase(m)}`; }
+/* 分针角度（0=12点方向，顺时针） */
+function minuteAngle(m) { return -Math.PI / 2 + (m / 60) * Math.PI * 2; }
+/* 时针角度（真实钟表：随分钟连续偏移。2:30 → 指在 2 和 3 正中间）
+ * h: 0..11（0=12点），m: 0..59 */
+function hourAngleFor(h, m) {
+  return -Math.PI / 2 + ((h % 12) + m / 60) * (Math.PI / 6);
+}
 
 const $ = id => document.getElementById(id);
 const captionEl = $('caption');
@@ -194,7 +211,7 @@ function toast(text, good) {
   toastTimer = setTimeout(() => toastEl.classList.remove('pop'), 1000);
 }
 
-/* 出题：12 题 = 整点6 + 半点4 + 整点2 */
+/* 出题：14 题 = 整点 6 + 半点 3 + 5分钟粒度 5（如 2:05、4:50、7:20、9:35、10:45） */
 function buildQuestions() {
   const qs = [];
   const usedH = new Set();
@@ -203,21 +220,22 @@ function buildQuestions() {
     let h; do { h = Math.floor(Math.random() * 12); } while (usedH.has(h));
     usedH.add(h);
     const sc = SCENES[i % SCENES.length];
-    qs.push({ hour: h, half: false, scene: sc });
+    qs.push({ hour: h, minutes: 0, scene: sc });
   }
-  // 半点 4 题
-  for (let i = 0; i < 4; i++) {
+  // 半点 3 题
+  for (let i = 0; i < 3; i++) {
     let h; do { h = Math.floor(Math.random() * 12); } while (usedH.has(h));
     usedH.add(h);
     const sc = SCENES[(i + 3) % SCENES.length];
-    qs.push({ hour: h, half: true, scene: sc });
+    qs.push({ hour: h, minutes: 30, scene: sc });
   }
-  // 整点收尾 2 题
-  for (let i = 0; i < 2; i++) {
-    let h; do { h = Math.floor(Math.random() * 12); } while (usedH.has(h));
-    usedH.add(h);
-    const sc = SCENES[(i + 5) % SCENES.length];
-    qs.push({ hour: h, half: false, scene: sc });
+  // 5 分钟粒度 5 题（排除 0 和 30，避免与上面重复；小时允许复用——共 14 题但只有 12 个小时）
+  const fiveMinPool = [5, 10, 15, 20, 25, 35, 40, 45, 50, 55];
+  for (let i = 0; i < 5; i++) {
+    const h = Math.floor(Math.random() * 12);
+    const m = fiveMinPool[Math.floor(Math.random() * fiveMinPool.length)];
+    const sc = SCENES[(i + 1) % SCENES.length];
+    qs.push({ hour: h, minutes: m, scene: sc });
   }
   return qs;
 }
@@ -226,80 +244,90 @@ let questions = [];
 function askQuestion() {
   question = questions[qIndex];
   hourTarget = 0;
-  hourAngle = 0;
-  minuteShown = 0;
+  hourAngle = -Math.PI / 2;      // 重置到 12 点方向
+  minuteHandAngle = -Math.PI / 2;
+  hourAnim = null;
+  minuteAnim = null;
   minPhase = null;
+  minuteShown = 0;
   bounceBack = false;
-  if (question.half) {
-    say(`小明要${question.scene.text}啦，把时钟调到 ${hourName(question.hour)} 点半！先点数字 ${hourName(question.hour)} 的刻度`);
+  settleT = -1;
+  const m = question.minutes;
+  if (m === 0) {
+    say(`小明 ${hourName(question.hour)} 点要${question.scene.text}，把时针转到 ${hourName(question.hour)} 点，再点一次让分针指到 12！`);
   } else {
-    say(`小明 ${hourName(question.hour)} 点要${question.scene.text}，把时针转到 ${hourName(question.hour)} 点！`);
+    say(`小明要${question.scene.text}啦，把时钟调到 ${timeText(question.hour, m)}！先点数字 ${hourName(question.hour)} 的刻度`);
   }
 }
 
-/* 点击小时刻度 */
+/* 第一次点击数字：时针平滑转到该位置 */
 function setHour(h) {
   if (state !== STATE.RUNNING || !question) return;
   if (minPhase === 'ask-min') {
-    // 半点题已过小时：忽略（此时应选分钟）
+    /* 已在等分针阶段：此次点击是"第二次点数字"→ 分针按小时刻度转向该处对应的分钟？
+       不——分针只能点分钟刻度。忽略小时点击，提示选分针 */
+    say('时针已经对啦！现在点表盘外圈的分针刻度');
     return;
   }
   sfxTick();
   const want = question.hour;
-  hourTarget = h;
-  hourAngle = -Math.PI / 2 + (h % 12) * (Math.PI / 6);
   if (h === want) {
-    if (question.half) {
-      minPhase = 'ask-min';
-      minuteShown = -1;   // 待选
-      say(`对！${hourName(h)} 点。现在选分针：是 00 分还是 30 分？`);
+    /* 正确的小时：时针先转向该小时刻度（分钟偏移在分针到位后补上） */
+    hourTarget = h;
+    const to = hourAngleFor(h, 0);
+    /* 顺时针扫（从当前位置正向转到目标） */
+    let sweep = to - hourAngle;
+    while (sweep < -0.001) sweep += Math.PI * 2;      /* 保证正向 */
+    hourAnim = { from: hourAngle, sweep, t: 0, dur: Math.max(0.5, Math.abs(sweep) * 0.28) };
+    minPhase = 'ask-min';
+    minuteShown = -1;
+    const m = question.minutes;
+    if (m === 0) {
+      say(`${hourName(h)} 点的时针转好啦！再点一次 ${hourName(h)}，让分针也指到 ${hourName(h)}（12 的方向）！`);
+    } else if (m === 30) {
+      say(`时针对啦！现在点「30 分」，分针转到下面！`);
     } else {
-      correct();
+      say(`时针对啦！现在点外圈的「${m} 分」刻度，分针转过去！`);
     }
   } else {
-    // 错：弹回
+    /* 错：时针也转过去再弹回 */
     wrongTotal++;
     streak = 0;
     bounceBack = true;
     shake = 0.3;
     sfxWrong();
-    toast(`正确时间是 ${timeText(question.hour, question.half ? 30 : 0)}`);
-    speak(`现在指向 ${hourName(h)} 点，正确的是 ${hourName(want)} 点${question.half ? '半' : '整'}哦，再转一次！`);
+    toast(`正确时间是 ${timeText(question.hour, question.minutes)}`);
+    speak(`现在指向 ${hourName(h)} 点，正确的是 ${timeText(question.hour, question.minutes)}哦，再转一次！`);
     updateHUD();
   }
 }
 
-/* 点击分钟按钮（半点题） */
+/* 第二次点击（分针）：整点题=再点同一小时刻度；半点/5分题=点分钟刻度 */
 function setMinute(m) {
   if (state !== STATE.RUNNING || !question || minPhase !== 'ask-min') return;
-  sfxTick();
-  if ((m === 30) === question.half) {
-    minuteShown = 30;
-    correct();
-  } else {
-    wrongTotal++;
-    streak = 0;
-    shake = 0.3;
-    sfxWrong();
-    toast('正确是 30 分（一点半）');
-    speak(`${hourName(question.hour)} 点半的半，就是 30 分钟。选 30 分再试试！`);
-    updateHUD();
+  if (hourAnim && hourAnim.t < hourAnim.dur) {
+    say('时针还在转呢，等它停好再点分针哦');   // 不静默吞点击，给孩子明确反馈
+    return;
   }
+  if (minuteAnim) {
+    say('分针正在转，等它停下来');             // 同上
+    return;
+  }
+  sfxTick();
+  minuteShown = m;
+  const to = minuteAngle(m);
+  let sweep = to - minuteHandAngle;
+  while (sweep < -0.001) sweep += Math.PI * 2;
+  while (sweep > Math.PI * 2) sweep -= Math.PI * 2;
+  /* 分针已经在目标位置（整点题常见：分针本就停在 12）时，sweep≈0 会让针
+   * 一动不动、孩子以为没生效。给一个「先摆出去再回到 12」的确认动画。 */
+  if (Math.abs(sweep) < 0.02) {
+    sweep = Math.PI * 2;                       // 完整转一圈回来，视觉上明确"分针动了"
+  }
+  minuteAnim = { from: minuteHandAngle, sweep, t: 0, dur: Math.max(0.55, Math.abs(sweep) * 0.22), answer: m };
+  /* 分针转到位后由 update 判定对错 → 停顿 1s → 下一题 */
 }
 
-function correct() {
-  rightCount++;
-  streak++;
-  if (streak > bestStreak) bestStreak = streak;
-  popT = 1.2;
-  sfxRight();
-  const sc = question.scene;
-  toast(`${timeText(question.hour, question.half ? 30 : 0)} ✓`, true);
-  speak(`答对啦！${hourName(question.hour)}${question.half ? '点半' : '点整'}，小明去${sc.text}喽！`);
-  updateHUD();
-  question = null;
-  setTimeout(nextQuestion, 1200);
-}
 function nextQuestion() {
   qIndex++;
   if (qIndex >= questions.length) {
@@ -310,15 +338,15 @@ function nextQuestion() {
 }
 function showResult() {
   let title, medal;
-  if (bestStreak >= 10)     { title = '🥇 金牌时间管家！'; medal = '金牌'; }
-  else if (bestStreak >= 6) { title = '🥈 银牌时间管家！'; medal = '银牌'; }
+  if (bestStreak >= 12)     { title = '🥇 金牌时间管家！'; medal = '金牌'; }
+  else if (bestStreak >= 8) { title = '🥈 银牌时间管家！'; medal = '银牌'; }
   else if (bestStreak >= 3) { title = '🥉 铜牌时间管家！'; medal = '铜牌'; }
   else                      { title = '⏰ 全部答完！';     medal = '继续加油'; }
   $('resultTitle').textContent = title;
   $('resultDesc').innerHTML =
-    `答对 <b style="color:#ffd35c">${rightCount}</b> / 12 题（${medal}）<br>` +
+    `答对 <b style="color:#ffd35c">${rightCount}</b> / 14 题（${medal}）<br>` +
     `最佳连对 <b style="color:#ffd35c">${bestStreak}</b> 次 · 答错 <b style="color:#ff9d9d">${wrongTotal}</b> 次<br>` +
-    `整点半点全都认识啦！`;
+    `整点、半点、五分钟时刻全都认识啦！`;
   $('result').classList.add('show');
   state = STATE.FINISH;
   speak(`全部答完！你答对了${rightCount}题，获得${medal}！`);
@@ -326,6 +354,7 @@ function showResult() {
 
 /* 布局 */
 function clockCenter() { return { cx: W / 2, cy: H * 0.48, r: Math.min(W, H) * 0.26 }; }
+/* 分钟选择：半点题用两个大按钮；5 分钟题用表盘外的分钟刻度点 */
 function minButtons() {
   const { cx, cy, r } = clockCenter();
   const bw = Math.min(110, W * 0.2), bh = 56;
@@ -333,6 +362,22 @@ function minButtons() {
     zero: { x: cx - r - bw - 24, y: cy - bh / 2, w: bw, h: bh, label: '00 分' },
     thirty: { x: cx + r + 24, y: cy - bh / 2, w: bw, h: bh, label: '30 分' },
   };
+}
+/* 5 分钟题的分钟刻度热区（12 个点，绕表盘外圈） */
+function minuteTicks() {
+  const { cx, cy, r } = clockCenter();
+  const ticks = [];
+  for (let i = 0; i < 12; i++) {
+    const m = i * 5;
+    const a = minuteAngle(m);
+    ticks.push({
+      m,
+      x: cx + Math.cos(a) * (r * 1.22),
+      y: cy + Math.sin(a) * (r * 1.22),
+      label: m === 0 ? '00' : String(m),
+    });
+  }
+  return ticks;
 }
 
 /* 绘制 */
@@ -401,19 +446,22 @@ function drawClock(t) {
     ctx.fillStyle = '#8a6a42';
     ctx.beginPath(); ctx.arc(dx, dy, 4, 0, Math.PI * 2); ctx.fill();
   }
-  /* 分针（固定 12 点方向，半点时转 30 分钟方向） */
-  const mAng = minuteShown === 30 ? Math.PI : (minuteShown === -1 ? -Math.PI / 2 : -Math.PI / 2);
+  /* 分针：用动画角度（转动平滑），待选时停 12 点方向
+   * 注意：指针几何沿 +X（3 点方向）绘制，与刻度数字的 (cos θ, sin θ)
+   * 约定完全一致——这样 rotate(角度) 后指针精确指向该角度对应的刻度。
+   * （若沿 -Y 画，同样的角度会让指针整体逆时针偏 90°） */
+  const mAng = minuteShown >= 0 ? minuteHandAngle : -Math.PI / 2;
   ctx.save();
   ctx.rotate(mAng);
   ctx.strokeStyle = '#3a5a9a'; ctx.lineWidth = 6; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(0, r * 0.12); ctx.lineTo(0, -r * 0.62); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-r * 0.12, 0); ctx.lineTo(r * 0.62, 0); ctx.stroke();
   ctx.restore();
   /* 时针 */
   const hb = bounceBack ? Math.sin(t * 30) * 0.1 : 0;
   ctx.save();
   ctx.rotate(hourAngle + hb);
   ctx.strokeStyle = '#b03c3c'; ctx.lineWidth = 9; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(0, r * 0.14); ctx.lineTo(0, -r * 0.42); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-r * 0.14, 0); ctx.lineTo(r * 0.42, 0); ctx.stroke();
   ctx.restore();
   /* 中心圆 */
   ctx.fillStyle = '#1a2a55';
@@ -422,30 +470,57 @@ function drawClock(t) {
 }
 function drawMinButtons(t) {
   if (minPhase !== 'ask-min') return;
-  const btns = minButtons();
-  const pulse = 1 + Math.sin(t * 6) * 0.04;
-  for (const key of ['zero', 'thirty']) {
-    const b = btns[key];
-    ctx.save();
-    ctx.translate(b.x + b.w / 2, b.y + b.h / 2);
-    ctx.scale(pulse, pulse);
-    ctx.fillStyle = 'rgba(22,34,74,.95)';
-    roundR(-b.w / 2, -b.h / 2, b.w, b.h, 16);
-    ctx.fill();
-    ctx.strokeStyle = '#4f8cff'; ctx.lineWidth = 3;
-    roundR(-b.w / 2, -b.h / 2, b.w, b.h, 16);
-    ctx.stroke();
-    ctx.fillStyle = '#eaf4ff';
-    ctx.font = 'bold 26px system-ui, sans-serif';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(b.label, 0, 0);
-    ctx.restore();
+  if (!question) return;
+  if (question.minutes === 30) {
+    /* 半点题：00 / 30 两个大按钮 */
+    const btns = minButtons();
+    const pulse = 1 + Math.sin(t * 6) * 0.04;
+    for (const key of ['zero', 'thirty']) {
+      const b = btns[key];
+      ctx.save();
+      ctx.translate(b.x + b.w / 2, b.y + b.h / 2);
+      ctx.scale(pulse, pulse);
+      ctx.fillStyle = 'rgba(22,34,74,.95)';
+      roundR(-b.w / 2, -b.h / 2, b.w, b.h, 16);
+      ctx.fill();
+      ctx.strokeStyle = '#4f8cff'; ctx.lineWidth = 3;
+      roundR(-b.w / 2, -b.h / 2, b.w, b.h, 16);
+      ctx.stroke();
+      ctx.fillStyle = '#eaf4ff';
+      ctx.font = 'bold 26px system-ui, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(b.label, 0, 0);
+      ctx.restore();
+    }
+    /* 顶部提示 */
+    ctx.fillStyle = '#ffd35c';
+    ctx.font = 'bold 22px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('选哪个：00 分 还是 30 分？', W / 2, clockCenter().cy - clockCenter().r - 40);
+  } else {
+    /* 5 分钟题：表盘外圈分钟刻度点 */
+    const ticks = minuteTicks();
+    const pulse = 1 + Math.sin(t * 6) * 0.08;
+    for (const tk of ticks) {
+      ctx.save();
+      ctx.translate(tk.x, tk.y);
+      ctx.scale(pulse, pulse);
+      ctx.fillStyle = 'rgba(22,34,74,.95)';
+      ctx.beginPath(); ctx.arc(0, 0, Math.min(26, W * 0.032), 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#4f8cff'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(0, 0, Math.min(26, W * 0.032), 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = '#eaf4ff';
+      ctx.font = `bold ${Math.min(17, W * 0.022)}px system-ui, sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(tk.label, 0, 1);
+      ctx.restore();
+    }
+    /* 顶部提示 */
+    ctx.fillStyle = '#ffd35c';
+    ctx.font = 'bold 22px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('点分针应指的分钟刻度', W / 2, clockCenter().cy - clockCenter().r - 40);
   }
-  /* 顶部提示 */
-  ctx.fillStyle = '#ffd35c';
-  ctx.font = 'bold 22px system-ui, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('选哪个：00 分 还是 30 分？', W / 2, clockCenter().cy - clockCenter().r - 40);
 }
 function drawPop(t) {
   if (popT <= 0) return;
@@ -473,10 +548,71 @@ function roundR(x, y, w, h, r) {
 function update(dt, t) {
   if (shake > 0) shake = Math.max(0, shake - dt);
   if (popT > 0) popT = Math.max(0, popT - dt);
-  /* 时针缓动 */
-  if (question && !bounceBack) {
-    const want = -Math.PI / 2 + (hourTarget % 12) * (Math.PI / 6);
-    hourAngle += (want - hourAngle) * Math.min(1, dt * 8);
+  /* 时针动画 */
+  if (hourAnim) {
+    hourAnim.t += dt;
+    const k = Math.min(1, hourAnim.t / hourAnim.dur);
+    const e = 1 - Math.pow(1 - k, 3);              /* easeOutCubic */
+    hourAngle = hourAnim.from + hourAnim.sweep * e;
+    if (k >= 1) hourAngle = hourAnim.from + hourAnim.sweep;
+  }
+  /* 分针动画 */
+  if (minuteAnim) {
+    minuteAnim.t += dt;
+    const k = Math.min(1, minuteAnim.t / minuteAnim.dur);
+    const e = 1 - Math.pow(1 - k, 3);
+    minuteHandAngle = minuteAnim.from + minuteAnim.sweep * e;
+    if (k >= 1) minuteHandAngle = minuteAnim.from + minuteAnim.sweep;
+  }
+  /* 分针动画完成 → 判定对错（hourAnim 完成后分针才开始，此处必已到位） */
+  if (minuteAnim && minuteAnim.t >= minuteAnim.dur) {
+    const ans = minuteAnim.answer;
+    minuteAnim = null;
+    if (question && ans === question.minutes) {
+      /* 对：分针到位 → 时针补上分钟偏移（真实钟面：2:30 时针指 2、3 之间）
+       * 然后报分 + 停顿 1s */
+      minuteShown = ans;
+      const wantHourAngle = hourAngleFor(question.hour, ans);
+      let hSweep = wantHourAngle - hourAngle;
+      while (hSweep < -0.001) hSweep += Math.PI * 2;
+      while (hSweep > Math.PI * 2) hSweep -= Math.PI * 2;
+      if (Math.abs(hSweep) > 0.002) {
+        hourAnim = { from: hourAngle, sweep: hSweep, t: 0, dur: 0.5 };
+      }
+      rightCount++;
+      streak++;
+      if (streak > bestStreak) bestStreak = streak;
+      popT = 1.2;
+      sfxRight();
+      toast(`${timeText(question.hour, question.minutes)} ✓`, true);
+      speak(`答对啦！${timeText(question.hour, question.minutes)}，小明去${question.scene.text}喽！`);
+      updateHUD();
+      question = null;
+      settleT = 1.4;      /* 多留一点时间让孩子看清时针偏移后的钟面 */
+    } else if (question) {
+      /* 错：分针弹回 12 点 + 提示 */
+      wrongTotal++;
+      streak = 0;
+      shake = 0.3;
+      sfxWrong();
+      toast(`分针应该指 ${question.minutes} 分哦`);
+      speak(`分针应该指${question.minutes}分哦，再试试！`);
+      updateHUD();
+      const to = -Math.PI / 2;
+      let sweepBack = to - minuteHandAngle;
+      while (sweepBack < -0.001) sweepBack += Math.PI * 2;
+      while (sweepBack > Math.PI * 2) sweepBack -= Math.PI * 2;
+      minuteAnim = { from: minuteHandAngle, sweep: sweepBack, t: 0, dur: 0.6, answer: null };
+      minuteShown = -1;
+    }
+  }
+  /* 停顿 1s 后 → 下一题 */
+  if (settleT > 0) {
+    settleT -= dt;
+    if (settleT <= 0) {
+      settleT = -1;
+      nextQuestion();
+    }
   }
 }
 function render(t) {
@@ -508,19 +644,60 @@ canvas.addEventListener('pointerdown', e => {
   const rect = canvas.getBoundingClientRect();
   const x = (e.clientX - rect.left) * (W / rect.width);
   const y = (e.clientY - rect.top) * (H / rect.height);
-  /* 分钟按钮 */
+  /* 分钟选择阶段 */
   if (minPhase === 'ask-min') {
-    const btns = minButtons();
-    for (const key of ['zero', 'thirty']) {
-      const b = btns[key];
-      if (x >= b.x - 8 && x <= b.x + b.w + 8 && y >= b.y - 8 && y <= b.y + b.h + 8) {
-        setMinute(key === 'zero' ? 0 : 30);
-        return;
+    if (question && question.minutes === 30) {
+      /* 半点题：两个大按钮 */
+      const btns = minButtons();
+      for (const key of ['zero', 'thirty']) {
+        const b = btns[key];
+        if (x >= b.x - 8 && x <= b.x + b.w + 8 && y >= b.y - 8 && y <= b.y + b.h + 8) {
+          setMinute(key === 'zero' ? 0 : 30);
+          return;
+        }
       }
+      /* 点了其他地方：提示 */
+      return;
+    }
+    /* 整点题：第二次点击同一小时刻度 → 分针指 0（12 点方向） */
+    if (question && question.minutes === 0) {
+      const { cx, cy, r } = clockCenter();
+      const dx = x - cx, dy = y - cy;
+      if (Math.hypot(dx, dy) > r * 1.15) return;
+      let best = -1, bestD = 1e9;
+      for (let i = 0; i < 12; i++) {
+        const a = -Math.PI / 2 + i * (Math.PI / 6);
+        const nx = cx + Math.cos(a) * (r * 0.78), ny = cy + Math.sin(a) * (r * 0.78);
+        const d = Math.hypot(x - nx, y - ny);
+        if (d < bestD) { bestD = d; best = i; }
+      }
+      if (bestD <= r * 0.2) {
+        /* 整点：分针指 12（0 分）。要求点在时针同一小时刻度上 */
+        if (best === question.hour) {
+          setMinute(0);
+        } else {
+          sfxWrong();
+          shake = 0.2;
+          say(`分针要和时针一样指到 ${hourName(question.hour)}（12 点方向）哦！`);
+        }
+      }
+      return;
+    }
+    /* 5 分钟题：表盘外圈分钟刻度 */
+    const ticks = minuteTicks();
+    const hitR = Math.min(26, W * 0.032) + 10;
+    let bestTk = null, bestD = 1e9;
+    for (const tk of ticks) {
+      const d = Math.hypot(x - tk.x, y - tk.y);
+      if (d < bestD) { bestD = d; bestTk = tk; }
+    }
+    if (bestTk && bestD <= hitR) {
+      setMinute(bestTk.m);
+      return;
     }
     return;
   }
-  /* 表盘刻度 */
+  /* 表盘刻度（0..11；点击显示 12 的位置 → 0） */
   const { cx, cy, r } = clockCenter();
   const dx = x - cx, dy = y - cy;
   if (Math.hypot(dx, dy) > r * 1.15) return;
@@ -531,7 +708,7 @@ canvas.addEventListener('pointerdown', e => {
     const d = Math.hypot(x - nx, y - ny);
     if (d < bestD) { bestD = d; best = i; }
   }
-  if (bestD <= r * 0.2) setHour(best === 0 ? 12 : best);
+  if (bestD <= r * 0.2) setHour(best);          /* 直接传 0..11，12 点即 0 */
 });
 
 /* 开始 / 重开 */
@@ -550,8 +727,9 @@ function resetGame() {
   qIndex = 0; rightCount = 0; streak = 0; bestStreak = 0; wrongTotal = 0;
   questions = buildQuestions();
   question = null;
-  hourAngle = 0; hourTarget = 0; minuteShown = 0; minPhase = null;
-  popT = 0; shake = 0; bounceBack = false;
+  hourAngle = -Math.PI / 2; hourTarget = 0; minuteHandAngle = -Math.PI / 2; minuteShown = 0; minPhase = null;
+  hourAnim = null; minuteAnim = null;
+  popT = 0; shake = 0; bounceBack = false; settleT = -1;
   captionEl.style.display = 'none';
   updateHUD();
   askQuestion();
@@ -560,9 +738,20 @@ function resetGame() {
 /* 测试钩子 */
 window.__testSetHour = h => setHour(h);
 window.__testSetMinute = m => setMinute(m);
+/* 同步推进若干毫秒（含动画与判定），供无竞态的自动化校验使用 */
+window.__testTick = ms => {
+  const step = 16.7;
+  for (let e = 0; e < ms; e += step) update(step / 1000, 0);
+};
 window.__testState = () => ({
   state, qIndex, right: rightCount, streak, bestStreak, wrong: wrongTotal,
-  hour: question ? question.hour : null, half: question ? question.half : null, minPhase,
+  hour: question ? question.hour : null, minutes: question ? question.minutes : null, minPhase,
+  /* 指针角度（度，0°=3点方向，-90°/270°=12点方向）—— 便于校验钟面准确性 */
+  hourDeg: Math.round(((hourAngle * 180 / Math.PI) % 360 + 360) % 360),
+  minuteDeg: Math.round(((minuteHandAngle * 180 / Math.PI) % 360 + 360) % 360),
+  /* 当前题目的"正确钟面"应有角度 */
+  wantHourDeg: question ? Math.round(((hourAngleFor(question.hour, question.minutes) * 180 / Math.PI) % 360 + 360) % 360) : null,
+  wantMinuteDeg: question ? Math.round(((minuteAngle(question.minutes) * 180 / Math.PI) % 360 + 360) % 360) : null,
 });
 </script>
 
