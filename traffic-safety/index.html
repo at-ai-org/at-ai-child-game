@@ -193,11 +193,18 @@ function spawnCar() {
     x: fromLeft ? -120 : W + 120,
     dir: fromLeft ? 1 : -1,
     speed: 120 + Math.random() * 100,
+    v: 0,                     // 当前速度（从 0 平滑起步）
     color: colors[Math.floor(Math.random() * colors.length)],
     y: H * 0.56 + (Math.random() < 0.5 ? 0 : 42),
     stopped: false,
   });
 }
+/* 停止线：斑马线左右两侧各一条白实线，车必须停在线后
+ * 注意选线方向：向右开（dir=1）的车停在西侧线（斑马线入口），
+ * 向左开（dir=-1）的车停在东侧线 —— 即 stopLineX(-dir) */
+function stopLineX(side) { return W / 2 + side * (Math.max(180, W * 0.24) / 2 + 70); }
+/* 车头位置（行进方向最前端） */
+function carFront(c) { return c.x + c.dir * 62; }
 function crossButtonRect() {
   const bw = Math.min(220, W * 0.5), bh = 66;
   return { x: W / 2 - bw / 2, y: H - 118, w: bw, h: bh };
@@ -250,15 +257,29 @@ function update(dt, t) {
       if (!walker || walker.phase === 'idle') say('红灯亮了，等一等，绿灯再走！');
     }
   }
-  /* 车流（绿灯且有人在斑马线 → 停让；否则行驶） */
+  /* 车流：绿灯亮 → 横向车流在停止线前依次刹停让行；红灯 → 正常通行
+   * （教育语义：绿灯=行人路权，车提前停，绝不压斑马线）
+   * 额外保护：行人正在斑马线上时，无论什么灯，未越线的车都停住（礼让行人） */
   const zebraZone = walker && (walker.phase === 'crossing' || walker.phase === 'stopped');
-  const stopAll = light === 'green' && zebraZone;
   if (state === STATE.RUNNING) {
-    if (cars.length < 4 && Math.random() < dt * 1.2) spawnCar();
+    if (light === 'red' && cars.length < 4 && Math.random() < dt * 1.2) spawnCar();
     for (const c of cars) {
-      const nearZebra = Math.abs(c.x - W / 2) < 260;
-      c.stopped = stopAll && nearZebra;
-      if (!c.stopped) c.x += c.dir * c.speed * dt;
+      /* 车头到前方停止线的剩余距离（沿行进方向）；
+       * 向右开停西侧线、向左开停东侧线（都是斑马线入口侧） */
+      const lineX = stopLineX(-c.dir);
+      const dist = (lineX - carFront(c)) * c.dir;    // >0 = 线还在前方
+      const mustStop = (light === 'green' || zebraZone) && dist > -20;  // 已越线 20px 以上的车开走，不倒车
+      if (mustStop) {
+        /* 目标速度：贴线前减速，线前 30px 内完全停住 */
+        const targetV = Math.max(0, Math.min(c.speed, dist / 30 * c.speed));
+        c.v += (targetV - c.v) * Math.min(1, dt * 4);
+        if (dist <= 2) c.v = 0;                       // 停稳在线后
+        c.stopped = c.v < 5;
+      } else {
+        c.v += (c.speed - c.v) * Math.min(1, dt * 2); // 正常通行/已越线的车开走
+        c.stopped = false;
+      }
+      c.x += c.dir * c.v * dt;
     }
     cars = cars.filter(c => c.x > -200 && c.x < W + 200);
   }
@@ -352,6 +373,10 @@ function drawScene(t) {
   for (let i = 0; i < 5; i++) {
     ctx.fillRect(W / 2 - zw / 2 + i * (zw / 5) + 4, H * 0.55, zw / 5 - 8, H * 0.24);
   }
+  /* 停止线（斑马线两侧横向白实线，车停在线后） */
+  ctx.fillStyle = 'rgba(255,255,255,.75)';
+  ctx.fillRect(stopLineX(1) + 20, H * 0.535, 8, H * 0.28);
+  ctx.fillRect(stopLineX(-1) - 28, H * 0.535, 8, H * 0.28);
   /* 草地 */
   ctx.fillStyle = '#8ed86a';
   ctx.fillRect(0, H * 0.82, W, H * 0.18);
@@ -566,6 +591,7 @@ function resetGame() {
 window.__testLight = () => light;
 window.__testCross = () => tryCross();
 window.__testState = () => ({ state, light, lightT, crossed, rushed, walkerPhase: walker ? walker.phase : null, side: walkerSide });
+window.__testCars = () => cars.map(c => ({ x: Math.round(c.x), dir: c.dir, v: Math.round(c.v), stopped: c.stopped }));
 </script>
 
 <script>
