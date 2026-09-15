@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>汉字闯关 · Hanzi Quest</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  body {
+    background: #eaf3ff;
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+  }
+  #game { display: block; width: 100vw; height: 100vh; }
+
+  /* ---- HUD ---- */
+  .hud { position: absolute; top: 14px; left: 14px; z-index: 10; display: flex; gap: 10px; flex-wrap: wrap; pointer-events: none; }
+  .hud-chip { background: rgba(255,252,246,.92); border: 2px solid rgba(120,170,235,.45); border-radius: 14px; color: #2a4a78; padding: 7px 16px; font-size: 17px; font-weight: 700; box-shadow: 0 4px 14px rgba(90,140,200,.2); backdrop-filter: blur(6px); }
+  .hud-chip b { color: #ff8c42; font-size: 21px; }
+
+  #btnMute { position: absolute; top: 14px; right: 14px; z-index: 60; font-size: 20px; line-height: 1; padding: 9px 13px; border-radius: 12px; cursor: pointer; background: rgba(255,252,246,.92); border: 2px solid rgba(120,170,235,.45); color: #2a4a78; }
+  #btnHome { position: absolute; top: 14px; right: 68px; z-index: 60; font-size: 18px; line-height: 1; padding: 10px 13px; border-radius: 12px; cursor: pointer; background: rgba(255,252,246,.92); border: 2px solid rgba(120,170,235,.45); color: #2a4a78; font-family: inherit; }
+  #btnHome:active, #btnMute:active { transform: scale(.94); }
+
+  #caption { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 15; background: rgba(255,252,246,.94); border: 2px solid rgba(120,170,235,.5); border-radius: 18px; color: #2a4a78; padding: 10px 26px; font-size: 21px; font-weight: 700; letter-spacing: 1px; pointer-events: none; white-space: nowrap; max-width: 92vw; text-align: center; }
+
+  #toast { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%) scale(1); z-index: 30; font-size: 52px; font-weight: 800; color: #ff8c42; text-shadow: 0 3px 10px rgba(255,255,255,.95), 0 4px 14px rgba(180,110,50,.3); opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; white-space: nowrap; }
+  #toast.pop { opacity: 1; transform: translate(-50%, -58%) scale(1.12); }
+
+  /* ---- 结算 ---- */
+  #result { position: absolute; inset: 0; z-index: 40; background: rgba(232,242,255,.8); display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+  #result.show { display: flex; }
+  .result-card { text-align: center; color: #2a4a78; background: linear-gradient(160deg, #ffffff, #eaf4ff); border: 3px solid #8ec5ff; border-radius: 26px; padding: 30px 46px; box-shadow: 0 20px 60px rgba(90,140,200,.3); max-width: 88vw; }
+  .result-card h1 { font-size: 38px; color: #ff8c42; margin-bottom: 12px; }
+  .result-card p { font-size: 17px; color: #5a7aa0; margin: 6px 0 22px; line-height: 1.9; }
+  .result-card p b { color: #ff8c42; font-size: 20px; }
+  .result-card button { font-size: 20px; padding: 12px 42px; border-radius: 999px; border: none; cursor: pointer; background: linear-gradient(90deg, #7dffa1, #2ecc71); color: #06340f; font-weight: 800; letter-spacing: 4px; box-shadow: 0 6px 20px rgba(46,204,113,.4); font-family: inherit; }
+  .result-card button:active { transform: scale(.97); }
+
+  /* ---- 开始页 ---- */
+  #start { position: absolute; inset: 0; z-index: 50; background: radial-gradient(1200px 600px at 50% 28%, #ffffff 0%, #e5f1ff 55%, #d3e7ff 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #2a4a78; text-align: center; padding: 20px; }
+  #start h1 { font-size: clamp(38px, 8vw, 62px); letter-spacing: 8px; background: linear-gradient(90deg, #3d8bff, #6bd5ff, #7dffa1); -webkit-background-clip: text; background-clip: text; color: transparent; margin-bottom: 10px; }
+  #start .sub { color: #7a9cc4; font-size: 16px; letter-spacing: 3px; margin-bottom: 22px; }
+  #start .rules { background: rgba(255,255,255,.85); border: 2px solid rgba(120,170,235,.4); border-radius: 20px; padding: 20px 32px; color: #3a5a80; font-size: 17px; line-height: 2.1; max-width: 580px; margin-bottom: 26px; }
+  #start .rules b { color: #ff8c42; }
+  #start button { font-size: 21px; padding: 14px 56px; border-radius: 999px; border: none; cursor: pointer; background: linear-gradient(90deg, #7dffa1, #2ecc71); color: #06340f; font-weight: 800; letter-spacing: 6px; box-shadow: 0 8px 26px rgba(46,204,113,.35); font-family: inherit; }
+  #start button:active { transform: scale(.97); }
+
+  /* ---- 主页确认 ---- */
+  #homeConfirm { position: absolute; inset: 0; z-index: 90; background: rgba(20,40,70,.4); display: none; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+  #homeConfirm.show { display: flex; }
+  .hc-card { text-align: center; background: linear-gradient(160deg, #ffffff, #eaf4ff); border: 3px solid #8ec5ff; border-radius: 22px; padding: 26px 34px; box-shadow: 0 18px 50px rgba(90,140,200,.35); max-width: 84vw; }
+  .hc-card h2 { font-size: 24px; color: #2a4a78; margin-bottom: 8px; letter-spacing: 2px; }
+  .hc-card p { font-size: 15px; color: #7a9cc4; margin: 4px 0 18px; }
+  .hc-btns { display: flex; gap: 14px; justify-content: center; }
+  .hc-btns button { font-size: 17px; padding: 10px 26px; border-radius: 999px; border: none; cursor: pointer; font-weight: 700; letter-spacing: 2px; font-family: inherit; }
+  #hcOk { background: linear-gradient(90deg, #7dffa1, #2ecc71); color: #06340f; }
+  #hcCancel { background: #eaf4ff; color: #2a4a78; border: 2px solid rgba(120,170,235,.5) !important; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div class="hud">
+  <div class="hud-chip">第 <b id="hudLevel">1</b> / 9 关</div>
+  <div class="hud-chip">本关 <b id="hudProgress">0</b> / 11</div>
+  <div class="hud-chip">已学会 <b id="hudTotal">0</b> / 99 字</div>
+</div>
+<button id="btnHome" title="返回主页">🏠</button>
+<button id="btnMute" title="声音开关">🔊</button>
+<div id="caption" style="display:none"></div>
+<div id="toast"></div>
+
+<div id="start">
+  <h1>汉字闯关</h1>
+  <div class="sub">HANZI QUEST · 99 个常用汉字</div>
+  <div class="rules">
+    听语音读出的字，在四个选项里把它<b>找出来</b>！<br>
+    一共 <b>9 关</b>，每关 11 个字，答完全部 <b>99 个常用汉字</b>。<br>
+    通过一关会自动进入下一关，答错也不怕，会告诉你正确读音。
+  </div>
+  <button id="btnStart">开始闯关</button>
+</div>
+
+<div id="result">
+  <div class="result-card">
+    <h1 id="resultTitle">🎉 全部通关！</h1>
+    <p id="resultDesc"></p>
+    <button id="btnRestart">再玩一次</button>
+  </div>
+</div>
+
+<div id="homeConfirm">
+  <div class="hc-card">
+    <h2>要回到主页吗？</h2>
+    <p>本关进度不会保存哦</p>
+    <div class="hc-btns">
+      <button id="hcOk">回主页</button>
+      <button id="hcCancel">继续玩</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* 屏蔽右键菜单：防止误触弹出系统菜单 */
+window.addEventListener('contextmenu', e => e.preventDefault());
+
+/* =========================================================
+ * 汉字闯关 Hanzi Quest —— 单文件 Canvas 小游戏（G2）
+ * 99 个常用汉字 / 9 关 × 11 字：语音读字 + 四选一找汉字。
+ * 拼音按钮辅助（可选显示），答错播报正确读音，无惩罚。
+ * ========================================================= */
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0;
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+window.addEventListener('resize', resize);
+resize();
+
+const STATE = { START: 0, RUNNING: 1, FINISH: 2 };
+let state = STATE.START;
+
+/* ---------------- 字库：99 字 / 9 关 × 11 字 ---------------- */
+const LEVELS = [
+  { name: '数字与大小', theme: 0, chars: [
+    { han: '一', py: 'yī' },    { han: '二', py: 'èr' },    { han: '三', py: 'sān' },
+    { han: '四', py: 'sì' },    { han: '五', py: 'wǔ' },    { han: '六', py: 'liù' },
+    { han: '七', py: 'qī' },    { han: '八', py: 'bā' },    { han: '九', py: 'jiǔ' },
+    { han: '十', py: 'shí' },   { han: '大', py: 'dà' },
+  ]},
+  { name: '人与身体', theme: 1, chars: [
+    { han: '人', py: 'rén' },   { han: '口', py: 'kǒu' },   { han: '手', py: 'shǒu' },
+    { han: '目', py: 'mù' },    { han: '耳', py: 'ěr' },    { han: '足', py: 'zú' },
+    { han: '头', py: 'tóu' },   { han: '心', py: 'xīn' },   { han: '牙', py: 'yá' },
+    { han: '力', py: 'lì' },    { han: '小', py: 'xiǎo' },
+  ]},
+  { name: '天地自然', theme: 2, chars: [
+    { han: '天', py: 'tiān' },  { han: '地', py: 'dì' },    { han: '日', py: 'rì' },
+    { han: '月', py: 'yuè' },   { han: '山', py: 'shān' },  { han: '水', py: 'shuǐ' },
+    { han: '火', py: 'huǒ' },   { han: '土', py: 'tǔ' },    { han: '石', py: 'shí' },
+    { han: '云', py: 'yún' },   { han: '雨', py: 'yǔ' },
+  ]},
+  { name: '植物动物', theme: 3, chars: [
+    { han: '木', py: 'mù' },    { han: '禾', py: 'hé' },    { han: '花', py: 'huā' },
+    { han: '草', py: 'cǎo' },   { han: '树', py: 'shù' },   { han: '牛', py: 'niú' },
+    { han: '羊', py: 'yáng' },  { han: '马', py: 'mǎ' },    { han: '鸟', py: 'niǎo' },
+    { han: '鱼', py: 'yú' },    { han: '虫', py: 'chóng' },
+  ]},
+  { name: '家人称呼', theme: 4, chars: [
+    { han: '爸', py: 'bà' },    { han: '妈', py: 'mā' },    { han: '爷', py: 'yé' },
+    { han: '奶', py: 'nǎi' },   { han: '哥', py: 'gē' },    { han: '姐', py: 'jiě' },
+    { han: '弟', py: 'dì' },    { han: '妹', py: 'mèi' },   { han: '家', py: 'jiā' },
+    { han: '我', py: 'wǒ' },    { han: '你', py: 'nǐ' },
+  ]},
+  { name: '动作行为', theme: 5, chars: [
+    { han: '看', py: 'kàn' },   { han: '听', py: 'tīng' },  { han: '说', py: 'shuō' },
+    { han: '走', py: 'zǒu' },   { han: '跑', py: 'pǎo' },   { han: '跳', py: 'tiào' },
+    { han: '吃', py: 'chī' },   { han: '喝', py: 'hē' },    { han: '笑', py: 'xiào' },
+    { han: '哭', py: 'kū' },    { han: '玩', py: 'wán' },
+  ]},
+  { name: '方位与颜色', theme: 6, chars: [
+    { han: '上', py: 'shàng' }, { han: '下', py: 'xià' },   { han: '左', py: 'zuǒ' },
+    { han: '右', py: 'yòu' },   { han: '中', py: 'zhōng' }, { han: '前', py: 'qián' },
+    { han: '后', py: 'hòu' },   { han: '红', py: 'hóng' },  { han: '黄', py: 'huáng' },
+    { han: '白', py: 'bái' },   { han: '黑', py: 'hēi' },
+  ]},
+  { name: '时间与数量', theme: 7, chars: [
+    { han: '早', py: 'zǎo' },   { han: '晚', py: 'wǎn' },   { han: '年', py: 'nián' },
+    { han: '多', py: 'duō' },   { han: '少', py: 'shǎo' },  { han: '高', py: 'gāo' },
+    { han: '长', py: 'cháng' }, { han: '好', py: 'hǎo' },   { han: '开', py: 'kāi' },
+    { han: '来', py: 'lái' },   { han: '去', py: 'qù' },
+  ]},
+  { name: '生活常用', theme: 8, chars: [
+    { han: '书', py: 'shū' },   { han: '车', py: 'chē' },   { han: '门', py: 'mén' },
+    { han: '灯', py: 'dēng' },  { han: '饭', py: 'fàn' },   { han: '画', py: 'huà' },
+    { han: '衣', py: 'yī' },    { han: '床', py: 'chuáng' },{ han: '学', py: 'xué' },
+    { han: '爱', py: 'ài' },    { han: '星', py: 'xīng' },
+  ]},
+];
+const PER_LEVEL = 11;
+const TOTAL_HANZI = LEVELS.length * PER_LEVEL;   // 99
+
+/* 全字库（干扰项来源） */
+const ALL = [];
+for (const lv of LEVELS) for (const c of lv.chars) ALL.push(c);
+
+/* 每关主题配色（柔和护眼） */
+const THEMES = [
+  { bg1: '#fff4e0', bg2: '#ffe0c2', card: 'rgba(255,255,255,.9)', line: 'rgba(240,170,110,.55)', ink: '#8a5024', accent: '#ff8c42' },
+  { bg1: '#eef7ff', bg2: '#d6ecff', card: 'rgba(255,255,255,.9)', line: 'rgba(120,180,240,.5)',  ink: '#2a4a78', accent: '#3d8bff' },
+  { bg1: '#eafaf0', bg2: '#cdf0dd', card: 'rgba(255,255,255,.9)', line: 'rgba(110,200,160,.5)',  ink: '#1f5e42', accent: '#2ecc71' },
+  { bg1: '#fdf3ff', bg2: '#f0dcff', card: 'rgba(255,255,255,.9)', line: 'rgba(190,140,240,.5)',  ink: '#5b2e8a', accent: '#a06bff' },
+  { bg1: '#fff2f5', bg2: '#ffdce6', card: 'rgba(255,255,255,.9)', line: 'rgba(245,150,180,.5)',  ink: '#8a2e50', accent: '#ff6b8a' },
+  { bg1: '#fffbe6', bg2: '#fff0bf', card: 'rgba(255,255,255,.9)', line: 'rgba(235,200,90,.55)',  ink: '#7a5a10', accent: '#f0b429' },
+  { bg1: '#eefaf8', bg2: '#cdf2ec', card: 'rgba(255,255,255,.9)', line: 'rgba(100,205,195,.5)',  ink: '#1f5e5a', accent: '#2bc4b8' },
+  { bg1: '#f6f2ff', bg2: '#e2dcff', card: 'rgba(255,255,255,.9)', line: 'rgba(150,140,240,.5)',  ink: '#3a2e8a', accent: '#6b6bff' },
+  { bg1: '#fff6ee', bg2: '#ffe8d2', card: 'rgba(255,255,255,.9)', line: 'rgba(240,175,120,.55)', ink: '#8a5024', accent: '#ff9c5c' },
+];
+
+/* ---------------- 语音 ---------------- */
+const synth = window.speechSynthesis || null;
+let zhVoice = null;
+function pickVoice() {
+  if (!synth) return;
+  const vs = synth.getVoices();
+  zhVoice = vs.find(v => /zh[-_]CN/i.test(v.lang)) || vs.find(v => /^zh/i.test(v.lang)) || null;
+}
+if (synth) { pickVoice(); if (synth.onvoiceschanged !== undefined) synth.onvoiceschanged = pickVoice; }
+let lastSpeakKey = null;
+const speakKeepAlive = [];   // 持有 utterance 引用，防止被 GC 提前回收导致播报中断
+function speak(text, opts) {
+  if (muted || !synth) return;
+  try {
+    const isKey = opts && opts.key;
+    if (isKey) synth.cancel();
+    else if (synth.speaking && lastSpeakKey) return;
+    if (isKey && lastSpeakKey && lastSpeakKey.text === text) return;   // 同句播报中不重复打断
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN';
+    if (zhVoice) u.voice = zhVoice;
+    u.rate = 0.9;
+    u.onend = () => { if (lastSpeakKey === u) lastSpeakKey = null; const i = speakKeepAlive.indexOf(u); if (i >= 0) speakKeepAlive.splice(i, 1); };
+    u.onerror = u.onend;
+    speakKeepAlive.push(u);
+    if (isKey) lastSpeakKey = u;
+    synth.speak(u);
+  } catch (e) { /* 忽略 */ }
+}
+function caption(text) {
+  const el = $('caption');
+  el.style.display = 'block';
+  el.textContent = text;
+  clearTimeout(caption._t);
+  caption._t = setTimeout(() => { el.style.display = 'none'; }, 3600);
+}
+/* 读字：重复两遍更清晰（"山，山"） */
+function speakHanzi(c, suffix) {
+  const words = `${c.han}，${c.han}`;
+  speak(suffix ? `${words}。${suffix}` : words, { key: true });
+  caption(`🔈 ${c.han}（${c.py}）` + (suffix ? ' · ' + suffix : ''));
+}
+
+/* ---------------- 音效 ---------------- */
+let actx = null, muted = false;
+function initAudio() {
+  if (actx) { actx.resume && actx.resume(); return; }
+  try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+}
+function beep(freq, dur, type, vol, delay, sweepTo) {
+  if (!actx || muted) return;
+  const t0 = actx.currentTime + (delay || 0);
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type || 'sine';
+  o.frequency.setValueAtTime(freq, t0);
+  if (sweepTo) o.frequency.exponentialRampToValueAtTime(sweepTo, t0 + dur);
+  g.gain.setValueAtTime(vol || 0.15, t0);
+  g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+  o.connect(g).connect(actx.destination);
+  o.start(t0); o.stop(t0 + dur + 0.02);
+}
+const sfxTap    = () => beep(520, .07, 'sine', .12);
+const sfxRight  = () => { beep(660, .1, 'sine', .18); beep(880, .14, 'sine', .18, .1); };
+const sfxWrong  = () => beep(200, .22, 'sawtooth', .1);
+const sfxLevel  = () => { [523, 659, 784, 1047].forEach((f, i) => beep(f, .2, 'sine', .17, i * 0.11)); };
+const sfxWin    = () => { [523, 659, 784, 1047, 1319].forEach((f, i) => beep(f, .24, 'sine', .18, i * 0.13)); };
+
+/* ---------------- 状态 ---------------- */
+let level = 1;                    // 1..9
+let qIndex = 0;                   // 本关第几题 0..10
+let learnedTotal = 0;             // 已答对总数
+let streak = 0, bestStreak = 0, wrongTotal = 0;
+let target = null;                // 当前目标字
+let options = [];                 // 4 个选项
+let optionRects = [];             // 点击热区
+let picked = null;                // 选中的项（动画）
+let pickT = 0;                    // 选中动画计时
+let nextTimer = -1;               // 进入下一题延迟
+let flash = 0;                    // 答对闪光
+let shake = 0;                    // 答错抖动
+let shakeT = 0;
+let levelBanner = 0;              // 关卡横幅计时
+let confetti = [];                // 庆祝纸屑
+let particles = [];               // 答对粒子
+const $ = id => document.getElementById(id);
+
+/* 出题：目标字 + 3 个干扰项（优先同学科主题、随机其余） */
+function makeQuestion() {
+  const lv = LEVELS[level - 1];
+  target = lv.chars[qIndex % PER_LEVEL];
+  const picked4 = [target];
+  const sameLv = lv.chars.filter(c => c.han !== target.han);
+  /* 干扰项：2 个本关字 + 1 个其他关字（扩大对比） */
+  while (picked4.length < 3 && sameLv.length) {
+    const i = Math.floor(Math.random() * sameLv.length);
+    picked4.push(sameLv.splice(i, 1)[0]);
+  }
+  while (picked4.length < 4) {
+    const c = ALL[Math.floor(Math.random() * ALL.length)];
+    if (!picked4.some(x => x.han === c.han)) picked4.push(c);
+  }
+  /* 打乱 */
+  for (let i = picked4.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [picked4[i], picked4[j]] = [picked4[j], picked4[i]];
+  }
+  options = picked4;
+  picked = null; pickT = 0;
+  updateHUD();
+  speakHanzi(target);
+}
+
+/* 点击选项 */
+function pickOption(idx) {
+  if (state !== STATE.RUNNING || picked !== null || nextTimer > 0) return;
+  const c = options[idx];
+  picked = idx; pickT = 0;
+  if (c.han === target.han) {
+    /* 答对 */
+    streak++;
+    if (streak > bestStreak) bestStreak = streak;
+    learnedTotal++;
+    qIndex++;
+    sfxRight();
+    flash = 0.5;
+    spawnParticles();
+    showToast('对啦！', true);
+    updateHUD();
+    if (qIndex >= PER_LEVEL) {
+      /* 本关完成 */
+      if (level >= LEVELS.length) {
+        nextTimer = 1.1;
+      } else {
+        nextTimer = 1.1;
+      }
+    } else {
+      nextTimer = 0.85;
+    }
+    speak(`${c.han}，答对啦！`, { key: false });
+  } else {
+    /* 答错：无惩罚，播报正确读音 */
+    wrongTotal++;
+    streak = 0;
+    sfxWrong();
+    shake = 0.4; shakeT = 0;
+    showToast(`${c.han} 是 ${c.py}`, false);
+    speakHanzi(target, `要找的是 ${target.han}`);
+    updateHUD();
+    nextTimer = -1;
+    /* 0.9 秒后允许重选（保留 picked 动画但不推进题号） */
+    setTimeout(() => { if (state === STATE.RUNNING) { picked = null; } }, 700);
+  }
+}
+
+function showToast(text, good) {
+  const el = $('toast');
+  el.textContent = text;
+  el.style.color = good ? '#2ecc71' : '#ff6b6b';
+  el.classList.add('pop');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => el.classList.remove('pop'), 1000);
+}
+function spawnParticles() {
+  for (let i = 0; i < 18; i++) {
+    particles.push({
+      x: W / 2, y: H * 0.42,
+      vx: (Math.random() - 0.5) * 520,
+      vy: (Math.random() - 0.9) * 420,
+      r: 4 + Math.random() * 7,
+      life: 0.9 + Math.random() * 0.5,
+      color: ['#ffd35c', '#7dffa1', '#6bd5ff', '#ff8fab', '#a78bfa'][i % 5],
+    });
+  }
+}
+function spawnConfetti() {
+  for (let i = 0; i < 90; i++) {
+    confetti.push({
+      x: Math.random() * W, y: -20 - Math.random() * 300,
+      vx: (Math.random() - 0.5) * 90,
+      vy: 90 + Math.random() * 190,
+      w: 7 + Math.random() * 9, h: 10 + Math.random() * 12,
+      rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 7,
+      color: ['#ffd35c', '#7dffa1', '#6bd5ff', '#ff8fab', '#a78bfa', '#ff8c42'][i % 6],
+    });
+  }
+  if (confetti.length > 220) confetti.splice(0, confetti.length - 220);
+}
+
+function updateHUD() {
+  $('hudLevel').textContent = level;
+  $('hudProgress').textContent = Math.min(qIndex, PER_LEVEL);
+  $('hudTotal').textContent = learnedTotal;
+}
+
+/* ---------------- 更新 ---------------- */
+function update(dt, t) {
+  if (pickT > 0 || picked !== null) pickT += dt;
+  if (nextTimer > 0) {
+    nextTimer -= dt;
+    if (nextTimer <= 0) {
+      nextTimer = -1;
+      if (qIndex >= PER_LEVEL) {
+        /* 过关 */
+        if (level >= LEVELS.length) {
+          showResult();
+        } else {
+          level++;
+          qIndex = 0;
+          levelBanner = 2.6;
+          sfxLevel();
+          spawnConfetti();
+          makeQuestion();
+          speak(`第${level}关，${LEVELS[level - 1].name}！继续加油`, { key: true });
+        }
+      } else {
+        makeQuestion();
+      }
+    }
+  }
+  if (flash > 0) flash = Math.max(0, flash - dt * 2);
+  if (shake > 0) { shake = Math.max(0, shake - dt * 1.8); shakeT += dt; }
+  if (levelBanner > 0) levelBanner = Math.max(0, levelBanner - dt);
+  /* 粒子 */
+  for (const p of particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 900 * dt; p.life -= dt; }
+  particles = particles.filter(p => p.life > 0);
+  for (const c of confetti) { c.x += c.vx * dt; c.y += c.vy * dt; c.rot += c.vr * dt; if (c.y > H + 40) c.y = -30; }
+}
+
+/* ---------------- 绘制 ---------------- */
+function roundRect(x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function drawScene(t) {
+  const th = THEMES[LEVELS[level - 1].theme];
+  /* 背景渐变 */
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, th.bg1);
+  bg.addColorStop(1, th.bg2);
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  /* 漂浮的淡色汉字装饰（背景氛围） */
+  ctx.save();
+  ctx.globalAlpha = 0.07;
+  ctx.fillStyle = th.ink;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const lv = LEVELS[level - 1];
+  for (let i = 0; i < 7; i++) {
+    const c = lv.chars[i % lv.chars.length];
+    const px = ((i * 197 + t * 12) % (W + 200)) - 100;
+    const py = H * (0.12 + ((i * 0.13) % 0.8)) + Math.sin(t * 1.2 + i) * 14;
+    ctx.font = `bold ${90 + (i % 3) * 30}px "PingFang SC", "Microsoft YaHei", system-ui, sans-serif`;
+    ctx.fillText(c.han, px, py);
+  }
+  ctx.restore();
+
+  /* 答对全屏暖闪 */
+  if (flash > 0) {
+    ctx.fillStyle = `rgba(255,255,255,${flash * 0.5})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  /* ---- 题干区 ---- */
+  const cardW = Math.min(W - 40, 760);
+  const cardX = (W - cardW) / 2;
+  const cardY = 96;
+  ctx.save();
+  if (shake > 0) {
+    ctx.translate(Math.sin(shakeT * 60) * shake * 14, 0);
+  }
+  ctx.fillStyle = th.card;
+  roundRect(cardX, cardY, cardW, 132, 24);
+  ctx.fill();
+  ctx.strokeStyle = th.line;
+  ctx.lineWidth = 3;
+  roundRect(cardX, cardY, cardW, 132, 24);
+  ctx.stroke();
+
+  /* 喇叭图标 */
+  ctx.fillStyle = th.accent;
+  ctx.font = `${38}px system-ui, sans-serif`;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText('🔈', cardX + 26, cardY + 66);
+  /* 提示文字 */
+  ctx.fillStyle = th.ink;
+  ctx.font = `bold ${Math.min(30, W * 0.036)}px "PingFang SC", system-ui, sans-serif`;
+  ctx.textAlign = 'left';
+  ctx.fillText('听一听，找出这个字', cardX + 82, cardY + 52);
+  ctx.font = `600 ${Math.min(21, W * 0.026)}px "PingFang SC", system-ui, sans-serif`;
+  ctx.fillStyle = th.accent;
+  ctx.fillText(`拼音 ${target ? target.py : ''}`, cardX + 82, cardY + 92);
+  /* 关卡名（右） */
+  ctx.textAlign = 'right';
+  ctx.fillStyle = th.ink;
+  ctx.globalAlpha = 0.65;
+  ctx.font = `bold ${Math.min(22, W * 0.026)}px "PingFang SC", system-ui, sans-serif`;
+  ctx.fillText(`第 ${level} 关 · ${LEVELS[level - 1].name}`, cardX + cardW - 26, cardY + 52);
+  ctx.globalAlpha = 0.45;
+  ctx.font = `600 ${Math.min(18, W * 0.022)}px "PingFang SC", system-ui, sans-serif`;
+  ctx.fillText(`本关 ${Math.min(qIndex, PER_LEVEL)} / ${PER_LEVEL}`, cardX + cardW - 26, cardY + 92);
+  ctx.globalAlpha = 1;
+  ctx.restore();
+
+  /* ---- 四选一按钮 ---- */
+  const n = options.length;
+  const cols = W < 620 ? 2 : 4;
+  const rows = Math.ceil(n / cols);
+  const gapX = 22, gapY = 24;
+  const btnW = Math.min(200, (cardW - gapX * (cols - 1)) / cols);
+  const btnH = Math.min(190, Math.max(110, H * 0.22));
+  const gridW = btnW * cols + gapX * (cols - 1);
+  const gridX = (W - gridW) / 2;
+  const gridY = cardY + 132 + Math.max(30, H * 0.05);
+
+  optionRects = [];
+  options.forEach((c, i) => {
+    const col = i % cols, row = Math.floor(i / cols);
+    const bx = gridX + col * (btnW + gapX);
+    const by = gridY + row * (btnH + gapY);
+    optionRects.push({ x: bx, y: by, w: btnW, h: btnH, idx: i });
+
+    const isPicked = picked === i;
+    const isRight = isPicked && c.han === target.han;
+    const isWrong = isPicked && c.han !== target.han;
+
+    /* 卡片 */
+    ctx.save();
+    if (isPicked) {
+      const k = Math.min(1, pickT * 5);
+      ctx.translate(bx + btnW / 2, by + btnH / 2);
+      ctx.scale(1 + k * 0.06, 1 + k * 0.06);
+      ctx.translate(-(bx + btnW / 2), -(by + btnH / 2));
+    }
+    ctx.fillStyle = isRight ? 'rgba(125,255,161,.95)' : isWrong ? 'rgba(255,180,180,.95)' : th.card;
+    roundRect(bx, by, btnW, btnH, 22);
+    ctx.fill();
+    ctx.strokeStyle = isRight ? '#2ecc71' : isWrong ? '#ff6b6b' : th.line;
+    ctx.lineWidth = isRight || isWrong ? 5 : 3;
+    roundRect(bx, by, btnW, btnH, 22);
+    ctx.stroke();
+
+    /* 汉字 */
+    ctx.fillStyle = isRight ? '#06340f' : isWrong ? '#8a1f1f' : th.ink;
+    ctx.font = `bold ${Math.min(btnH * 0.52, btnW * 0.58)}px "PingFang SC", "Microsoft YaHei", system-ui, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(c.han, bx + btnW / 2, by + btnH * 0.44);
+    /* 拼音（小字） */
+    ctx.globalAlpha = 0.55;
+    ctx.font = `600 ${Math.min(20, btnW * 0.13)}px system-ui, sans-serif`;
+    ctx.fillText(c.py, bx + btnW / 2, by + btnH * 0.82);
+    ctx.globalAlpha = 1;
+    /* 对错标记 */
+    if (isRight) {
+      ctx.fillStyle = '#2ecc71';
+      ctx.font = `bold ${Math.min(40, btnW * 0.24)}px system-ui, sans-serif`;
+      ctx.fillText('✓', bx + btnW - 24, by + 26);
+    } else if (isWrong) {
+      ctx.fillStyle = '#ff6b6b';
+      ctx.font = `bold ${Math.min(40, btnW * 0.24)}px system-ui, sans-serif`;
+      ctx.fillText('✗', bx + btnW - 24, by + 26);
+    }
+    ctx.restore();
+  });
+
+  /* ---- 关卡横幅 ---- */
+  if (levelBanner > 0) {
+    const a = Math.min(1, levelBanner / 0.5);
+    ctx.save();
+    ctx.globalAlpha = a * 0.94;
+    const bw = Math.min(W - 60, 560), bh = 110;
+    ctx.fillStyle = '#ffffff';
+    roundRect((W - bw) / 2, H * 0.34, bw, bh, 26);
+    ctx.fill();
+    ctx.strokeStyle = th.accent;
+    ctx.lineWidth = 4;
+    roundRect((W - bw) / 2, H * 0.34, bw, bh, 26);
+    ctx.stroke();
+    ctx.fillStyle = th.accent;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `bold ${Math.min(40, W * 0.05)}px "PingFang SC", system-ui, sans-serif`;
+    ctx.fillText(`第 ${level} 关 · ${LEVELS[level - 1].name}`, W / 2, H * 0.34 + bh / 2);
+    ctx.restore();
+  }
+
+  /* ---- 粒子 ---- */
+  for (const p of particles) {
+    ctx.globalAlpha = Math.max(0, Math.min(1, p.life));
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  /* ---- 纸屑 ---- */
+  for (const c of confetti) {
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.rotate(c.rot);
+    ctx.fillStyle = c.color;
+    ctx.fillRect(-c.w / 2, -c.h / 2, c.w, c.h);
+    ctx.restore();
+  }
+
+  /* ---- 底部进度条 ---- */
+  drawProgressBar(th);
+}
+
+function drawProgressBar(th) {
+  const bw = Math.min(W - 60, 620), bx = (W - bw) / 2, by = H - 42;
+  ctx.fillStyle = 'rgba(255,255,255,.6)';
+  roundRect(bx, by, bw, 14, 7); ctx.fill();
+  const done = qIndex / PER_LEVEL;
+  if (done > 0) {
+    const g = ctx.createLinearGradient(bx, 0, bx + bw, 0);
+    g.addColorStop(0, th.accent);
+    g.addColorStop(1, '#7dffa1');
+    ctx.fillStyle = g;
+    roundRect(bx, by, bw * done, 14, 7); ctx.fill();
+  }
+  ctx.fillStyle = th.ink;
+  ctx.globalAlpha = 0.7;
+  ctx.font = 'bold 15px system-ui, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(`已学会 ${learnedTotal} / ${TOTAL_HANZI} 个常用汉字`, W / 2, by - 16);
+  ctx.globalAlpha = 1;
+}
+
+function render(t) {
+  drawScene(t);
+}
+
+/* ---------------- 主循环 ---------------- */
+let lastT = 0;
+function frame(now) {
+  const dt = Math.min(0.05, lastT === 0 ? 0.016 : (now - lastT) / 1000);
+  lastT = now;
+  if (state === STATE.RUNNING) update(dt, now / 1000);
+  render(now / 1000);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ---------------- 点击 ---------------- */
+function ptFromEvent(e) {
+  const r = canvas.getBoundingClientRect();
+  return { x: (e.clientX - r.left) * (W / r.width), y: (e.clientY - r.top) * (H / r.height) };
+}
+canvas.addEventListener('pointerdown', e => {
+  if (state !== STATE.RUNNING) return;
+  const p = ptFromEvent(e);
+  /* 再听一次：点题干卡片的喇叭区 */
+  for (const r of optionRects) {
+    if (p.x >= r.x - 6 && p.x <= r.x + r.w + 6 && p.y >= r.y - 6 && p.y <= r.y + r.h + 6) {
+      pickOption(r.idx);
+      return;
+    }
+  }
+  const cardW = Math.min(W - 40, 760), cardX = (W - cardW) / 2, cardY = 96;
+  if (p.y >= cardY && p.y <= cardY + 132 && p.x >= cardX && p.x <= cardX + cardW) {
+    sfxTap();
+    speakHanzi(target);   // 再听一次
+  }
+});
+
+/* 键盘 1-4 选择 */
+window.addEventListener('keydown', e => {
+  if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === 'Enter' || e.key === ' ') {
+    if (state === STATE.START) { e.preventDefault(); $('btnStart').click(); return; }
+    if (state === STATE.FINISH) { e.preventDefault(); $('btnRestart').click(); return; }
+  }
+  if (state !== STATE.RUNNING) return;
+  if (e.key >= '1' && e.key <= '4') { e.preventDefault(); pickOption(parseInt(e.key, 10) - 1); return; }
+  if (e.key === 'r' || e.key === 'R') { e.preventDefault(); speakHanzi(target); }
+});
+
+/* ---------------- 开始 / 结束 ---------------- */
+$('btnStart').addEventListener('click', () => {
+  initAudio();
+  $('start').style.display = 'none';
+  resetGame();
+  state = STATE.RUNNING;
+  levelBanner = 2.6;
+  speak('汉字闯关开始！听一听，找出这个字', { key: true });
+});
+$('btnRestart').addEventListener('click', () => {
+  $('result').classList.remove('show');
+  resetGame();
+  state = STATE.RUNNING;
+  levelBanner = 2.6;
+});
+function resetGame() {
+  level = 1; qIndex = 0; learnedTotal = 0;
+  streak = 0; bestStreak = 0; wrongTotal = 0;
+  particles = []; confetti = []; flash = 0; shake = 0;
+  picked = null; pickT = 0; nextTimer = -1;
+  $('caption').style.display = 'none';
+  makeQuestion();
+}
+function showResult() {
+  let title, medal;
+  if (wrongTotal <= 3)      { title = '🏆 汉字小达人！'; medal = '几乎全对'; }
+  else if (wrongTotal <= 15) { title = '🎉 全部通关！';   medal = '表现很棒'; }
+  else                       { title = '🎉 全部通关！';   medal = '继续加油'; }
+  $('resultTitle').textContent = title;
+  $('resultDesc').innerHTML =
+    `学会 <b style="color:#0d5c0d">99</b> 个常用汉字（9 关全部完成）<br>` +
+    `最佳连对 <b style="color:#0d5c0d">${bestStreak}</b> 字 · 答错 <b style="color:#c22">${wrongTotal}</b> 次 · ${medal}<br>` +
+    `常用字都会认啦，真棒！`;
+  $('result').classList.add('show');
+  state = STATE.FINISH;
+  sfxWin();
+  spawnConfetti();
+  speak(`全部通关啦！你学会了 99 个常用汉字，最佳连对 ${bestStreak} 个字`, { key: true });
+}
+
+/* ---------------- 主页确认 ---------------- */
+$('btnHome').addEventListener('click', () => $('homeConfirm').classList.add('show'));
+$('hcCancel').addEventListener('click', () => $('homeConfirm').classList.remove('show'));
+$('hcOk').addEventListener('click', () => { location.href = '../index.html'; });
+
+/* ---------------- 静音 ---------------- */
+$('btnMute').addEventListener('click', () => {
+  muted = !muted;
+  $('btnMute').textContent = muted ? '🔇' : '🔊';
+  if (muted && synth) synth.cancel();
+});
+
+/* ---------------- 测试钩子 ---------------- */
+window.__testOptions = () => options.map((c, i) => ({ idx: i, han: c.han, py: c.py }));
+window.__testTarget = () => target ? { han: target.han, py: target.py } : null;
+window.__testPick = i => { pickOption(i); };
+window.__testState = () => ({ state, level, qIndex, learnedTotal, streak, bestStreak, wrong: wrongTotal });
+window.__testAllChars = () => ALL.map(c => c.han);
+</script>
+</body>
+</html>

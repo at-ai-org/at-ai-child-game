@@ -179,7 +179,7 @@
 
 <!-- HUD -->
 <div class="hud">
-  <div class="hud-chip">第 <b id="hudLevel">1</b> / 4 关</div>
+  <div class="hud-chip">第 <b id="hudLevel">1</b> / <b id="hudTotalLevel">9</b> 关</div>
   <div class="hud-chip">已拼 <b id="hudPlaced">0</b> / 7</div>
   <div class="hud-chip">连对 <b id="hudStreak">0</b> 🔥</div>
 </div>
@@ -203,10 +203,10 @@
 <div id="start">
   <h1>七巧板</h1>
   <p class="rules">
-    七块彩色小拼板，拼出可爱的小猫、房子、小船和火箭！<br>
+    七块彩色小拼板，拼出小猫、房子、小船、火箭、小鱼、蜡烛、风车、天平和皇冠！<br>
     点击选中一块拼板，再点击左边的影子轮廓把它放进去：<br>
     放错了也没关系，换个位置再试试；选中的拼板还可以点 <b>「旋转」</b> 变换方向<br>
-    全部 7 块拼好，就完成一关！
+    9 大关卡，块数越来越多，全部拼好就通关！
   </p>
   <button id="btnStart">开始拼图</button>
 </div>
@@ -238,8 +238,8 @@ resize();
 
 /* ---------------- 常量 ---------------- */
 const STATE = { START: 0, RUNNING: 1, FINISH: 2 };
-const LEVEL_TARGET = 4;          // 4 关结算
-const SNAP_DIST = 30;           // 吸附距离阈值（px）
+const LEVEL_TARGET = 9;          // 9 关结算
+const SNAP_DIST = 60;           // 吸附距离阈值（px，儿童宽容）
 const SLOT_DONE_T = 0.5;        // 槽位落位动画时长（秒）
 const WIN_T = 2.4;              // 过关庆祝时长（秒）
 
@@ -252,8 +252,13 @@ const PIECE_DEFS = [
   { name: '小三角', color: '#a78bfa', pts: [[-1, -1], [1, -1], [-1, 1]] },
   { name: '小三角', color: '#4ade80', pts: [[-1, -1], [1, -1], [-1, 1]] },
   { name: '正方形', color: '#ff5c8a', pts: [[-1, -1], [1, -1], [1, 1], [-1, 1]] },
-  { name: '平四边', color: '#5eead4', pts: [[-0.5, -1], [0.5, -1], [1, 1], [0, 1]] },
+  { name: '平四边', color: '#5eead4', pts: [[-2, -2], [0, -2], [2, 0], [0, 0]] },
 ];
+/* 标准七巧板尺寸系数（以大三角腿=2 为基准，面积比 4:4:2:1:1:2:2）
+   大三角 1.0(腿2)、中三角 0.7071(腿√2)、小三角 0.5(腿1)、正方形 0.5(边1)、平四边 0.5 */
+const PIECE_SIZE_K = [1, 1, 0.70710678, 0.5, 0.5, 0.5, 0.5];
+/* 某块的实际尺寸（unit 的倍数） */
+function pieceSizeOf(def) { return PIECE_SIZE_K[def] * unit; }
 
 /* 每关布局：槽位（拼块索引、位置、旋转）、底图装饰绘制函数、关卡语音 */
 const LEVELS = [
@@ -275,12 +280,51 @@ const LEVELS = [
       { p: 1, x: 0.14, y: 0.18, r: 0 },
     ],
     deco: drawBoatDeco },
-  { name: '火箭', greeting: '最后拼一枚升空的火箭！',
-    pieces: [0, 6], slots: [
+  { name: '火箭', greeting: '拼一枚升空的火箭！',
+    pieces: [0, 6, 3], slots: [
       { p: 0, x: 0, y: -0.22, r: 0 },
       { p: 6, x: 0, y: 0.20, r: 0 },
+      { p: 3, x: 0.30, y: -0.30, r: 0 },
     ],
     deco: drawRocketDeco },
+  { name: '小鱼', greeting: '拼一条吐泡泡的小鱼！',
+    pieces: [0, 1, 3], slots: [
+      { p: 0, x: -0.10, y: 0, r: 0 },
+      { p: 1, x: 0.22, y: 0.10, r: 0 },
+      { p: 3, x: -0.38, y: -0.26, r: 0 },
+    ],
+    deco: drawFishDeco },
+  { name: '蜡烛', greeting: '拼一支亮亮的蜡烛！',
+    pieces: [5, 3, 4], slots: [
+      { p: 5, x: 0, y: 0.10, r: 0 },
+      { p: 3, x: -0.10, y: -0.28, r: 0 },
+      { p: 4, x: 0.10, y: -0.28, r: 0 },
+    ],
+    deco: drawCandleDeco },
+  { name: '风车', greeting: '拼一座转呀转的风车！',
+    pieces: [2, 0, 1, 3], slots: [
+      { p: 2, x: 0, y: 0, r: 0 },
+      { p: 0, x: -0.28, y: -0.24, r: 0 },
+      { p: 1, x: 0.28, y: 0.24, r: 0 },
+      { p: 3, x: 0.30, y: -0.28, r: 0 },
+    ],
+    deco: drawWindmillDeco },
+  { name: '天平', greeting: '拼一台公平的天平！',
+    pieces: [6, 5, 3, 4], slots: [
+      { p: 6, x: 0, y: 0, r: 0 },
+      { p: 5, x: 0, y: 0.26, r: 0 },
+      { p: 3, x: -0.32, y: -0.20, r: 0 },
+      { p: 4, x: 0.32, y: -0.20, r: 0 },
+    ],
+    deco: drawScaleDeco },
+  { name: '皇冠', greeting: '最后拼一顶闪亮的皇冠！',
+    pieces: [0, 1, 5, 2], slots: [
+      { p: 0, x: -0.26, y: -0.14, r: 0 },
+      { p: 1, x: 0.26, y: -0.14, r: 0 },
+      { p: 5, x: 0, y: 0.16, r: 0 },
+      { p: 2, x: 0, y: -0.30, r: 0 },
+    ],
+    deco: drawCrownDeco },
 ];
 
 /* ---------------- 状态 ---------------- */
@@ -492,6 +536,128 @@ function drawRocketDeco(g, cx, cy, s) {
     g.fill();
   }
 }
+function drawFishDeco(g, cx, cy, s) {
+  /* 眼睛 + 嘴 */
+  g.fillStyle = '#2c2418';
+  g.beginPath(); g.arc(cx + s * 0.10, cy - s * 0.10, s * 0.045, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = '#2c2418';
+  g.lineWidth = Math.max(1.5, s * 0.015);
+  g.beginPath();
+  g.arc(cx - s * 0.02, cy + s * 0.06, s * 0.06, 0.2, Math.PI - 0.2);
+  g.stroke();
+  /* 吐泡泡 */
+  g.strokeStyle = 'rgba(180, 222, 255, .7)';
+  g.lineWidth = 2;
+  for (const [bx, by, br] of [[-0.5, -0.45, 0.04], [-0.58, -0.6, 0.055], [-0.52, -0.76, 0.035]]) {
+    g.beginPath();
+    g.arc(cx + bx * s, cy + by * s, br * s, 0, Math.PI * 2);
+    g.stroke();
+  }
+  /* 水草 */
+  g.strokeStyle = 'rgba(90, 190, 120, .55)';
+  g.lineWidth = Math.max(2, s * 0.02);
+  g.beginPath();
+  for (let i = 0; i < 3; i++) {
+    const wx = cx + s * (-0.85 + i * 0.12);
+    g.moveTo(wx, cy + s * 0.95);
+    g.quadraticCurveTo(wx + s * 0.08, cy + s * 0.7, wx, cy + s * 0.5);
+  }
+  g.stroke();
+}
+function drawCandleDeco(g, cx, cy, s) {
+  /* 烛光光晕 */
+  const glow = g.createRadialGradient(cx, cy - s * 0.55, s * 0.02, cx, cy - s * 0.55, s * 0.5);
+  glow.addColorStop(0, 'rgba(255, 220, 120, .5)');
+  glow.addColorStop(1, 'rgba(255, 220, 120, 0)');
+  g.fillStyle = glow;
+  g.beginPath(); g.arc(cx, cy - s * 0.55, s * 0.5, 0, Math.PI * 2); g.fill();
+  /* 火苗 */
+  g.fillStyle = '#ffb347';
+  g.beginPath();
+  g.moveTo(cx, cy - s * 0.85);
+  g.quadraticCurveTo(cx + s * 0.09, cy - s * 0.62, cx, cy - s * 0.5);
+  g.quadraticCurveTo(cx - s * 0.09, cy - s * 0.62, cx, cy - s * 0.85);
+  g.closePath(); g.fill();
+  g.fillStyle = '#fff3b0';
+  g.beginPath();
+  g.moveTo(cx, cy - s * 0.74);
+  g.quadraticCurveTo(cx + s * 0.05, cy - s * 0.6, cx, cy - s * 0.53);
+  g.quadraticCurveTo(cx - s * 0.05, cy - s * 0.6, cx, cy - s * 0.74);
+  g.closePath(); g.fill();
+  /* 烛泪 */
+  g.strokeStyle = 'rgba(255, 235, 200, .6)';
+  g.lineWidth = 2;
+  g.beginPath();
+  g.moveTo(cx - s * 0.18, cy + s * 0.05);
+  g.quadraticCurveTo(cx - s * 0.2, cy + s * 0.2, cx - s * 0.17, cy + s * 0.32);
+  g.stroke();
+}
+function drawWindmillDeco(g, cx, cy, s) {
+  /* 风车杆 */
+  g.strokeStyle = 'rgba(120, 90, 60, .8)';
+  g.lineWidth = Math.max(3, s * 0.04);
+  g.beginPath();
+  g.moveTo(cx, cy + s * 0.1);
+  g.lineTo(cx, cy + s * 1.0);
+  g.stroke();
+  /* 地面草 */
+  g.strokeStyle = 'rgba(110, 200, 120, .6)';
+  g.lineWidth = 2;
+  g.beginPath();
+  for (let i = -3; i <= 3; i++) {
+    g.moveTo(cx + i * s * 0.18, cy + s * 1.0);
+    g.lineTo(cx + i * s * 0.18 + s * 0.05, cy + s * 0.88);
+  }
+  g.stroke();
+  /* 小云 */
+  g.fillStyle = 'rgba(255,255,255,.35)';
+  g.beginPath(); g.ellipse(cx - s * 0.8, cy - s * 0.7, s * 0.22, s * 0.09, 0, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.ellipse(cx + s * 0.75, cy - s * 0.55, s * 0.18, s * 0.08, 0, 0, Math.PI * 2); g.fill();
+}
+function drawScaleDeco(g, cx, cy, s) {
+  /* 天平底座 */
+  g.fillStyle = 'rgba(120, 90, 60, .8)';
+  g.beginPath();
+  g.moveTo(cx - s * 0.5, cy + s * 0.95);
+  g.lineTo(cx + s * 0.5, cy + s * 0.95);
+  g.lineTo(cx + s * 0.35, cy + s * 0.85);
+  g.lineTo(cx - s * 0.35, cy + s * 0.85);
+  g.closePath();
+  g.fill();
+  /* 秤盘吊线 */
+  g.strokeStyle = 'rgba(200, 180, 140, .7)';
+  g.lineWidth = 2;
+  g.beginPath();
+  g.moveTo(cx - s * 0.42, cy - s * 0.28); g.lineTo(cx - s * 0.52, cy + s * 0.28);
+  g.moveTo(cx - s * 0.42, cy - s * 0.28); g.lineTo(cx - s * 0.32, cy + s * 0.28);
+  g.moveTo(cx + s * 0.42, cy - s * 0.28); g.lineTo(cx + s * 0.52, cy + s * 0.28);
+  g.moveTo(cx + s * 0.42, cy - s * 0.28); g.lineTo(cx + s * 0.32, cy + s * 0.28);
+  g.stroke();
+  /* 秤盘弧 */
+  g.strokeStyle = 'rgba(200, 180, 140, .8)';
+  g.lineWidth = 3;
+  g.beginPath(); g.arc(cx - s * 0.42, cy + s * 0.28, s * 0.11, 0, Math.PI); g.stroke();
+  g.beginPath(); g.arc(cx + s * 0.42, cy + s * 0.28, s * 0.11, 0, Math.PI); g.stroke();
+}
+function drawCrownDeco(g, cx, cy, s) {
+  /* 皇冠宝石 */
+  g.fillStyle = '#e84a6f';
+  g.beginPath(); g.arc(cx, cy + s * 0.18, s * 0.05, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#4fc3f7';
+  g.beginPath(); g.arc(cx - s * 0.16, cy + s * 0.18, s * 0.04, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#ffd35c';
+  g.beginPath(); g.arc(cx + s * 0.16, cy + s * 0.18, s * 0.04, 0, Math.PI * 2); g.fill();
+  /* 闪光 */
+  g.strokeStyle = 'rgba(255, 240, 170, .8)';
+  g.lineWidth = 2;
+  for (const [fx, fy] of [[-0.7, -0.6], [0.68, -0.55], [-0.55, 0.5], [0.6, 0.55]]) {
+    const fx2 = cx + fx * s, fy2 = cy + fy * s, L = s * 0.05;
+    g.beginPath();
+    g.moveTo(fx2 - L, fy2); g.lineTo(fx2 + L, fy2);
+    g.moveTo(fx2, fy2 - L); g.lineTo(fx2, fy2 + L);
+    g.stroke();
+  }
+}
 
 /* ---------------- 工具 ---------------- */
 function makeRotate(r) { return Math.PI / 2 * r; }
@@ -541,13 +707,34 @@ function dist(x1, y1, x2, y2) { return Math.hypot(x2 - x1, y2 - y1); }
 
 /* ---------------- 关卡构建 ---------------- */
 function layoutPositions() {
-  /* 左侧目标轮廓区 / 右侧拼块托盘区（按窗口大小自适应） */
-  boardCX = Math.min(W * 0.32, W / 2 - H * 0.36);
-  boardCY = H * 0.52;
-  unit = Math.min(H * 0.30, W * 0.15);
-  unit = Math.min(H * 0.30, W * 0.16);
-  trayX = Math.max(W * 0.5 + H * 0.22, W * 0.62);
-  trayY = H * 0.50;
+  /* 横屏：左轮廓 / 右托盘；竖屏（W < H）：上轮廓 / 下托盘，全部收进屏内 */
+  if (W >= H) {
+    /* 先定两区中心，再反推 unit 上限，保证底板/拼块不出屏 */
+    boardCY = H * 0.52;
+    trayY = H * 0.50;
+    /* 联立求解：unit*2.6(底板半宽) + unit*1.2(网格半宽) <= trayX - boardCX <= W*0.74 - ... */
+    const span = Math.min(W * 0.74, W / 2 + H * 0.28) - Math.max(W * 0.26, W / 2 - H * 0.28);
+    unit = Math.min(H * 0.30, W * 0.16, span / 6.4);
+    boardCX = Math.max(W * 0.26, W / 2 - H * 0.28);
+    trayX = boardCX + unit * 2.6 + unit * 1.2 + Math.max(20, W * 0.03);
+    const u0 = Math.min(H * 0.30, W * 0.16);
+    const u1 = boardCX / 2.6;                        // 底板不出左边界
+    const u2 = (W - trayX) / 2.6;                    // 托盘拼块不出右边界
+    const u3 = (trayX - boardCX) / 4.4;              // 两区不重叠
+    const u4 = (trayX - boardCX - unit * 2.6 - unit * 2.0) >= 0 ? unit : 0;  // 托盘网格不压底板
+    unit = Math.min(u0, u1, u2, u3);
+  } else {
+    /* 竖屏：轮廓上半区、托盘下半区 */
+    boardCX = W * 0.5;
+    boardCY = H * 0.30;
+    trayX = W * 0.5;
+    trayY = H * 0.72;
+    const u0 = Math.min(W * 0.30, H * 0.13);
+    const u1 = W * 0.46 / 2.6;                       // 底板不出左右边界
+    const u2 = (trayY - boardCY) / 4.4;              // 上下不重叠
+    const u3 = (H - trayY) / 2.2;                    // 托盘拼块不出下边界
+    unit = Math.min(u0, u1, u2, u3);
+  }
 }
 let boardCX = 0, boardCY = 0, unit = 40, trayX = 0, trayY = 0;
 function buildLevel(idx) {
@@ -573,14 +760,19 @@ function buildLevel(idx) {
     });
   });
   def.pieces.forEach((pIdx, i) => {
-    const angs = [(-72 + i * 35) * Math.PI / 180, (i * 53 - 24) * Math.PI / 180];
-    const rr = unit * (1.5 + (i % 3) * 0.42);
+    /* 托盘网格摆放：2 列，间距保证块不重叠、不误触邻块 */
+    const col = i % 2, row = Math.floor(i / 2);
+    const size = PIECE_SIZE_K[pIdx] * unit;
+    const gapX = Math.max(unit * 1.5, size * 1.4);
+    const gapY = Math.max(unit * 1.2, size * 1.1);
+    const px = trayX + (col - 0.5) * gapX;
+    const py = trayY + (row - (def.pieces.length - 1) / 2) * gapY;
     pieces.push({
       def: pIdx,
       trayIndex: i,
-      x: trayX + Math.cos(angs[0]) * rr,
-      y: trayY + Math.sin(angs[1]) * rr,
-      size: (pIdx === 2 ? 0.707 : 1) * unit,
+      x: Math.max(size * 0.6, Math.min(W - size * 0.6, px)),
+      y: Math.max(size * 0.6, Math.min(H - size * 0.6, py)),
+      size,
       slotSize: 0,                 /* 占位，resolveSlot 时按面积相容计算 */
       rot: 0,
       placedSlot: -1,
@@ -597,8 +789,9 @@ function resolveSlotSizes() {
   const areaTol = 0.15;
   for (const sl of slots) {
     if (sl.piece === undefined) continue;
-    /* 槽位基础尺寸 = unit（与大三角一致），不同拼块按面积缩放 */
-    const slotPiece = { def: sl.piece, x: sl.x, y: sl.y, size: unit };
+    /* 槽位尺寸 = 该块自身的标准尺寸 */
+    const sSize = pieceSizeOf(sl.piece);
+    const slotPiece = { def: sl.piece, x: sl.x, y: sl.y, size: sSize };
     const base = polygonArea(piecePoints(slotPiece, false));
     for (const pc of pieces) {
       if (pc.placedSlot >= 0) continue;
@@ -606,8 +799,7 @@ function resolveSlotSizes() {
       if (!defsEq) continue;
       const pcArea = polygonArea(piecePoints(pc, false));
       if (Math.abs(pcArea - base) <= base * areaTol) {
-        /* 尺寸已建时确保 slotSize 合适 */
-        pc.slotSize = unit;
+        pc.slotSize = pieceSizeOf(pc.def);
         break;
       }
     }
@@ -617,6 +809,7 @@ function resolveSlotSizes() {
 /* ---------------- HUD / 反馈 ---------------- */
 function updateHUD() {
   $('hudLevel').textContent = level + 1;
+  if ($('hudTotalLevel')) $('hudTotalLevel').textContent = LEVELS.length;
   $('hudPlaced').textContent = placedCount;
   $('hudStreak').textContent = streak;
 }
@@ -631,12 +824,22 @@ function toast(text, good) {
 
 /* ---------------- 交互 ---------------- */
 function pieceAt(px, py) {
-  /* 从最上层（后画的）往下找：遍历反序 */
+  /* 命中多块重叠时取中心最近者；命中判定含 8px 容差（儿童友好） */
+  let best = -1, bestD = 1e9;
   for (let i = pieces.length - 1; i >= 0; i--) {
+    const pc = pieces[i];
     const poly = rotatedPoly(i, 1);
-    if (pointInPolygon(px, py, poly)) return i;
+    const c = pieceCentroid(pc, false);
+    const dCentroid = dist(px, py, c.x, c.y);
+    /* 快速拒绝：离质心超过外接半径 + 容差 */
+    let outer = 0;
+    for (const p of poly) outer = Math.max(outer, dist(c.x, c.y, p.x, p.y));
+    if (dCentroid > outer + 10) continue;
+    if (pointInPolygon(px, py, poly) || dCentroid <= outer * 0.35 + 10) {
+      if (dCentroid < bestD) { bestD = dCentroid; best = i; }
+    }
   }
-  return -1;
+  return best;
 }
 function rotatedPoly(i, scaleKind) {
   const pc = pieces[i];
@@ -654,14 +857,17 @@ function canvasPoint(ev) {
   return { x: ev.clientX, y: ev.clientY };
 }
 function firstFreeSlotFor(pc, px, py) {
-  /* 吸附规则：距离槽位 < 30px 的中心点且类型相同 */
+  /* 吸附规则：点击点在槽位多边形内 或 距槽位中心 < 60px，且类型相同 */
   const cand = [];
   for (const sl of slots) {
     if (sl.done) continue;
     const sameType = PIECE_DEFS[sl.piece].name === PIECE_DEFS[pc.def].name;
     if (!sameType) continue;
+    const slotPoly = piecePoints({ def: sl.piece, x: sl.x, y: sl.y, size: pieceSizeOf(sl.piece), slotSize: pieceSizeOf(sl.piece) }, false);
+    const slotPolyRot = rotatePolyAbout(slotPoly, sl.x, sl.y, makeRotate(sl.rot));
     const d = dist(px, py, sl.x, sl.y);
-    if (d <= SNAP_DIST) cand.push({ sl, d });
+    const inside = pointInPolygon(px, py, slotPolyRot);
+    if (inside || d <= SNAP_DIST) cand.push({ sl, d: inside ? 0 : d });
   }
   cand.sort((a, b) => a.d - b.d);
   return cand[0] ? cand[0].sl : null;
@@ -798,7 +1004,7 @@ function spawnConfetti() {
   }
 }
 function drawSlotShadow(sl) {
-  const pts = piecePoints({ def: sl.piece, x: sl.x, y: sl.y, size: unit, slotSize: unit }, false);
+  const pts = piecePoints({ def: sl.piece, x: sl.x, y: sl.y, size: pieceSizeOf(sl.piece), slotSize: pieceSizeOf(sl.piece) }, false);
   const poly = rotatePolyAbout(pts, sl.x, sl.y, makeRotate(sl.rot));
   ctx.save();
   if (sl.done) {
@@ -984,9 +1190,9 @@ function update(dt, t) {
 }
 function showResult() {
   let title, medal;
-  if (bestStreak >= 4)      { title = '🥇 七巧板大师！'; medal = '金牌'; }
-  else if (bestStreak >= 2) { title = '🥈 七巧板高手！'; medal = '银牌'; }
-  else if (bestStreak >= 1) { title = '🥉 七巧板新手！'; medal = '铜牌'; }
+  if (bestStreak >= 7)      { title = '🥇 七巧板大师！'; medal = '金牌'; }
+  else if (bestStreak >= 4) { title = '🥈 七巧板高手！'; medal = '银牌'; }
+  else if (bestStreak >= 2) { title = '🥉 七巧板新手！'; medal = '铜牌'; }
   else                      { title = '🎉 拼完啦！';     medal = '参与'; }
   $('resultTitle').textContent = title;
   $('resultDesc').innerHTML =
