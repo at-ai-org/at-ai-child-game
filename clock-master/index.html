@@ -80,10 +80,10 @@
   <h1>时钟小管家</h1>
   <p class="rules">
     大时钟需要你来调！听语音说：<b>"小明 8 点要刷牙"</b>。<br>
-    先点<b>小时数字</b>让时针转过去，再定分针：<br>
-    · <b>整点</b>（如 9 点整）→ 先点 <b>9</b>，再点 <b>12</b>（分针指 12）<br>
-    · <b>半点</b>（如 9 点半）→ 先点 <b>9</b>，再点 <b>「30 分」</b>按钮<br>
-    · <b>五分钟</b>（如 2 点 30 分）→ 先点 <b>2</b>，再点表盘<b>外圈的分钟刻度</b><br>
+    先点<b>小时数字</b>让时针转过去，再点<b>分针该指的数字</b>：<br>
+    · <b>8 点整</b> → 先点 <b>8</b>，分针指 12 → 再点 <b>12</b><br>
+    · <b>8 点半</b> → 先点 <b>8</b>，分针指 6 → 再点 <b>6</b>（或点「30 分」按钮）<br>
+    · <b>2 点 30 分</b>、<b>4 点 50 分</b> 这类 → 先点小时，再点表盘<b>外圈的分钟刻度</b><br>
     一共 14 题，看看你是不是时间小管家！
   </p>
   <button id="btnStart">开始挑战</button>
@@ -143,6 +143,24 @@ function minuteAngle(m) { return -Math.PI / 2 + (m / 60) * Math.PI * 2; }
  * h: 0..11（0=12点），m: 0..59 */
 function hourAngleFor(h, m) {
   return -Math.PI / 2 + ((h % 12) + m / 60) * (Math.PI / 6);
+}
+/* 顺时针扫角归一化到 [0, 2π)：用取模而非 while 循环——
+ * 一旦角度为 NaN/Infinity，while 版本会死循环卡死页面。 */
+function normSweep(s) {
+  if (!isFinite(s)) return 0;
+  let x = s % (Math.PI * 2);
+  if (x < -0.001) x += Math.PI * 2;
+  return x;
+}
+/* 由点击位置反推"分针该指几分"（按角度吸附到 5 分钟刻度）
+ * 12 点方向 = 0 分；这样点半点的「6」、整点的「12」、五分钟刻度
+ * 都能直接用"点分针该指的位置"来作答。 */
+function minuteFromPoint(x, y) {
+  const { cx, cy } = clockCenter();
+  const deg = Math.atan2(y - cy, x - cx) * 180 / Math.PI;   // 0°=3点方向, -90°=12点
+  let m = (deg + 90) / 6;                                    // 12 点方向 → 0 分
+  m = ((m % 60) + 60) % 60;
+  return Math.round(m / 5) * 5 % 60;                         // 吸附到 5 分钟
 }
 
 const $ = id => document.getElementById(id);
@@ -258,7 +276,9 @@ function askQuestion() {
   if (m === 0) {
     say(`小明 ${hourName(question.hour)} 点要${question.scene.text}。整点要这样做：先点数字 ${hourName(question.hour)} 让时针指过去，再点数字 12 让分针指到 12！`);
   } else {
-    say(`小明要${question.scene.text}啦，把时钟调到 ${timeText(question.hour, m)}！先点数字 ${hourName(question.hour)} 的刻度`);
+    say(m === 30
+      ? `小明 ${hourName(question.hour)} 点半要${question.scene.text}。先点数字 ${hourName(question.hour)} 让时针过去，再点数字 6 让分针指到 6！`
+      : `小明要${question.scene.text}啦，把时钟调到 ${timeText(question.hour, m)}！先点数字 ${hourName(question.hour)} 的刻度`);
   }
 }
 
@@ -278,8 +298,7 @@ function setHour(h) {
     hourTarget = h;
     const to = hourAngleFor(h, 0);
     /* 顺时针扫（从当前位置正向转到目标） */
-    let sweep = to - hourAngle;
-    while (sweep < -0.001) sweep += Math.PI * 2;      /* 保证正向 */
+    const sweep = normSweep(to - hourAngle);          /* 顺时针正向，安全归一化 */
     hourAnim = { from: hourAngle, sweep, t: 0, dur: Math.max(0.5, Math.abs(sweep) * 0.28) };
     minPhase = 'ask-min';
     minuteShown = -1;
@@ -288,7 +307,7 @@ function setHour(h) {
       /* 整点：0 分 = 分针指 12。第二下点 12，不是再点小时数字 */
       say(`时针指到 ${hourName(h)} 啦！整点时，分针要指着 12——点一下数字 12！`);
     } else if (m === 30) {
-      say(`时针对啦！现在点「30 分」，分针转到下面！`);
+      say(`时针对啦！半点的时候分针要指着 6——点一下数字 6，或者点下面的「30 分」按钮！`);
     } else {
       say(`时针对啦！现在点外圈的「${m} 分」刻度，分针转过去！`);
     }
@@ -319,9 +338,7 @@ function setMinute(m) {
   sfxTick();
   minuteShown = m;
   const to = minuteAngle(m);
-  let sweep = to - minuteHandAngle;
-  while (sweep < -0.001) sweep += Math.PI * 2;
-  while (sweep > Math.PI * 2) sweep -= Math.PI * 2;
+  let sweep = normSweep(to - minuteHandAngle);
   /* 分针已经在目标位置（整点题常见：分针本就停在 12）时，sweep≈0 会让针
    * 一动不动、孩子以为没生效。给一个「先摆出去再回到 12」的确认动画。 */
   if (Math.abs(sweep) < 0.02) {
@@ -444,14 +461,20 @@ function drawClock(t) {
     ctx.font = `bold ${Math.round(r * 0.16)}px system-ui, sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(String(hNum), nx, ny + 1);
-    /* 整点题等分针时：在 12 上画呼吸光圈，明确提示「该点这里」 */
-    if (i === 0 && minPhase === 'ask-min' && question && question.minutes === 0) {
-      const pulse = 0.5 + 0.5 * Math.sin(t * 6);
-      ctx.strokeStyle = 'rgba(79,140,255,' + (0.55 + 0.45 * pulse) + ')';
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.arc(nx, ny, r * 0.135 + 7 + pulse * 4, 0, Math.PI * 2);
-      ctx.stroke();
+    /* 等分针阶段：在"分针该指的位置"画呼吸光圈，明确提示「该点这里」
+     * 整点 → 12（i=0）；半点 → 6（i=6）；五分钟 → 分钟数对应的刻度 */
+    if (minPhase === 'ask-min' && question) {
+      const wantIdx = question.minutes === 0 ? 0
+        : question.minutes === 30 ? 6
+        : question.minutes % 5 === 0 ? (question.minutes / 5) % 12 : -1;
+      if (i === wantIdx) {
+        const pulse = 0.5 + 0.5 * Math.sin(t * 6);
+        ctx.strokeStyle = 'rgba(79,140,255,' + (0.55 + 0.45 * pulse) + ')';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(nx, ny, r * 0.135 + 7 + pulse * 4, 0, Math.PI * 2);
+        ctx.stroke();
+      }
     }
     /* 小刻度点 */
     const dx = Math.cos(a) * r * 0.94, dy = Math.sin(a) * r * 0.94;
@@ -585,10 +608,9 @@ function update(dt, t) {
        * 然后报分 + 停顿 1s */
       minuteShown = ans;
       const wantHourAngle = hourAngleFor(question.hour, ans);
-      let hSweep = wantHourAngle - hourAngle;
-      while (hSweep < -0.001) hSweep += Math.PI * 2;
-      while (hSweep > Math.PI * 2) hSweep -= Math.PI * 2;
-      if (Math.abs(hSweep) > 0.002) {
+      const hSweep = normSweep(wantHourAngle - hourAngle);
+      /* 偏移量接近 0（已在正确位置）或接近整圈（顺时针扫一圈）都无需动画 */
+      if (hSweep > 0.002 && hSweep < Math.PI * 2 - 0.002) {
         hourAnim = { from: hourAngle, sweep: hSweep, t: 0, dur: 0.5 };
       }
       rightCount++;
@@ -611,9 +633,7 @@ function update(dt, t) {
       speak(`分针应该指${question.minutes}分哦，再试试！`);
       updateHUD();
       const to = -Math.PI / 2;
-      let sweepBack = to - minuteHandAngle;
-      while (sweepBack < -0.001) sweepBack += Math.PI * 2;
-      while (sweepBack > Math.PI * 2) sweepBack -= Math.PI * 2;
+      const sweepBack = normSweep(to - minuteHandAngle);
       minuteAnim = { from: minuteHandAngle, sweep: sweepBack, t: 0, dur: 0.6, answer: null };
       minuteShown = -1;
     }
@@ -656,10 +676,15 @@ canvas.addEventListener('pointerdown', e => {
   const rect = canvas.getBoundingClientRect();
   const x = (e.clientX - rect.left) * (W / rect.width);
   const y = (e.clientY - rect.top) * (H / rect.height);
-  /* 分钟选择阶段 */
+  /* ---- 等分针阶段：统一用「点分针该指的位置」作答 ----
+   * · 整点   → 点 12（分针指 12）
+   * · 半点   → 点 6（分针指 6）——也保留「00 分 / 30 分」大按钮
+   * · 五分钟 → 点对应位置（内圈数字或外圈刻度都可以）
+   * 按点击方向吸附到 5 分钟，宽容度大、幼儿好点。 */
   if (minPhase === 'ask-min') {
-    if (question && question.minutes === 30) {
-      /* 半点题：两个大按钮 */
+    if (!question) return;
+    /* 半点题：先看两个大按钮（手指粗的小朋友也能点中） */
+    if (question.minutes === 30) {
       const btns = minButtons();
       for (const key of ['zero', 'thirty']) {
         const b = btns[key];
@@ -668,46 +693,28 @@ canvas.addEventListener('pointerdown', e => {
           return;
         }
       }
-      /* 点了其他地方：提示 */
-      return;
     }
-    /* 整点题：第二次点「12」刻度 → 分针指 12（0 分）
-     * 注意：0 分 = 分针指向 12，所以整点题第二下必须点 12，
-     * 而不是再点一次小时数字（否则会让孩子误以为分针该指小时数）。 */
-    if (question && question.minutes === 0) {
-      const { cx, cy, r } = clockCenter();
-      const dx = x - cx, dy = y - cy;
-      if (Math.hypot(dx, dy) > r * 1.15) return;
-      let best = -1, bestD = 1e9;
-      for (let i = 0; i < 12; i++) {
-        const a = -Math.PI / 2 + i * (Math.PI / 6);
-        const nx = cx + Math.cos(a) * (r * 0.78), ny = cy + Math.sin(a) * (r * 0.78);
-        const d = Math.hypot(x - nx, y - ny);
-        if (d < bestD) { bestD = d; best = i; }
-      }
-      if (bestD <= r * 0.2) {
-        if (best === 0) {
-          /* 点在 12 上：分针转到 12，正确 */
-          setMinute(0);
-        } else {
-          sfxWrong();
-          shake = 0.2;
-          say(`分针要指到 12 哦——0 分的时候，分针指着 12。点一下数字 12 试试！`);
-        }
-      }
-      return;
-    }
-    /* 5 分钟题：表盘外圈分钟刻度 */
-    const ticks = minuteTicks();
-    const hitR = Math.min(26, W * 0.032) + 10;
-    let bestTk = null, bestD = 1e9;
-    for (const tk of ticks) {
-      const d = Math.hypot(x - tk.x, y - tk.y);
-      if (d < bestD) { bestD = d; bestTk = tk; }
-    }
-    if (bestTk && bestD <= hitR) {
-      setMinute(bestTk.m);
-      return;
+    /* 表盘区域内的点击：按角度吸附出分钟数 */
+    const { cx, cy, r } = clockCenter();
+    const dist = Math.hypot(x - cx, y - cy);
+    if (dist > r * 1.45 || dist < r * 0.25) return;    /* 太远/太靠近圆心：忽略 */
+    const clicked = minuteFromPoint(x, y);
+    if (clicked === question.minutes) {
+      setMinute(question.minutes);
+    } else {
+      /* 点错方向：给明确语音引导（不再静默无反应） */
+      wrongTotal++;
+      streak = 0;
+      updateHUD();
+      sfxWrong();
+      shake = 0.2;
+      const need = question.minutes === 0 ? '12' : question.minutes === 30 ? '6' : question.minutes + ' 分';
+      const nowAt = clicked === 0 ? '12' : clicked === 30 ? '6' : clicked + ' 分';
+      say(question.minutes === 0
+        ? `你点到 ${nowAt} 啦。整点的分针要指着 12——点一下数字 12！`
+        : question.minutes === 30
+          ? `你点到 ${nowAt} 啦。半点的分针要指着 6——点一下数字 6！`
+          : `你点到 ${nowAt} 啦。分针要指着 ${need} 的位置，再试试！`);
     }
     return;
   }
