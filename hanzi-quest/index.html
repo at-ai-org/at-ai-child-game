@@ -15,13 +15,14 @@
   #game { display: block; width: 100vw; height: 100vh; }
 
   /* ---- HUD ---- */
-  .hud { position: absolute; top: 14px; left: 14px; z-index: 10; display: flex; gap: 10px; flex-wrap: wrap; pointer-events: none; }
+  .hud { position: absolute; top: 72px; left: 14px; z-index: 10; display: flex; gap: 10px; flex-wrap: wrap; pointer-events: none; }
   .hud-chip { background: rgba(255,252,246,.92); border: 2px solid rgba(120,170,235,.45); border-radius: 14px; color: #2a4a78; padding: 7px 16px; font-size: 17px; font-weight: 700; box-shadow: 0 4px 14px rgba(90,140,200,.2); backdrop-filter: blur(6px); }
   .hud-chip b { color: #ff8c42; font-size: 21px; }
 
   #btnMute { position: absolute; top: 14px; right: 14px; z-index: 60; font-size: 20px; line-height: 1; padding: 9px 13px; border-radius: 12px; cursor: pointer; background: rgba(255,252,246,.92); border: 2px solid rgba(120,170,235,.45); color: #2a4a78; }
-  #btnHome { position: absolute; top: 14px; right: 68px; z-index: 60; font-size: 18px; line-height: 1; padding: 10px 13px; border-radius: 12px; cursor: pointer; background: rgba(255,252,246,.92); border: 2px solid rgba(120,170,235,.45); color: #2a4a78; font-family: inherit; }
-  #btnHome:active, #btnMute:active { transform: scale(.94); }
+  #btnHome { position: absolute; top: 12px; left: 12px; z-index: 60; font-size: 20px; line-height: 1; padding: 9px 13px; border-radius: 12px; cursor: pointer; background: rgba(10, 16, 40, .72); border: 1px solid rgba(120, 200, 255, .35); color: #dff2ff; font-family: inherit; }
+  #btnHome:active { transform: scale(.94); }
+  #btnMute:active { transform: scale(.94); }
 
   #caption { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 15; background: rgba(255,252,246,.94); border: 2px solid rgba(120,170,235,.5); border-radius: 18px; color: #2a4a78; padding: 10px 26px; font-size: 21px; font-weight: 700; letter-spacing: 1px; pointer-events: none; white-space: nowrap; max-width: 92vw; text-align: center; }
 
@@ -48,15 +49,16 @@
   #start button:active { transform: scale(.97); }
 
   /* ---- 主页确认 ---- */
-  #homeConfirm { position: absolute; inset: 0; z-index: 90; background: rgba(20,40,70,.4); display: none; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+  #homeConfirm { position: absolute; inset: 0; z-index: 90; background: rgba(4, 8, 22, .62); display: none; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
   #homeConfirm.show { display: flex; }
-  .hc-card { text-align: center; background: linear-gradient(160deg, #ffffff, #eaf4ff); border: 3px solid #8ec5ff; border-radius: 22px; padding: 26px 34px; box-shadow: 0 18px 50px rgba(90,140,200,.35); max-width: 84vw; }
-  .hc-card h2 { font-size: 24px; color: #2a4a78; margin-bottom: 8px; letter-spacing: 2px; }
-  .hc-card p { font-size: 15px; color: #7a9cc4; margin: 4px 0 18px; }
-  .hc-btns { display: flex; gap: 14px; justify-content: center; }
-  .hc-btns button { font-size: 17px; padding: 10px 26px; border-radius: 999px; border: none; cursor: pointer; font-weight: 700; letter-spacing: 2px; font-family: inherit; }
-  #hcOk { background: linear-gradient(90deg, #7dffa1, #2ecc71); color: #06340f; }
-  #hcCancel { background: #eaf4ff; color: #2a4a78; border: 2px solid rgba(120,170,235,.5) !important; }
+  #homeConfirm .hc-card { text-align: center; background: linear-gradient(160deg, #16224a, #0d1330); border: 2px solid #4f8cff; border-radius: 22px; padding: 26px 34px; box-shadow: 0 18px 50px rgba(0,0,0,.5); max-width: 84vw; }
+  #homeConfirm .hc-card h2 { font-size: 24px; color: #eaf4ff; margin-bottom: 8px; letter-spacing: 2px; }
+  #homeConfirm .hc-card p { font-size: 15px; color: #9db4d8; margin: 4px 0 18px; }
+  #homeConfirm .hc-btns { display: flex; gap: 14px; justify-content: center; }
+  #homeConfirm button { font-size: 17px; padding: 10px 26px; border-radius: 999px; border: none; cursor: pointer; font-weight: 700; letter-spacing: 2px; font-family: inherit; }
+  #homeConfirm button:active { transform: scale(.96); }
+  #hcOk { background: linear-gradient(90deg, #ff9c5c, #ffd35c); color: #3a2200; box-shadow: 0 6px 18px rgba(255,180,70,.4); }
+  #hcCancel { background: rgba(255,255,255,.12); color: #dff2ff; border: 1px solid rgba(120,200,255,.4) !important; }
 </style>
 </head>
 <body>
@@ -93,8 +95,8 @@
 
 <div id="homeConfirm">
   <div class="hc-card">
-    <h2>要回到主页吗？</h2>
-    <p>本关进度不会保存哦</p>
+    <h2>🏠 返回游戏主页？</h2>
+    <p>当前的游戏进度将会丢失哦</p>
     <div class="hc-btns">
       <button id="hcOk">回主页</button>
       <button id="hcCancel">继续玩</button>
@@ -120,6 +122,8 @@ resize();
 
 const STATE = { START: 0, RUNNING: 1, FINISH: 2 };
 let state = STATE.START;
+/* 题干卡片纵坐标：HUD 在 top:72（高约 40），下移避开 */
+const CARD_Y = 130;
 
 /* ---------------- 字库：99 字 / 9 关 × 11 字 ---------------- */
 const LEVELS = [
@@ -471,7 +475,7 @@ function drawScene(t) {
   /* ---- 题干区 ---- */
   const cardW = Math.min(W - 40, 760);
   const cardX = (W - cardW) / 2;
-  const cardY = 96;
+  const cardY = CARD_Y;
   ctx.save();
   if (shake > 0) {
     ctx.translate(Math.sin(shakeT * 60) * shake * 14, 0);
@@ -664,7 +668,7 @@ canvas.addEventListener('pointerdown', e => {
       return;
     }
   }
-  const cardW = Math.min(W - 40, 760), cardX = (W - cardW) / 2, cardY = 96;
+  const cardW = Math.min(W - 40, 760), cardX = (W - cardW) / 2, cardY = CARD_Y;
   if (p.y >= cardY && p.y <= cardY + 132 && p.x >= cardX && p.x <= cardX + cardW) {
     sfxTap();
     speakHanzi(target);   // 再听一次
