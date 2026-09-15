@@ -8,28 +8,28 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; overflow: hidden; }
   body {
-    background: #2b1f14;
+    background: #ffe3b3;
     font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
     user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
   }
   #game { display: block; width: 100vw; height: 100vh; }
   .hud { position: absolute; top: 72px; left: 14px; z-index: 10; display: flex; gap: 10px; flex-wrap: wrap; pointer-events: none; }
-  .hud-chip { background: rgba(43,31,20,.78); border: 1px solid rgba(255,205,120,.4); border-radius: 14px; color: #ffe9c9; padding: 7px 15px; font-size: 17px; font-weight: 600; box-shadow: 0 4px 18px rgba(0,0,0,.35); backdrop-filter: blur(6px); }
-  .hud-chip b { color: #ffd35c; font-size: 21px; }
-  #btnMute { position: absolute; top: 12px; right: 12px; z-index: 60; font-size: 20px; line-height: 1; padding: 9px 13px; border-radius: 12px; cursor: pointer; background: rgba(43,31,20,.78); border: 1px solid rgba(255,205,120,.4); color: #ffe9c9; }
-  #caption { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 15; background: rgba(43,31,20,.85); border: 2px solid rgba(255,205,120,.5); border-radius: 18px; color: #ffe9c9; padding: 10px 26px; font-size: 21px; font-weight: 700; letter-spacing: 1px; pointer-events: none; white-space: nowrap; max-width: 92vw; text-align: center; }
-  #toast { position: absolute; left: 50%; top: 24%; transform: translate(-50%, -50%) scale(1); z-index: 30; font-size: 56px; font-weight: 800; color: #ffd35c; text-shadow: 0 4px 18px rgba(0,0,0,.6); opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; white-space: nowrap; }
+  .hud-chip { background: rgba(255,250,240,.9); border: 2px solid rgba(232,145,90,.5); border-radius: 14px; color: #7a4a1e; padding: 7px 15px; font-size: 17px; font-weight: 700; box-shadow: 0 4px 14px rgba(180,120,60,.25); backdrop-filter: blur(6px); }
+  .hud-chip b { color: #ff8c42; font-size: 21px; }
+  #btnMute { position: absolute; top: 12px; right: 12px; z-index: 60; font-size: 20px; line-height: 1; padding: 9px 13px; border-radius: 12px; cursor: pointer; background: rgba(255,250,240,.9); border: 2px solid rgba(232,145,90,.5); color: #7a4a1e; }
+  #caption { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 15; background: rgba(255,250,240,.92); border: 2px solid rgba(232,145,90,.55); border-radius: 18px; color: #6b3f16; padding: 10px 26px; font-size: 21px; font-weight: 700; letter-spacing: 1px; pointer-events: none; white-space: nowrap; max-width: 92vw; text-align: center; }
+  #toast { position: absolute; left: 50%; top: 24%; transform: translate(-50%, -50%) scale(1); z-index: 30; font-size: 56px; font-weight: 800; color: #ff8c42; text-shadow: 0 3px 10px rgba(255,255,255,.9), 0 4px 14px rgba(180,110,50,.35); opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; white-space: nowrap; }
   #toast.pop { opacity: 1; transform: translate(-50%, -58%) scale(1.12); }
-  #result { position: absolute; inset: 0; z-index: 40; background: rgba(20,12,6,.85); display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+  #result { position: absolute; inset: 0; z-index: 40; background: rgba(255,240,220,.75); display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
   #result.show { display: flex; }
-  .result-card { text-align: center; color: #ffe9c9; background: linear-gradient(160deg, #4a3421, #2b1f14); border: 2px solid #ff9c5c; border-radius: 26px; padding: 30px 44px; box-shadow: 0 20px 60px rgba(0,0,0,.55); max-width: 88vw; }
-  .result-card h1 { font-size: 38px; color: #ffd35c; margin-bottom: 12px; }
-  .result-card p { font-size: 17px; color: #e3cba4; margin: 6px 0 22px; line-height: 1.8; }
+  .result-card { text-align: center; color: #6b3f16; background: linear-gradient(160deg, #fffdf7, #ffedcf); border: 3px solid #ffab6b; border-radius: 26px; padding: 30px 44px; box-shadow: 0 20px 60px rgba(190,130,70,.35); max-width: 88vw; }
+  .result-card h1 { font-size: 38px; color: #ff8c42; margin-bottom: 12px; }
+  .result-card p { font-size: 17px; color: #9a6a38; margin: 6px 0 22px; line-height: 1.8; }
   .result-card button { font-size: 20px; padding: 12px 42px; border-radius: 999px; border: none; cursor: pointer; background: linear-gradient(90deg, #ff9c5c, #ffd35c); color: #3a2200; font-weight: 700; letter-spacing: 4px; box-shadow: 0 6px 20px rgba(255,156,92,.45); font-family: inherit; }
   .result-card button:active { transform: scale(.97); }
-  #start { position: absolute; inset: 0; z-index: 50; background: radial-gradient(1200px 600px at 50% 30%, #6b4a2a 0%, #2b1f14 70%); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #ffe9c9; text-align: center; padding: 20px; }
-  #start h1 { font-size: clamp(38px, 8vw, 60px); letter-spacing: 6px; background: linear-gradient(90deg, #ffd35c, #ff9c5c, #ffe9c9); -webkit-background-clip: text; background-clip: text; color: transparent; margin-bottom: 14px; }
-  #start p { font-size: 16px; color: #d8b98c; line-height: 2; max-width: 560px; }
+  #start { position: absolute; inset: 0; z-index: 50; background: radial-gradient(1200px 600px at 50% 30%, #fff3d9 0%, #ffd9a0 60%, #ffc98a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #6b3f16; text-align: center; padding: 20px; }
+  #start h1 { font-size: clamp(38px, 8vw, 60px); letter-spacing: 6px; background: linear-gradient(90deg, #ff8c42, #ff6b6b, #ff9c5c); -webkit-background-clip: text; background-clip: text; color: transparent; margin-bottom: 14px; }
+  #start p { font-size: 16px; color: #a06a2e; line-height: 2; max-width: 560px; }
   #start .rules { margin: 22px 0 28px; }
   #start button { font-size: 21px; padding: 14px 56px; border-radius: 999px; border: none; cursor: pointer; background: linear-gradient(90deg, #ff9c5c, #ffd35c); color: #3a2200; font-weight: 800; letter-spacing: 6px; box-shadow: 0 8px 26px rgba(255,180,70,.45); font-family: inherit; }
   #start button:active { transform: scale(.97); }
@@ -498,15 +498,16 @@ function is3D(key) { return key === 'sphere' || key === 'cube' || key === 'cuboi
 
 /* 绘制场景 */
 function drawScene(t) {
-  // 面包房暖色背景
+  // 糖果饼干屋：明亮奶油黄 → 杏粉渐变（柔和护眼）
   const bg = ctx.createLinearGradient(0, 0, 0, H);
-  bg.addColorStop(0, '#4a3421');
-  bg.addColorStop(1, '#2b1f14');
+  bg.addColorStop(0, '#fff3d9');
+  bg.addColorStop(0.62, '#ffd9a0');
+  bg.addColorStop(1, '#ffc98a');
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
 
   // 后墙砖纹
-  ctx.strokeStyle = 'rgba(255,220,160,.06)';
+  ctx.strokeStyle = 'rgba(214,140,80,.12)';
   ctx.lineWidth = 2;
   for (let y = 40; y < H * 0.62; y += 34) {
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
@@ -527,15 +528,15 @@ function drawScene(t) {
 
   // 传送带
   const beltY = H * 0.55, beltH = 46;
-  ctx.fillStyle = '#1c130a';
+  ctx.fillStyle = '#8a5a34';
   roundRect2(0, beltY, W, beltH, 10); ctx.fill();
   // 滚动纹
-  ctx.strokeStyle = 'rgba(255,220,160,.14)'; ctx.lineWidth = 3;
+  ctx.strokeStyle = 'rgba(255,235,200,.35)'; ctx.lineWidth = 3;
   const roll = (t * 120) % 42;
   for (let x = -42 + roll; x < W + 42; x += 42) {
     ctx.beginPath(); ctx.moveTo(x, beltY + 6); ctx.lineTo(x, beltY + beltH - 6); ctx.stroke();
   }
-  ctx.strokeStyle = '#8a6a42'; ctx.lineWidth = 4;
+  ctx.strokeStyle = '#b07848'; ctx.lineWidth = 4;
   ctx.beginPath(); ctx.moveTo(0, beltY); ctx.lineTo(W, beltY); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(0, beltY + beltH); ctx.lineTo(W, beltY + beltH); ctx.stroke();
 
@@ -544,11 +545,11 @@ function drawScene(t) {
   const cellW = Math.min(150, (W - 30) / n);
   const rackH = 210;                       // 架子高度：形状 90 + 名字 24 + 内边距
   const rackY = H - rackH - 16;            // 距底部 16px
-  ctx.fillStyle = 'rgba(43,31,20,.9)';
+  ctx.fillStyle = 'rgba(255,251,242,.92)';
   roundRect2(10, rackY, W - 20, rackH, 18); ctx.fill();
-  ctx.strokeStyle = 'rgba(255,205,120,.35)'; ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(232,145,90,.55)'; ctx.lineWidth = 2;
   roundRect2(10, rackY, W - 20, rackH, 18); ctx.stroke();
-  ctx.fillStyle = '#d8b98c';
+  ctx.fillStyle = '#b07848';
   ctx.font = '15px system-ui, sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText('点 模 具 盖 章', W / 2, rackY + rackH - 14);
@@ -643,21 +644,21 @@ function drawRack(t) {
     const s = SHAPES[i];
     const cx = 10 + cellW * (i + 0.5) + (W - 20 - cellW * n) / 2;
     const cy = shapeCy;
-    // 模具木底（随形状放大）
-    ctx.fillStyle = '#8a6a42';
+    // 模具木底（随形状放大，亮木色）
+    ctx.fillStyle = '#c98f5a';
     roundRect2(cx - cellW * 0.44, cy - r * 1.25, cellW * 0.88, r * 2.5, 14); ctx.fill();
     if (is3D(s.key)) {
       // 暗色描边底 + 彩色立体印面（双层错位）
-      drawShape3D(s.key, cx, cy - r * 0.1, r * 0.98, '#5a4025', '#3a2200');
+      drawShape3D(s.key, cx, cy - r * 0.1, r * 0.98, '#a06a3e', '#7a4a26');
       drawShape3D(s.key, cx, cy - r * 0.3, r * 0.8, SHAPE_COLORS[s.key], '#3a2200');
     } else {
-      ctx.fillStyle = '#5a4025';
-      drawShape(s.key, cx, cy, r * 0.98, null, '#3a2200', 3);
+      ctx.fillStyle = '#a06a3e';
+      drawShape(s.key, cx, cy, r * 0.98, null, '#7a4a26', 3);
       // 彩色形状印面
       drawShape(s.key, cx, cy, r * 0.8, SHAPE_COLORS[s.key], null, 0);
     }
     // 名字（middle 基线，字号随格子放大）
-    ctx.fillStyle = '#ffe9c9';
+    ctx.fillStyle = '#7a4a1e';
     ctx.font = `bold ${Math.min(22, Math.max(15, cellW * 0.15))}px system-ui, sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(s.name, cx, labelY);
