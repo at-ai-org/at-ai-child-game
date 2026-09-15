@@ -3,7 +3,7 @@ name: Sync from Gitee (Manual)
 on:
   workflow_dispatch:  # 允许在 GitHub 网页上手动点击触发
   schedule:
-    - cron: '0 */6 * * *'
+    - cron: '0 */3 * * *'
 
 permissions:
   contents: write 
