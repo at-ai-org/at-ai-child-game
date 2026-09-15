@@ -10,3 +10,5 @@
 
 # macOS
 .DS_Store
+_design.py
+*.tmp
