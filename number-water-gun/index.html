@@ -354,8 +354,8 @@ function targetX(i) {
   const span = 1 - margin * 2;
   return W * (margin + span * i / (TARGET_COUNT - 1));
 }
-/* 靶位半径：比原来小一圈，视觉上更远 */
-function targetR() { return Math.min(W / 34, H * 0.058); }
+/* 靶位半径：比原来小一圈（视觉更远），但窄屏给下限保证数字看得清 */
+function targetR() { return Math.max(14, Math.min(W / 34, H * 0.058)); }
 function kidX() { return W * 0.5; }
 function kidY() { return H * 0.78; }                  // 小朋友站位抬高
 function gunPivot() { return { x: kidX(), y: kidY() - H * 0.088 }; }   // 水枪转动轴（手的位置，整体抬高）
