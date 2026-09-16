@@ -169,7 +169,6 @@
   <div class="hud-chip">得分 <b id="hudScore">0</b></div>
   <div class="hud-chip">关卡 <b id="hudLevel">1</b>/9</div>
   <div class="hud-chip">从 <b id="hudFrom">0</b> 数到 <b id="hudTo">0</b></div>
-  <div class="hud-chip">荷叶 <b id="hudHops">0</b>/5</div>
 </div>
 
 <div id="captionBar"></div>
@@ -335,7 +334,7 @@ function nextWantedNum() {
   if (i < 0 || i + 1 >= main.length) return null;
   return main[i + 1].num;
 }
-/* 本关已完成跳数（跳过的荷叶数） */
+/* 本关已完成跳数（跳过的荷叶数）—— 供测试钩子使用 */
 function hopsDone() {
   const main = pads.filter(p => !p.decoy);
   return Math.max(0, main.indexOf(pads[frog.on]));
@@ -348,7 +347,7 @@ function makeLevel() {
   resultT = 0;
   ripples = []; splashes = [];
   seqCount = 0;
-  /* 按本关配置生成荷叶：起点 + 9 片，每跳 hop 步；共需跳 HOPS_PER_LEVEL 次 */
+  /* 按本关配置生成荷叶：起点 1 片 + 待跳 5 片，每跳 hop 步；共需跳 HOPS_PER_LEVEL 次 */
   const cfg = LEVELS_CFG[Math.min(level, LEVEL_TOTAL) - 1];
   const hop = cfg.hop, dir = cfg.dir;
   pads = [];
@@ -483,6 +482,9 @@ function update(dt) {
       frog.x = j.to.x; frog.y = j.to.y;
       frog.jumping = null;
       seqCount++;
+      /* 每跳对一片即时加分（让得分实时变化，孩子马上看到正反馈） */
+      score += 5;
+      updateHUD();
       /* 报数：跳到的数字 */
       sfxCount(seqCount);
       speak(String(pads[frog.on].num));
@@ -491,8 +493,9 @@ function update(dt) {
       const mainPads = pads.filter(p => !p.decoy);
       const onIdx = mainPads.indexOf(pads[frog.on]);
       if (onIdx >= HOPS_PER_LEVEL) {
-        /* 本关完成 */
-        score += 20;
+        /* 本关完成：额外奖励分 */
+        score += 25;
+        updateHUD();
         toast('过关！+' + pads[frog.on].num);
         sfxRight();
         const cfgP = curCfg();
@@ -589,7 +592,7 @@ function drawPads(t) {
     ctx.save();
     ctx.translate(pos.x, pos.y + bob);
     /* 荷叶本体 */
-    ctx.fillStyle = p.landed ? '#3aa860' : p.decoy ? '#7ab86a' : '#4fc878';
+    ctx.fillStyle = p.landed ? '#2f9e57' : p.decoy ? '#7ab86a' : '#5ede84';
     ctx.beginPath();
     ctx.ellipse(0, 0, 56, 30, 0, 0, Math.PI * 2);
     ctx.fill();
@@ -614,6 +617,27 @@ function drawPads(t) {
     ctx.font = 'bold 30px system-ui, sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(String(p.num), 0, 0);
+    /* 已经跳过的荷叶：金色描边 + 右上角对勾（进度一眼可见） */
+    if (p.landed) {
+      ctx.strokeStyle = 'rgba(255,211,92,.85)';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 56, 30, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      /* 对勾 */
+      ctx.fillStyle = 'rgba(46,204,113,.95)';
+      ctx.beginPath();
+      ctx.arc(38, -22, 14, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 3.5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(31, -22);
+      ctx.lineTo(36, -16);
+      ctx.lineTo(45, -28);
+      ctx.stroke();
+    }
     ctx.restore();
     /* 下一片提示光环 */
     if (isNext && !answered) {
@@ -790,7 +814,6 @@ function roundRect(x, y, w, h, r) {
 function updateHUD() {
   $('hudScore').textContent = score;
   $('hudLevel').textContent = level;
-  $('hudHops').textContent = hopsDone();   // 已跳荷叶数（本关进度）
 }
 function toast(text) {
   toastEl.textContent = text;
