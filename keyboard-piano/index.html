@@ -45,6 +45,7 @@
     padding: 8px 16px; border-radius: 10px; cursor: pointer;
     background: rgba(255,255,255,.08); color: #cfe2ff;
     border: 1px solid rgba(120,200,255,.3); transition: background .15s;
+    white-space: nowrap;          /* 按钮文字一律不换行 */
   }
   button.tb:hover { background: rgba(255,255,255,.15); }
   button.tb:active { transform: scale(.96); }
@@ -138,7 +139,7 @@
 
   /* 右：记录面板 */
   .panel {
-    width: 320px; flex-shrink: 0; display: flex; flex-direction: column;
+    width: 360px; flex-shrink: 0; display: flex; flex-direction: column;
     background: rgba(20,26,48,.72); border: 1px solid rgba(120,200,255,.22);
     border-radius: 16px; padding: 14px; min-height: 0;
   }
@@ -186,7 +187,15 @@
   .seq-empty { color: #64748f; font-size: 13px; line-height: 2; text-align: center; width: 100%; padding-top: 20px; }
 
   .panel-actions { display: flex; gap: 8px; margin-top: 12px; flex-shrink: 0; }
-  .panel-actions button { flex: 1; }
+  .panel-actions button {
+    flex: 1; min-width: 0;
+    white-space: nowrap;          /* 文字不换行 */
+    padding: 9px 10px;            /* 压缩内边距，给文字留空间 */
+    font-size: 14px;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .panel-actions #btnCopy { flex: 1.55; }   /* 复制是主要操作，占更宽 */
+  .panel-actions #btnClear { flex: 1; }
   .hint { font-size: 12px; color: #64748f; margin-top: 8px; line-height: 1.7; }
 
   /* ---------- 音符飘字层 ---------- */
@@ -228,6 +237,7 @@
   @media (max-width: 900px) {
     .main { flex-direction: column; }
     .panel { width: auto; max-height: 30vh; }
+    .panel-actions button { font-size: 13px; padding: 9px 8px; }
     .key .kcap { font-size: 16px; }
     .key .knote { font-size: 9px; }
     .key.white { height: 104px; }
@@ -272,7 +282,7 @@
         <button class="tb danger" id="btnClear">清空</button>
       </div>
       <div class="hint">
-        最多显示最近 20 个键位，<br>复制按钮会复制<b>本次全部</b>按键记录。
+        最多显示最近 20 个键位；复制按钮会复制<b>本次全部</b>按键记录。
       </div>
     </div>
   </div>
