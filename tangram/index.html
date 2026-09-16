@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>七巧板 · Tangram</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2064%2064%22%3E%0A%20%20%3Crect%20width=%2264%22%20height=%2264%22%20rx=%2214%22%20fill=%22%232ecc71%22/%3E%0A%20%20%3Ctext%20x=%2232%22%20y=%2233%22%20font-size=%2240%22%20text-anchor=%22middle%22%20dominant-baseline=%22central%22%20font-family=%22Apple%20Color%20Emoji,%20Segoe%20UI%20Emoji,%20Noto%20Color%20Emoji,%20sans-serif%22%3E%F0%9F%94%B7%3C/text%3E%0A%3C/svg%3E">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; overflow: hidden; }
@@ -270,11 +271,11 @@ const LEVELS = [
     ],
     deco: drawCatDeco },
   { name: '房子', greeting: '拼一座漂亮的小房子！',
-    pieces: [0, 5, 3, 4], slots: [
-      { p: 0, x: -0.25, y: 0.0, r: 2 },
-      { p: 5, x: 0.5, y: 0.25, r: 0 },
-      { p: 3, x: 0.5, y: -0.25, r: 3 },
-      { p: 4, x: -0.5, y: 0.25, r: 0 },
+    pieces: [0, 1, 3, 4], slots: [
+      { p: 0, x: -0.5, y: -0.125, r: 2 },
+      { p: 1, x: 0.5, y: -0.125, r: 3 },
+      { p: 3, x: 0.75, y: 0.125, r: 1 },
+      { p: 4, x: -0.75, y: 0.125, r: 0 },
     ],
     deco: drawHouseDeco },
   { name: '小船', greeting: '拼一艘出海的小船！',
@@ -286,11 +287,11 @@ const LEVELS = [
     ],
     deco: drawBoatDeco },
   { name: '火箭', greeting: '拼一枚升空的火箭！',
-    pieces: [0, 2, 5, 3], slots: [
-      { p: 0, x: 0.625, y: -0.1553, r: 3 },
-      { p: 2, x: -0.2285, y: -0.3018, r: 2 },
-      { p: 5, x: -0.125, y: 0.3018, r: 0 },
-      { p: 3, x: -0.625, y: 0.3018, r: 1 },
+    pieces: [0, 1, 3, 5], slots: [
+      { p: 0, x: 0.5, y: -0.375, r: 3 },
+      { p: 1, x: -0.5, y: -0.375, r: 2 },
+      { p: 3, x: 0.25, y: 0.375, r: 0 },
+      { p: 5, x: -0.25, y: 0.375, r: 0 },
     ],
     deco: drawRocketDeco },
   { name: '小鱼', greeting: '拼一条吐泡泡的小鱼！',
@@ -318,11 +319,12 @@ const LEVELS = [
     ],
     deco: drawWindmillDeco },
   { name: '天平', greeting: '拼一台公平的天平！',
-    pieces: [0, 1, 5, 3], slots: [
-      { p: 0, x: -0.375, y: 0.5, r: 2 },
-      { p: 1, x: -0.375, y: -0.5, r: 3 },
-      { p: 5, x: 0.375, y: -0.25, r: 0 },
-      { p: 3, x: -0.125, y: 0.25, r: 0 },
+    pieces: [0, 5, 2, 3, 4], slots: [
+      { p: 0, x: 0.6768, y: 0.0, r: 0 },
+      { p: 5, x: -0.0732, y: -0.25, r: 0 },
+      { p: 2, x: -0.6768, y: -0.1464, r: 1 },
+      { p: 3, x: -0.0732, y: 0.25, r: 0 },
+      { p: 4, x: -0.0732, y: 0.25, r: 2 },
     ],
     deco: drawScaleDeco },
   { name: '皇冠', greeting: '最后拼一顶闪亮的皇冠！',
@@ -865,6 +867,26 @@ function rotatePolyAbout(pts, ox, oy, ang) {
 function canvasPoint(ev) {
   return { x: ev.clientX, y: ev.clientY };
 }
+/* 点击点是否落在一个可用的空槽上（点在槽位多边形内，或距中心 < SNAP_DIST） */
+function slotAtPoint(px, py, pc) {
+  for (const sl of slots) {
+    if (sl.done) continue;
+    const sameType = PIECE_DEFS[sl.piece].name === PIECE_DEFS[pc.def].name;
+    if (!sameType) continue;
+    const S = pieceSizeOf(sl.piece);
+    const poly = rotatePolyAbout(
+      piecePoints({ def: sl.piece, x: sl.x, y: sl.y, size: S, slotSize: S }, false),
+      sl.x, sl.y, makeRotate(sl.rot));
+    if (pointInPolygon(px, py, poly)) return sl;
+    /* 容差：槽位多边形外扩一点也算 */
+    const cx = sl.x, cy = sl.y;
+    let outer = 0;
+    for (const q of poly) outer = Math.max(outer, dist(cx, cy, q.x, q.y));
+    if (dist(px, py, cx, cy) <= outer * 0.75) return sl;
+  }
+  return null;
+}
+
 function firstFreeSlotFor(pc, px, py) {
   /* 吸附规则：点击点在槽位多边形内 或 距槽位中心 < 60px，且类型相同 */
   const cand = [];
@@ -890,11 +912,22 @@ function randomPraise() {
 canvas.addEventListener('click', ev => {
   if (state !== STATE.RUNNING) return;
   const pt = canvasPoint(ev);
+
+  /* 1) 先看是否点中"空着的槽位影子" —— 优先级最高，
+        避免槽位被旁边的已放置拼块遮住导致点不到（会卡关） */
+  if (selected >= 0) {
+    const pcSel = pieces[selected];
+    if (pcSel.placedSlot < 0) {
+      const sl = slotAtPoint(pt.x, pt.y, pcSel);
+      if (sl) { placePiece(selected, sl.idx); return; }
+    }
+  }
+
   const hit = pieceAt(pt.x, pt.y);
   if (hit >= 0) {
     const pc = pieces[hit];
     if (pc.placedSlot >= 0) {
-      /* 已放置 → 拿回托盘（不惩罚） */
+      /* 已放置 → 点它自己的位置才拿回（不惩罚） */
       const sl = slots[pc.placedSlot];
       sl.done = false; sl.doneT = 0;
       pc.placedSlot = -1;
