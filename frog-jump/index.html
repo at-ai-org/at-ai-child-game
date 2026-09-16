@@ -168,7 +168,7 @@
 <div class="hud">
   <div class="hud-chip">得分 <b id="hudScore">0</b></div>
   <div class="hud-chip">关卡 <b id="hudLevel">1</b>/9</div>
-  <div class="hud-chip">数到 <b id="hudPad">0</b> / <b id="hudPadTotal">0</b></div>
+  <div class="hud-chip">从 <b id="hudFrom">0</b> 数到 <b id="hudTo">0</b></div>
 </div>
 
 <div id="captionBar"></div>
@@ -363,7 +363,9 @@ function layoutPads() {
     p.fx = 0.12 + 0.7 * slot;
     p.fy = i % 2 === 0 ? 0.42 : 0.82;
   });
-  $('hudPadTotal').textContent = n - 1;
+  const [f0, t0] = LEVEL_RANGES[Math.min(level, LEVEL_TOTAL) - 1];
+  $('hudFrom').textContent = f0;
+  $('hudTo').textContent = t0;
 }
 
 function padXY(p) {
@@ -729,7 +731,7 @@ function roundRect(x, y, w, h, r) {
 function updateHUD() {
   $('hudScore').textContent = score;
   $('hudLevel').textContent = level;
-  $('hudPad').textContent = frog.on >= 0 && pads.length ? pads.filter((p, i) => p.landed && !p.decoy).length - 1 : 0;
+  /* HUD 的区间标签在 layoutPads 里设置，无需每帧更新 */
 }
 function toast(text) {
   toastEl.textContent = text;
