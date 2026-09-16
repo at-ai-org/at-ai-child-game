@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>数字水枪 · Number Water Gun</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  body {
+    background: #0a2634;
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #game { display: block; width: 100vw; height: 100vh; }
+
+  .hud {
+    position: absolute; top: 72px; left: 14px; z-index: 10;
+    display: flex; gap: 10px; flex-wrap: wrap; pointer-events: none;
+  }
+  .hud-chip {
+    background: rgba(4, 32, 44, .78);
+    border: 1px solid rgba(120, 230, 255, .38);
+    border-radius: 14px;
+    color: #ddf6ff;
+    padding: 7px 15px;
+    font-size: 17px;
+    font-weight: 600;
+    box-shadow: 0 4px 18px rgba(0,0,0,.35);
+    backdrop-filter: blur(6px);
+  }
+  .hud-chip b { color: #ffd35c; font-size: 21px; }
+
+  #btnMute {
+    position: absolute; top: 12px; right: 12px; z-index: 60;
+    font-size: 20px; line-height: 1;
+    padding: 9px 13px; border-radius: 12px; cursor: pointer;
+    background: rgba(4, 32, 44, .78);
+    border: 1px solid rgba(120, 230, 255, .38);
+    color: #ddf6ff;
+    min-width: 44px; min-height: 44px;
+  }
+
+  #captionBar {
+    position: absolute; left: 50%; top: 74px;
+    transform: translateX(-50%);
+    z-index: 25;
+    max-width: 92vw;
+    background: rgba(4, 32, 44, .85);
+    border: 1px solid rgba(255, 211, 92, .5);
+    border-radius: 16px;
+    padding: 10px 22px;
+    font-size: 18px; font-weight: 600;
+    color: #ffe9ad;
+    text-align: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .25s;
+    box-shadow: 0 6px 22px rgba(0,0,0,.4);
+    white-space: nowrap;
+  }
+  #captionBar.show { opacity: 1; }
+
+  /* 题目卡 */
+  #questCard {
+    position: absolute; left: 50%; top: 12%;
+    transform: translateX(-50%);
+    z-index: 18;
+    text-align: center;
+    pointer-events: none;
+    max-width: 94vw;
+  }
+  #questCard .ask {
+    display: inline-block;
+    padding: 10px 30px;
+    font-size: 30px; font-weight: 800;
+    color: #06303f;
+    background: linear-gradient(160deg, #eafcff, #cdf0ff);
+    border: 3px solid #35c4e8;
+    border-radius: 22px;
+    box-shadow: 0 10px 26px rgba(10,80,110,.35);
+    line-height: 1.35;
+  }
+  #questCard .sub { margin-top: 8px; font-size: 15px; font-weight: 600; color: #9fd8ea; letter-spacing: 1px; }
+
+  #toast {
+    position: absolute; left: 50%; top: 30%;
+    transform: translate(-50%, -50%) scale(1);
+    z-index: 30;
+    font-size: 56px; font-weight: 800;
+    color: #7cf0ff;
+    text-shadow: 0 3px 0 #0a3a4a, 0 6px 18px rgba(0,0,0,.5);
+    opacity: 0; pointer-events: none;
+    transition: opacity .25s, transform .25s;
+    white-space: nowrap;
+  }
+  #toast.pop { opacity: 1; transform: translate(-50%, -58%) scale(1.12); }
+
+  #result {
+    position: absolute; inset: 0; z-index: 40;
+    background: rgba(2, 18, 26, .82);
+    display: none;
+    align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  #result.show { display: flex; }
+  .result-card {
+    text-align: center; color: #eaf9ff;
+    background: linear-gradient(160deg, #0c4a63, #06283a);
+    border: 2px solid #35c4e8;
+    border-radius: 26px;
+    padding: 30px 44px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.55);
+    max-width: 88vw;
+  }
+  .result-card h1 { font-size: 38px; color: #ffd35c; margin-bottom: 12px; }
+  .result-card p { font-size: 17px; color: #a8dcec; margin: 6px 0 22px; line-height: 1.8; }
+  .result-card button {
+    font-size: 20px; padding: 12px 42px; border-radius: 999px;
+    border: none; cursor: pointer;
+    background: linear-gradient(90deg, #35c4e8, #59d1ff);
+    color: #04222e; font-weight: 700; letter-spacing: 4px;
+    box-shadow: 0 6px 20px rgba(53,196,232,.45);
+    font-family: inherit;
+    min-height: 48px;
+  }
+  .result-card button:active { transform: scale(.97); }
+
+  #start {
+    position: absolute; inset: 0; z-index: 50;
+    background: radial-gradient(1200px 600px at 50% 30%, #0c4a63 0%, #06283a 70%);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: #eaf9ff; text-align: center;
+    padding: 20px;
+  }
+  #start h1 {
+    font-size: clamp(38px, 8vw, 60px); letter-spacing: 6px;
+    background: linear-gradient(90deg, #7cf0ff, #ffd35c, #59d1ff, #7cf0ff);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+    margin-bottom: 14px;
+  }
+  #start p { font-size: 16px; color: #9fd8ea; line-height: 2; max-width: 580px; }
+  #start .rules { margin: 22px 0 28px; }
+  #start .kbd-tip {
+    display: inline-block; margin-top: 14px;
+    background: rgba(4, 32, 44, .72);
+    border: 1px solid rgba(120, 230, 255, .35);
+    border-radius: 14px;
+    padding: 10px 18px;
+    font-size: 15px; color: #b9e4f0; font-weight: 600;
+  }
+  #start .kbd-tip kbd {
+    display: inline-block;
+    background: linear-gradient(160deg, #0d4257, #08303f);
+    border: 1px solid rgba(150, 230, 255, .5);
+    border-bottom-width: 3px;
+    border-radius: 8px;
+    color: #ddf6ff;
+    font-family: inherit; font-size: 16px; font-weight: 800;
+    padding: 2px 9px; margin: 0 2px;
+    box-shadow: 0 3px 8px rgba(0,0,0,.4);
+  }
+  #start button {
+    font-size: 21px; padding: 14px 56px; border-radius: 999px;
+    border: none; cursor: pointer;
+    background: linear-gradient(90deg, #35c4e8, #ffd35c);
+    color: #04222e; font-weight: 800; letter-spacing: 6px;
+    box-shadow: 0 8px 26px rgba(53,196,232,.45);
+    font-family: inherit;
+    min-height: 52px;
+  }
+  #start button:active { transform: scale(.97); }
+
+  #btnHome { position: absolute; top: 12px; left: 12px; z-index: 60; font-size: 20px; line-height: 1; padding: 9px 13px; border-radius: 12px; cursor: pointer; background: rgba(4, 32, 44, .78); border: 1px solid rgba(120, 230, 255, .38); color: #ddf6ff; font-family: inherit; }
+  #btnHome:active { transform: scale(.94); }
+  #homeConfirm { position: absolute; inset: 0; z-index: 90; background: rgba(2, 18, 26, .62); display: none; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+  #homeConfirm.show { display: flex; }
+  #homeConfirm .hc-card { text-align: center; background: linear-gradient(160deg, #0c4a63, #06283a); border: 2px solid #35c4e8; border-radius: 22px; padding: 26px 34px; box-shadow: 0 18px 50px rgba(0,0,0,.5); max-width: 84vw; }
+  #homeConfirm .hc-card h2 { font-size: 24px; color: #eaf9ff; margin-bottom: 8px; letter-spacing: 2px; }
+  #homeConfirm .hc-card p { font-size: 15px; color: #9fd8ea; margin: 4px 0 18px; }
+  #homeConfirm .hc-btns { display: flex; gap: 14px; justify-content: center; }
+  #homeConfirm button { font-size: 17px; padding: 10px 26px; border-radius: 999px; border: none; cursor: pointer; font-weight: 700; letter-spacing: 2px; font-family: inherit; }
+  #homeConfirm button:active { transform: scale(.96); }
+  #hcOk { background: linear-gradient(90deg, #35c4e8, #ffd35c); color: #04222e; box-shadow: 0 6px 18px rgba(53,196,232,.4); }
+  #hcCancel { background: rgba(255,255,255,.12); color: #ddf6ff; border: 1px solid rgba(120,230,255,.4) !important; }
+</style>
+</head>
+<body>
+<button id="btnHome" title="返回主页">🏠</button>
+<div id="homeConfirm">
+  <div class="hc-card">
+    <h2>🏠 返回游戏主页？</h2>
+    <p>当前的游戏进度将会丢失哦</p>
+    <div class="hc-btns">
+      <button id="hcOk">确认返回</button>
+      <button id="hcCancel">再玩一会儿</button>
+    </div>
+  </div>
+</div>
+
+<canvas id="game"></canvas>
+<button id="btnMute" title="声音开关">🔊</button>
+
+<div class="hud">
+  <div class="hud-chip">关卡 <b id="hudLevel">1</b>/9</div>
+  <div class="hud-chip">本关 <b id="hudHit">0</b>/3</div>
+  <div class="hud-chip">得分 <b id="hudScore">0</b></div>
+</div>
+
+<div id="captionBar"></div>
+
+<div id="questCard">
+  <div class="ask" id="askText">？</div>
+  <div class="sub" id="askSub">打中正确的 3 个靶位</div>
+</div>
+
+<div id="toast"></div>
+
+<div id="result">
+  <div class="result-card">
+    <h1 id="resultTitle">🎯 神枪手！</h1>
+    <p id="resultDesc"></p>
+    <button id="btnRestart">再玩一次</button>
+  </div>
+</div>
+
+<div id="start">
+  <h1>💦 数字水枪</h1>
+  <p class="rules">
+    小朋友拿着水枪，站在 <b>10 米</b>外，对面一字排开 <b>0～9</b> 十个靶位！<br>
+    听清楚题目（比如"打数字 7 的靶位"），点一下靶位开枪：<br>
+    ✅ 打对 → 滋——水柱喷到靶上，靶位湿淋淋！<br>
+    ❌ 打错 → 水枪会告诉你该打几号<br>
+    每关打中正确的 <b>3 个</b>靶位就过关，一共 <b>9 关</b>，
+    从认数字一直玩到加法、减法、找规律！
+  </p>
+  <p class="kbd-tip">也可以直接按键盘 <kbd>0</kbd>-<kbd>9</kbd> 开枪打对应的靶位</p>
+  <button id="btnStart">开始打靶</button>
+</div>
+
+<script>
+/* 屏蔽右键菜单：防止误触 */
+window.addEventListener('contextmenu', e => e.preventDefault());
+
+/* =========================================================
+ * 数字水枪 Number Water Gun —— 单文件 Canvas 小游戏
+ * 10 个靶位（0-9）一字排开，小朋友站在 10 米外用水枪打靶。
+ * 每关需打中正确的 3 个靶位，共 9 关，题型递进：
+ *   1 听数字打靶 → 2 听数字打靶(更快) → 3 相邻数 →
+ *   4 多几 / 少几 → 5 加法 → 6 减法 → 7 数的分解 →
+ *   8 找规律(跳数) → 9 混合综合
+ * ========================================================= */
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0;
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+window.addEventListener('resize', resize);
+resize();
+
+const STATE = { START: 0, RUNNING: 1, FINISH: 2 };
+const LEVELS_TOTAL = 9;
+const HITS_PER_LEVEL = 3;
+const TARGET_COUNT = 10;
+
+let state = STATE.START;
+let level = 1;
+let levelHits = 0;          // 本关已打中数
+let score = 0, rightTotal = 0, wrongTotal = 0;
+let quest = null;           // { answer, ask, speak, sub }
+let targets = [];           // { num, wet, splash, wrongFlash, shakeT }
+let jet = null;             // 水柱动画 { from, to, t, dur, hit, idx, droplets }
+let aimAngle = 0;           // 水枪当前角度
+let aimTarget = 0;          // 目标角度
+let recoil = 0;             // 后坐力
+let splashes = [];          // 命中水花粒子
+let drips = [];             // 靶位滴水
+let nextT = 0;              // 出下一题 / 下一关的延时
+let levelDoneT = 0;         // 过关庆祝延时
+let shake = 0;
+let attempts = 0;           // 本关已开枪次数（用于限制无限试错）
+
+const $ = id => document.getElementById(id);
+const captionEl = $('captionBar');
+const askEl = $('askText');
+const askSubEl = $('askSub');
+const toastEl = $('toast');
+
+/* ---------------- 语音 ---------------- */
+const synth = window.speechSynthesis || null;
+let zhVoice = null;
+function pickVoice() {
+  if (!synth) return;
+  const vs = synth.getVoices();
+  zhVoice = vs.find(v => /zh[-_]CN/i.test(v.lang)) || vs.find(v => /^zh/i.test(v.lang)) || null;
+}
+if (synth) { pickVoice(); if (synth.onvoiceschanged !== undefined) synth.onvoiceschanged = pickVoice; }
+function speak(text) {
+  if (muted || !synth) return;
+  try {
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN'; if (zhVoice) u.voice = zhVoice;
+    u.rate = 0.92;
+    synth.speak(u);
+  } catch (e) {}
+}
+function caption(text) {
+  captionEl.textContent = text;
+  captionEl.classList.add('show');
+  clearTimeout(captionEl._t);
+  captionEl._t = setTimeout(() => captionEl.classList.remove('show'), 3200);
+}
+
+/* ---------------- 音效 ---------------- */
+let actx = null, muted = false;
+function initAudio() {
+  if (actx) return;
+  try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+}
+function beep(freq, dur, type, vol, sweepTo) {
+  if (!actx || muted) return;
+  try {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(freq, actx.currentTime);
+    if (sweepTo) o.frequency.exponentialRampToValueAtTime(sweepTo, actx.currentTime + dur);
+    g.gain.setValueAtTime(vol || 0.15, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + dur);
+    o.connect(g).connect(actx.destination);
+    o.start();
+    o.stop(actx.currentTime + dur);
+  } catch (e) {}
+}
+const sfxShoot = () => { beep(900, .16, 'sawtooth', .12, 260); beep(600, .2, 'sine', .08, 200); };
+const sfxHit   = () => { beep(1200, .09, 'sine', .16); beep(1600, .14, 'sine', .13); beep(420, .2, 'triangle', .1, 220); };
+const sfxWrong = () => { beep(220, .2, 'square', .1); beep(170, .24, 'square', .08, 120); };
+const sfxLevel = () => { [523, 659, 784, 1047].forEach((f, i) => beep(f, .2, 'sine', .16, undefined, i * .12)); };
+$('btnMute').addEventListener('click', () => {
+  muted = !muted;
+  $('btnMute').textContent = muted ? '🔇' : '🔊';
+  if (muted && synth) synth.cancel();
+});
+
+/* ---------------- 场景几何 ---------------- */
+function horizonY() { return H * 0.50; }
+function targetY() { return H * 0.455; }              // 靶心高度
+function targetX(i) {
+  const margin = Math.max(0.055, 0.62 / TARGET_COUNT);
+  const span = 1 - margin * 2;
+  return W * (margin + span * i / (TARGET_COUNT - 1));
+}
+function targetR() { return Math.min(W / 26, H * 0.085); }
+function kidX() { return W * 0.5; }
+function kidY() { return H * 0.83; }
+function gunPivot() { return { x: kidX(), y: kidY() - H * 0.075 }; }   // 水枪转动轴（手的位置）
+
+/* ---------------- 出题 ---------------- */
+const rnd = n => Math.floor(Math.random() * n);
+const pick = arr => arr[rnd(arr.length)];
+
+/* 每关的题型 */
+function makeQuest() {
+  const kind = [
+    'direct',   // 1 听数字打靶
+    'direct',   // 2 听数字打靶
+    'neighbor', // 3 相邻数
+    'moreless', // 4 多几少几
+    'add',      // 5 加法
+    'sub',      // 6 减法
+    'decompose',// 7 数的分解
+    'pattern',  // 8 找规律（跳数）
+    'mixed',    // 9 混合
+  ][level - 1];
+
+  const form = kind === 'mixed'
+    ? pick(['direct', 'neighbor', 'moreless', 'add', 'sub', 'decompose', 'pattern'])
+    : kind;
+
+  /* 本关已打湿的靶位不能再出题（否则那道题永远打不了，会卡关） */
+  const taken = new Set(targets.filter(t => t.wet).map(t => t.num));
+  let answer, ask, speakText, sub, guard = 0;
+  do {
+    const q = makeQuestOnce(form);
+    answer = q.answer; ask = q.ask; speakText = q.speak; sub = q.sub;
+  } while (taken.has(answer) && ++guard < 80);
+  quest = { answer, ask, speak: speakText, sub };
+  askEl.textContent = ask;
+  askSubEl.textContent = sub;
+  speak(speakText);
+  caption('🔈 ' + ask);
+  updateHUD();
+}
+
+/* 生成一道题面（答案可能撞到已打中的靶位，由 makeQuest 重抽） */
+function makeQuestOnce(form) {
+  let answer, ask, speakText, sub;
+  if (form === 'direct') {
+    answer = rnd(10);
+    ask = `打数字 ${answer} 的靶位`;
+    speakText = `打数字${answer}！${answer}，${answer}！`;
+    sub = '听清楚数字，点一下靶位';
+  } else if (form === 'neighbor') {
+    /* 相邻数：比 N 大 1 / 小 1（保证 0-9 范围内） */
+    const up = Math.random() < 0.5;
+    if (up) { const n = rnd(9); answer = n + 1; ask = `打比 ${n} 大 1 的数字`; speakText = `比${n}大1的数字是几？`; }
+    else    { const n = 1 + rnd(9); answer = n - 1; ask = `打比 ${n} 小 1 的数字`; speakText = `比${n}小1的数字是几？`; }
+    sub = '想一想，邻居是几号';
+  } else if (form === 'moreless') {
+    const d = 2 + rnd(2);            // 多/少 2 或 3
+    const up = Math.random() < 0.5;
+    if (up) { const n = rnd(10 - d); answer = n + d; ask = `打比 ${n} 大 ${d} 的数字`; speakText = `比${n}大${d}的数字是几？`; }
+    else    { const n = d + rnd(10 - d); answer = n - d; ask = `打比 ${n} 小 ${d} 的数字`; speakText = `比${n}小${d}的数字是几？`; }
+    sub = `算一算，多 ${d} 个 / 少 ${d} 个`;
+  } else if (form === 'add') {
+    const a = 1 + rnd(5), b = 1 + rnd(Math.min(4, 9 - a));
+    answer = a + b;
+    ask = `${a} + ${b} = ？　打答案的靶位`;
+    speakText = `${a}加${b}等于几？`;
+    sub = '把两个数合起来';
+  } else if (form === 'sub') {
+    const a = 4 + rnd(6), b = 1 + rnd(a - 1);
+    answer = a - b;
+    ask = `${a} − ${b} = ？　打答案的靶位`;
+    speakText = `${a}减${b}等于几？`;
+    sub = '从大数里去掉一些';
+  } else if (form === 'decompose') {
+    const total = 5 + rnd(5);        // 5..9
+    const part = 1 + rnd(total - 1); // 1..total-1
+    answer = total - part;
+    ask = `${total} 可以分成 ${part} 和 ？`;
+    speakText = `${total}可以分成${part}和几？`;
+    sub = '凑一凑，还差几个';
+  } else {
+    /* pattern 找规律（跳数）：题面给 2~3 项，答案是下一项，必须 ≤ 9 */
+    let step, start, ok = false, g = 0;
+    do {
+      step = pick([2, 2, 3, 5]);
+      /* start 的取值保证 start + step*3 ≤ 9（题面 3 项 + 答案 1 项都在靶位范围内） */
+      const maxStart = Math.floor((9 - step * 3) / step);
+      if (maxStart < 0) { g++; continue; }
+      start = rnd(maxStart + 1) * step;
+      ok = true;
+    } while (!ok && ++g < 40);
+    /* 兜底：极端情况下（理论不会发生）退化为 2 的跳数 */
+    if (!ok) { step = 2; start = 0; }
+    const seq = [start, start + step, start + step * 2];
+    answer = start + step * 3;
+    ask = `${seq.join('、')}、？　接着该打几号`;
+    speakText = `${seq.join('、')}，接着是几？`;
+    sub = '找一找规律，每次加几';
+  }
+  /* 兜底：答案必须落在靶位范围 0-9（否则那道题永远打不中） */
+  if (!(answer >= 0 && answer <= 9)) {
+    console.error('[water-gun] 题型答案越界，已修正为 0：', { form, answer, ask });
+    answer = 0;
+    ask = `打数字 ${answer} 的靶位`;
+    speakText = `打数字${answer}！`;
+    sub = '听清楚数字，点一下靶位';
+  }
+  return { answer, ask, speak: speakText, sub };
+}
+
+/* ---------------- 开枪 ---------------- */
+function fireAt(idx) {
+  if (state !== STATE.RUNNING || !quest) return;
+  if (jet) return;                                  // 水柱还没喷完
+  if (targets[idx].wet) {                           // 这个已经打中过了
+    speak2('这个靶位已经打中啦，换一个吧');
+    return;
+  }
+  attempts++;
+  const hit = targets[idx].num === quest.answer;
+  const to = { x: targetX(idx), y: targetY() };
+  const from = muzzlePos();
+  jet = { from, to, t: 0, dur: 0.34, hit, idx, arrived: false };
+  aimAngle = Math.atan2(to.y - from.y, to.x - from.x);
+  recoil = 1;
+  sfxShoot();
+}
+function speak2(t) { caption('🔊 ' + t); speak(t); }
+
+/* 水柱到位后的判定 */
+function jetArrive() {
+  const idx = jet.idx;
+  const t = targets[idx];
+  if (jet.hit) {
+    t.wet = true;
+    t.splash = 1;
+    rightTotal++;
+    levelHits++;
+    score += 10;
+    sfxHit();
+    burstHit(targetX(idx), targetY(idx));
+    for (let i = 0; i < 5; i++) drips.push({ x: targetX(idx) + (Math.random() - .5) * 30, y: targetY(idx) + 10, vy: 1 + Math.random(), t: 1 });
+    const praise = ['打中啦！', '滋——好准！', '太棒了！', '正中靶心！'];
+    toast(pick(praise) + quest.answer);
+    speak(`${pick(['打中啦', '好准呀', '太棒了'])}！${quest.answer}！`);
+    if (levelHits >= HITS_PER_LEVEL) {
+      /* 本关完成 */
+      levelDoneT = 1.5;
+      sfxLevel();
+      speak(`第${level}关过了！三个靶位全打中啦！`);
+      caption(`✅ 第 ${level} 关完成！`);
+    } else {
+      nextT = 1.0;                                  // 出下一题
+      quest = null;
+    }
+  } else {
+    wrongTotal++;
+    t.wrongFlash = 1;
+    shake = 0.3;
+    sfxWrong();
+    const got = t.num;
+    const want = quest.answer;
+    toast(`这是 ${got}`);
+    speak2(`这是数字${got}哦，我们要打${want}。再找找${want}在哪里`);
+    nextT = 1.2;
+  }
+  updateHUD();
+}
+
+function burstHit(x, y) {
+  for (let i = 0; i < 26; i++) {
+    const a = Math.random() * Math.PI * 2, sp = 1.5 + Math.random() * 4;
+    splashes.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 1.5, life: 1, size: 2 + Math.random() * 4 });
+  }
+}
+
+/* ---------------- 更新 ---------------- */
+function update(dt) {
+  if (shake > 0) shake = Math.max(0, shake - dt);
+  if (recoil > 0) recoil = Math.max(0, recoil - dt * 4);
+  for (const t of targets) {
+    if (t.splash > 0) t.splash = Math.max(0, t.splash - dt * 1.6);
+    if (t.wrongFlash > 0) t.wrongFlash = Math.max(0, t.wrongFlash - dt * 0.9);
+    if (t.shakeT > 0) t.shakeT = Math.max(0, t.shakeT - dt);
+  }
+  /* 水柱动画 */
+  if (jet) {
+    jet.t += dt / jet.dur;
+    if (!jet.arrived && jet.t >= 1) {
+      jet.arrived = true;
+      jetArrive();
+      jet.dead = true;
+      /* 水柱余韵短暂保留 */
+      jet.fade = 0.12;
+    } else if (jet.arrived) {
+      jet.fade -= dt;
+      if (jet.fade <= 0) jet = null;
+    }
+  }
+  /* 水花粒子 */
+  for (const p of splashes) {
+    p.x += p.vx; p.y += p.vy; p.vy += 0.28; p.life -= dt * 1.8;
+  }
+  splashes = splashes.filter(p => p.life > 0);
+  /* 滴水 */
+  for (const d of drips) { d.y += d.vy; d.vy += 0.12; d.t -= dt * 0.8; }
+  drips = drips.filter(d => d.t > 0);
+  /* 定时推进 */
+  if (nextT > 0) {
+    nextT -= dt;
+    if (nextT <= 0) {
+      nextT = 0;
+      if (levelHits >= HITS_PER_LEVEL) return;      // 走 levelDoneT
+      makeQuest();
+    }
+  }
+  if (levelDoneT > 0) {
+    levelDoneT -= dt;
+    if (levelDoneT <= 0) {
+      levelDoneT = 0;
+      if (level >= LEVELS_TOTAL) { showResult(); }
+      else { level++; startLevel(); }
+    }
+  }
+}
+
+function startLevel() {
+  levelHits = 0;
+  attempts = 0;
+  quest = null;
+  jet = null;
+  splashes = [];
+  drips = [];
+  nextT = 0;
+  levelDoneT = 0;
+  targets = [];
+  for (let i = 0; i < TARGET_COUNT; i++) {
+    targets.push({ num: i, wet: false, splash: 0, wrongFlash: 0, shakeT: 0 });
+  }
+  updateHUD();
+  makeQuest();
+}
+
+/* ---------------- 绘制 ---------------- */
+function drawSky(t) {
+  const sky = ctx.createLinearGradient(0, 0, 0, horizonY() + 40);
+  sky.addColorStop(0, '#2f9fd6');
+  sky.addColorStop(0.6, '#8fd8f2');
+  sky.addColorStop(1, '#e8f7ff');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, horizonY() + 40);
+  /* 太阳与云 */
+  ctx.fillStyle = '#ffe9a0';
+  ctx.beginPath(); ctx.arc(W * 0.86, H * 0.11, Math.min(W, H) * 0.045, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.85)';
+  for (const [cx, cy, s] of [[0.16, 0.1, 1], [0.42, 0.06, .8], [0.66, 0.13, .9]]) {
+    const x = W * cx, y = H * cy;
+    ctx.beginPath();
+    ctx.arc(x, y, 22 * s, 0, Math.PI * 2);
+    ctx.arc(x + 26 * s, y + 5 * s, 17 * s, 0, Math.PI * 2);
+    ctx.arc(x - 24 * s, y + 6 * s, 15 * s, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  /* 远山 */
+  ctx.fillStyle = '#7fc7a0';
+  ctx.beginPath();
+  ctx.moveTo(0, horizonY());
+  for (let x = 0; x <= W; x += 40) ctx.lineTo(x, horizonY() - Math.sin(x * 0.006) * H * 0.035 - H * 0.02);
+  ctx.lineTo(W, horizonY() + 30); ctx.lineTo(0, horizonY() + 30);
+  ctx.fill();
+  /* 水面（打靶场前方有条小河，水枪喷水更应景） */
+  ctx.fillStyle = '#4fb8e0';
+  ctx.fillRect(0, horizonY() - 6, W, 10);
+  /* 地面 */
+  const gnd = ctx.createLinearGradient(0, horizonY(), 0, H);
+  gnd.addColorStop(0, '#8fd06a');
+  gnd.addColorStop(1, '#4f9a48');
+  ctx.fillStyle = gnd;
+  ctx.fillRect(0, horizonY() + 4, W, H - horizonY());
+  /* 草地纹理 */
+  ctx.strokeStyle = 'rgba(40,110,50,.22)';
+  ctx.lineWidth = 2;
+  for (let i = 0; i < 26; i++) {
+    const x = (i * 83) % W, y = horizonY() + 30 + (i % 5) * ((H - horizonY()) / 6);
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 5, y - 10); ctx.stroke();
+  }
+}
+
+function drawDistanceMark() {
+  /* 10 米距离标识：从水枪站线到靶位的虚线 + 标注 */
+  const y0 = kidY() + H * 0.02;
+  const y1 = targetY() + targetR() + 8;
+  const x = W * 0.5;
+  ctx.save();
+  ctx.setLineDash([9, 9]);
+  ctx.strokeStyle = 'rgba(255,255,255,.7)';
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(W * 0.06, y0); ctx.lineTo(W * 0.94, y0); ctx.stroke();
+  ctx.restore();
+  /* 距离牌 */
+  const bx = W * 0.5, by = (y0 + y1) / 2;
+  ctx.fillStyle = 'rgba(4,40,56,.72)';
+  roundRect(bx - 52, by - 17, 104, 34, 12);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(120,230,255,.7)'; ctx.lineWidth = 2;
+  roundRect(bx - 52, by - 17, 104, 34, 12);
+  ctx.stroke();
+  ctx.fillStyle = '#ddf6ff';
+  ctx.font = 'bold 17px system-ui, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('10 米', bx, by + 1);
+}
+
+function drawTargets(t) {
+  const r = targetR();
+  for (let i = 0; i < targets.length; i++) {
+    const tg = targets[i];
+    const x = targetX(i), y = targetY();
+    const wob = tg.shakeT > 0 ? Math.sin(tg.shakeT * 40) * 6 : 0;
+    ctx.save();
+    ctx.translate(x + wob, y);
+    /* 支架 */
+    ctx.fillStyle = '#7a5a34';
+    ctx.fillRect(-4, r * 0.8, 8, H * 0.075);
+    ctx.fillStyle = '#5f4426';
+    ctx.beginPath();
+    ctx.ellipse(0, r * 0.8 + H * 0.075, 20, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+    /* 靶面：同心圆 */
+    const ringCols = tg.wet ? ['#c8e8f0', '#4fa8c4', '#2f7a94'] : ['#ffffff', '#ff5c5c', '#ffffff'];
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fillStyle = ringCols[0]; ctx.fill();
+    ctx.beginPath(); ctx.arc(0, 0, r * 0.78, 0, Math.PI * 2);
+    ctx.fillStyle = ringCols[1]; ctx.fill();
+    ctx.beginPath(); ctx.arc(0, 0, r * 0.56, 0, Math.PI * 2);
+    ctx.fillStyle = ringCols[2]; ctx.fill();
+    /* 数字圆牌 */
+    ctx.beginPath(); ctx.arc(0, 0, r * 0.42, 0, Math.PI * 2);
+    ctx.fillStyle = tg.wet ? '#1f5a70' : '#ffffff';
+    ctx.fill();
+    ctx.strokeStyle = tg.wet ? '#0d3a4a' : '#c8c8c8';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(0, 0, r * 0.42, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = tg.wet ? '#d8f4ff' : '#0a3a4a';
+    ctx.font = `bold ${Math.round(r * 0.56)}px system-ui, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(tg.num), 0, r * 0.02);
+    /* 湿了的水光 */
+    if (tg.wet) {
+      ctx.fillStyle = 'rgba(140,220,255,.35)';
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+    }
+    /* 命中溅开的水花 */
+    if (tg.splash > 0) {
+      const p = 1 - tg.splash;
+      ctx.strokeStyle = `rgba(190,240,255,${tg.splash * 0.9})`;
+      ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.arc(0, 0, r * (0.5 + p * 1.1), 0, Math.PI * 2); ctx.stroke();
+    }
+    /* 打错闪红 */
+    if (tg.wrongFlash > 0) {
+      ctx.strokeStyle = `rgba(255,80,80,${0.4 + tg.wrongFlash * 0.6})`;
+      ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.arc(0, 0, r + 6, 0, Math.PI * 2); ctx.stroke();
+    }
+    /* 当前正确目标提示（仅在犹豫较久时微光，帮小小孩） */
+    if (quest && attempts >= 2 && tg.num === quest.answer && !tg.wet) {
+      const pulse = 0.5 + 0.5 * Math.sin(t * 6);
+      ctx.strokeStyle = `rgba(255,211,92,${0.35 + 0.4 * pulse})`;
+      ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.arc(0, 0, r + 9 + pulse * 3, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+
+function muzzlePos() {
+  const p = gunPivot();
+  const len = H * 0.075;
+  return { x: p.x + Math.cos(aimAngle) * len, y: p.y + Math.sin(aimAngle) * len };
+}
+
+function drawKid(t) {
+  const kx = kidX(), ky = kidY();
+  const scale = Math.min(W, H) / 620;
+  ctx.save();
+  ctx.translate(kx, ky);
+  ctx.scale(scale, scale);
+  /* 影子 */
+  ctx.fillStyle = 'rgba(20,60,40,.25)';
+  ctx.beginPath(); ctx.ellipse(0, 6, 46, 12, 0, 0, Math.PI * 2); ctx.fill();
+  /* 腿 */
+  ctx.strokeStyle = '#2f5a9a'; ctx.lineWidth = 13; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(-11, -60); ctx.lineTo(-15, -4); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(11, -60); ctx.lineTo(15, -4); ctx.stroke();
+  /* 鞋 */
+  ctx.fillStyle = '#e05c5c';
+  roundRect(-24, -8, 20, 12, 5); ctx.fill();
+  roundRect(4, -8, 20, 12, 5); ctx.fill();
+  /* 身体（橙色 T 恤） */
+  ctx.fillStyle = '#ff9c3c';
+  roundRect(-23, -112, 46, 58, 14); ctx.fill();
+  /* 短裤 */
+  ctx.fillStyle = '#2f5a9a';
+  roundRect(-23, -68, 46, 16, 6); ctx.fill();
+  /* 手臂：双手握枪，指向瞄准方向 */
+  const p = gunPivot();
+  const lx = p.x - kx, ly = p.y - ky;         /* 肩/手相对位置 */
+  ctx.strokeStyle = '#ffd7b0'; ctx.lineWidth = 11;
+  const handX = Math.cos(aimAngle) * 30, handY = Math.sin(aimAngle) * 30;
+  ctx.beginPath(); ctx.moveTo(-16, -104); ctx.lineTo(handX - 4, -74 + handY * 0.2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(16, -104); ctx.lineTo(handX + 4, -74 + handY * 0.2); ctx.stroke();
+  ctx.restore();
+  /* 水枪（在缩放坐标系里单独画，跟着瞄准角转） */
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  ctx.rotate(aimAngle);
+  const gl = H * 0.075;
+  const back = recoil * 6;
+  /* 枪身 */
+  ctx.fillStyle = '#2f9fd6';
+  roundRect(-10 - back, -11, gl * 0.62, 22, 7); ctx.fill();
+  /* 枪管 */
+  ctx.fillStyle = '#1f7fa8';
+  roundRect(gl * 0.5 - back, -7, gl * 0.5, 14, 5); ctx.fill();
+  /* 喷嘴 */
+  ctx.fillStyle = '#ffd35c';
+  roundRect(gl * 0.94 - back, -6, gl * 0.12, 12, 4); ctx.fill();
+  /* 握把 */
+  ctx.fillStyle = '#1f7fa8';
+  roundRect(-14 - back, 4, 16, 22, 6); ctx.fill();
+  /* 水箱 */
+  ctx.fillStyle = '#7cf0ff';
+  roundRect(-34 - back, -12, 20, 30, 8); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.55)';
+  roundRect(-30 - back, -8, 6, 22, 3); ctx.fill();
+  ctx.restore();
+  /* 头（画在最上层） */
+  ctx.save();
+  ctx.translate(kx, ky);
+  ctx.scale(scale, scale);
+  ctx.fillStyle = '#ffd7b0';
+  ctx.beginPath(); ctx.arc(0, -128, 24, 0, Math.PI * 2); ctx.fill();
+  /* 棒球帽 */
+  ctx.fillStyle = '#35c4e8';
+  ctx.beginPath(); ctx.arc(0, -134, 25, Math.PI, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#2aa8c8';
+  ctx.beginPath();
+  ctx.ellipse(aimAngle > 0 ? 14 : -14, -132, 20, 7, 0, 0, Math.PI * 2);
+  ctx.fill();
+  /* 眼睛（看向靶位方向） */
+  ctx.fillStyle = '#22313a';
+  const lookX = Math.cos(aimAngle) * 3;
+  ctx.beginPath(); ctx.arc(-8 + lookX, -128, 3.2, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(8 + lookX, -128, 3.2, 0, Math.PI * 2); ctx.fill();
+  /* 笑嘴 */
+  ctx.strokeStyle = '#c8392f'; ctx.lineWidth = 2.4;
+  ctx.beginPath(); ctx.arc(0, -120, 8, 0.25, Math.PI - 0.25); ctx.stroke();
+  ctx.restore();
+}
+
+function drawJet(t) {
+  if (!jet) return;
+  const p = Math.min(1, jet.t);
+  const from = jet.from, to = jet.to;
+  /* 水柱顶点：沿炮口方向的抛物线（先上后落） */
+  const mx = (from.x + to.x) / 2;
+  const my = Math.min(from.y, to.y) - Math.abs(to.x - from.x) * 0.08 - 20;
+  const n = 26;
+  ctx.save();
+  ctx.lineCap = 'round';
+  for (let i = 0; i < n; i++) {
+    const k = i / (n - 1);
+    if (k > p) break;
+    const u = 1 - k;
+    const x = u * u * from.x + 2 * u * k * mx + k * k * to.x;
+    const y = u * u * from.y + 2 * u * k * my + k * k * to.y;
+    const rad = 5 - k * 2.5;
+    ctx.fillStyle = `rgba(190,240,255,${0.85 - k * 0.3})`;
+    ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill();
+    if (i % 3 === 0) {
+      ctx.fillStyle = 'rgba(255,255,255,.9)';
+      ctx.beginPath(); ctx.arc(x, y - rad * 0.5, rad * 0.45, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  /* 水柱头部亮点 */
+  if (p < 1) {
+    const k = p, u = 1 - k;
+    const hx = u * u * from.x + 2 * u * k * mx + k * k * to.x;
+    const hy = u * u * from.y + 2 * u * k * my + k * k * to.y;
+    ctx.fillStyle = 'rgba(255,255,255,.95)';
+    ctx.beginPath(); ctx.arc(hx, hy, 7, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawParticles() {
+  for (const p of splashes) {
+    ctx.globalAlpha = Math.max(0, Math.min(1, p.life));
+    ctx.fillStyle = '#bfeeff';
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  for (const d of drips) {
+    ctx.globalAlpha = Math.max(0, Math.min(1, d.t));
+    ctx.fillStyle = 'rgba(170,230,255,.9)';
+    ctx.beginPath(); ctx.ellipse(d.x, d.y, 2.4, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function roundRect(x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function updateHUD() {
+  $('hudLevel').textContent = level;
+  $('hudHit').textContent = levelHits;
+  $('hudScore').textContent = score;
+}
+function toast(text) {
+  toastEl.textContent = text;
+  toastEl.classList.add('pop');
+  clearTimeout(toastEl._t);
+  toastEl._t = setTimeout(() => toastEl.classList.remove('pop'), 1100);
+}
+
+function showResult() {
+  let title, medal;
+  if (wrongTotal === 0)      { title = '🥇 神枪手！'; medal = '金牌'; }
+  else if (wrongTotal <= 4)  { title = '🥈 好眼力！'; medal = '银牌'; }
+  else                        { title = '🥉 打靶小能手！'; medal = '铜牌'; }
+  $('resultTitle').textContent = title;
+  $('resultDesc').innerHTML =
+    `9 关全部通关！打中 <b style="color:#7cf0ff">${rightTotal}</b> 个靶位<br>` +
+    `得分 <b style="color:#ffd35c">${score}</b> 分 · 打偏 <b style="color:#ff9c9c">${wrongTotal}</b> 次<br>` +
+    `你已经会认数字、比大小、加减法和找规律啦！（${medal}）`;
+  $('result').classList.add('show');
+  state = STATE.FINISH;
+  speak(`太棒了！九个关卡全部通关，你是神枪手！`);
+}
+
+/* ---------------- 主循环 ---------------- */
+let lastT = 0;
+function frame(now) {
+  const dt = Math.min(0.05, lastT === 0 ? 0.016 : (now - lastT) / 1000);
+  lastT = now;
+  const t = now / 1000;
+  if (state === STATE.RUNNING) update(dt);
+  render(t);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+function render(t) {
+  ctx.save();
+  if (shake > 0) {
+    const m = shake * 9;
+    ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m);
+  }
+  drawSky(t);
+  drawDistanceMark();
+  drawTargets(t);
+  drawKid(t);
+  drawJet(t);
+  drawParticles();
+  ctx.restore();
+}
+
+/* ---------------- 点击 / 键盘 ---------------- */
+function targetAt(x, y) {
+  const r = targetR() * 1.25;                 // 热区放大，幼儿好点
+  for (let i = 0; i < targets.length; i++) {
+    if (Math.hypot(x - targetX(i), y - targetY()) < r) return i;
+  }
+  return -1;
+}
+canvas.addEventListener('pointerdown', e => {
+  if (state !== STATE.RUNNING) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) * (W / rect.width);
+  const y = (e.clientY - rect.top) * (H / rect.height);
+  const i = targetAt(x, y);
+  if (i >= 0) fireAt(i);
+});
+window.addEventListener('keydown', e => {
+  if (state !== STATE.RUNNING) return;
+  if (/^[0-9]$/.test(e.key)) fireAt(Number(e.key));
+  if (e.key === 'Enter' || e.key === ' ') {
+    if (state === STATE.START) $('btnStart').click();
+  }
+});
+
+/* ---------------- 开始 / 重开 ---------------- */
+$('btnStart').addEventListener('click', () => {
+  initAudio();
+  $('start').style.display = 'none';
+  resetGame();
+  state = STATE.RUNNING;
+  startLevel();
+});
+$('btnRestart').addEventListener('click', () => {
+  $('result').classList.remove('show');
+  resetGame();
+  state = STATE.RUNNING;
+  startLevel();
+});
+function resetGame() {
+  level = 1; levelHits = 0; score = 0;
+  rightTotal = 0; wrongTotal = 0;
+  quest = null; jet = null;
+  splashes = []; drips = [];
+  nextT = 0; levelDoneT = 0; attempts = 0;
+  updateHUD();
+}
+
+/* ---------------- 测试钩子 ---------------- */
+window.__test = {
+  start: () => {
+    initAudio();
+    $('start').style.display = 'none';
+    resetGame();
+    state = STATE.RUNNING;
+    startLevel();
+  },
+  state: () => ({
+    state, level, levelHits, score, rightTotal, wrongTotal,
+    answer: quest ? quest.answer : null,
+    ask: quest ? quest.ask : null,
+    wet: targets.filter(t => t.wet).map(t => t.num),
+    jet: !!jet, nextT, levelDoneT, attempts,
+  }),
+  fire: i => fireAt(i),
+  fireByNum: n => fireAt(targets.findIndex(t => t.num === n)),
+  tick: ms => { const step = 16.7; for (let s = 0; s < ms; s += step) update(step / 1000); },
+};
+
+/* ---- 返回主页：确认弹窗 ---- */
+(function () {
+  const btn = $('btnHome'), dlg = $('homeConfirm');
+  if (!btn || !dlg) return;
+  btn.addEventListener('click', e => { e.stopPropagation(); dlg.classList.add('show'); });
+  $('hcOk').addEventListener('click', () => {
+    try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (err) {}
+    window.location.replace('../index.html');
+  });
+  $('hcCancel').addEventListener('click', () => dlg.classList.remove('show'));
+  dlg.addEventListener('pointerdown', e => { if (e.target === dlg) dlg.classList.remove('show'); });
+})();
+
+/* ---- 禁用浏览器回退 ---- */
+(function () {
+  const dlg = $('homeConfirm');
+  function guardBack() {
+    try { history.pushState({ g: 1 }, '', '#guard'); } catch (e) {}
+    if (dlg) {
+      dlg.classList.add('show');
+      try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (e) {}
+    }
+  }
+  try {
+    history.pushState({ g: 1 }, '', '#guard');
+    window.addEventListener('popstate', guardBack);
+    window.addEventListener('pageshow', e => {
+      if (e.persisted) { try { history.pushState({ g: 1 }, '', '#guard'); } catch (err) {} }
+    });
+  } catch (e) {}
+})();
+</script>
+</body>
+</html>
