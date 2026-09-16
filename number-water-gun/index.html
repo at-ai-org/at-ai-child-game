@@ -274,6 +274,8 @@ let score = 0, rightTotal = 0, wrongTotal = 0;
 let quest = null;           // { answer, ask, speak, sub }
 let targets = [];           // { num, wet, splash, wrongFlash, shakeT }
 let jet = null;             // 水柱动画 { from, to, t, dur, hit, idx, droplets }
+let walk = null;            // 走位动画 { to, idx, dur, t, hit }（走到靶位正下方再开枪）
+let walkStep = 0;           // 走路的脚步相位（腿部摆动用）
 let aimAngle = 0;           // 水枪当前角度
 let aimTarget = 0;          // 目标角度
 let recoil = 0;             // 后坐力
@@ -356,9 +358,20 @@ function targetX(i) {
 }
 /* 靶位半径：比原来小一圈（视觉更远），但窄屏给下限保证数字看得清 */
 function targetR() { return Math.max(14, Math.min(W / 34, H * 0.058)); }
-function kidX() { return W * 0.5; }
-function kidY() { return H * 0.78; }                  // 小朋友站位抬高
-function gunPivot() { return { x: kidX(), y: kidY() - H * 0.088 }; }   // 水枪转动轴（手的位置，整体抬高）
+function kidXHome() { return W * 0.5; }
+function kidY() { return H * 0.78; }
+/* 小朋友的绘制缩放（身体/枪的尺寸都按它算，保证比例一致） */
+function kidScale() { return Math.min(W, H) / 620; }
+/* 小朋友当前横向位置（开枪前会走到目标靶位正下方） */
+let kidXCur = null;
+if (kidXCur === null) kidXCur = W * 0.5;
+/* 肩高（kid-local -104 处），水枪与肩齐平 */
+function shoulderLocalY() { return -104; }
+function gunPivot() {
+  return { x: kidXCur, y: kidY() + shoulderLocalY() * kidScale() };
+}
+/* 站线：在小朋友身前（靠靶位一侧），小朋友站在线后 */
+function standLineY() { return kidY() + 6 - H * 0.045; }
 
 /* ---------------- 出题 ---------------- */
 const rnd = n => Math.floor(Math.random() * n);
@@ -469,7 +482,7 @@ function makeQuestOnce(form) {
 /* ---------------- 开枪 ---------------- */
 function fireAt(idx) {
   if (state !== STATE.RUNNING) return;
-  if (jet) return;                                  // 水柱还没喷完
+  if (jet || walk) return;                          // 正在走位或水柱还没喷完
   if (!quest) {                                     // 换题/过关的空档：给反馈，不静默
     speak2(levelHits >= HITS_PER_LEVEL ? '这一关打中啦，准备下一关' : '准备好，下一题马上来');
     return;
@@ -479,10 +492,24 @@ function fireAt(idx) {
     return;
   }
   attempts++;
-  const hit = targets[idx].num === quest.answer;
+  /* 先走到靶位正下方，站定后再开枪 */
+  const tx = targetX(idx);
+  const dist = Math.abs(tx - kidXCur);
+  const speed = W * 3.2;                            // 横向移动速度
+  walk = {
+    to: tx, idx,
+    dur: Math.max(0.12, Math.min(0.34, dist / speed)),
+    t: 0,
+    hit: targets[idx].num === quest.answer,
+  };
+  walkStep = 0;
+}
+
+/* 走到位后真正开枪 */
+function shootAt(idx, hit) {
   const to = { x: targetX(idx), y: targetY() };
   const from = muzzlePos();
-  jet = { from, to, t: 0, dur: 0.34, hit, idx, arrived: false };
+  jet = { from, to, t: 0, dur: 0.3, hit, idx, arrived: false };
   aimAngle = Math.atan2(to.y - from.y, to.x - from.x);
   recoil = 1;
   sfxShoot();
@@ -545,6 +572,25 @@ function update(dt) {
     if (t.wrongFlash > 0) t.wrongFlash = Math.max(0, t.wrongFlash - dt * 0.9);
     if (t.shakeT > 0) t.shakeT = Math.max(0, t.shakeT - dt);
   }
+  /* 走位：横向移动到目标靶位正下方，到了才开枪 */
+  if (walk) {
+    walk.t += dt;
+    const k = Math.min(1, walk.t / walk.dur);
+    const e = 1 - Math.pow(1 - k, 2);                // easeOutQuad
+    const fromX = kidXCur;
+    /* 起点在开始走位时记录 */
+    if (walk.fromX === undefined) walk.fromX = fromX;
+    kidXCur = walk.fromX + (walk.to - walk.fromX) * e;
+    walkStep += dt * 14;
+    if (k >= 1) {
+      kidXCur = walk.to;
+      const w = walk;
+      walk = null;
+      shootAt(w.idx, w.hit);
+    }
+  } else {
+    walkStep = 0;
+  }
   /* 水柱动画 */
   if (jet) {
     jet.t += dt / jet.dur;
@@ -591,6 +637,8 @@ function startLevel() {
   attempts = 0;
   quest = null;
   jet = null;
+  walk = null; walkStep = 0;
+  kidXCur = W * 0.5;
   splashes = [];
   drips = [];
   nextT = 0;
@@ -649,17 +697,18 @@ function drawSky(t) {
 }
 
 function drawDistanceMark() {
-  /* 10 米距离标识：从水枪站线到靶位的虚线 + 标注 */
-  const y0 = kidY() + H * 0.02;
+  /* 10 米距离标识：站线画在小朋友身前（靠靶位一侧），
+   * 小朋友站在线的后面（线在人与靶之间） */
+  const y0 = standLineY();
   const y1 = targetY() + targetR() + 8;
   const x = W * 0.5;
   ctx.save();
   ctx.setLineDash([9, 9]);
-  ctx.strokeStyle = 'rgba(255,255,255,.7)';
+  ctx.strokeStyle = 'rgba(255,255,255,.75)';
   ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.moveTo(W * 0.06, y0); ctx.lineTo(W * 0.94, y0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(W * 0.05, y0); ctx.lineTo(W * 0.95, y0); ctx.stroke();
   ctx.restore();
-  /* 距离牌 */
+  /* 距离牌（放在站线与靶位之间） */
   const bx = W * 0.5, by = (y0 + y1) / 2;
   ctx.fillStyle = 'rgba(4,40,56,.72)';
   roundRect(bx - 52, by - 17, 104, 34, 12);
@@ -744,37 +793,39 @@ function muzzlePos() {
 }
 
 function drawKid(t) {
-  const kx = kidX(), ky = kidY();
-  const scale = Math.min(W, H) / 620;
+  const kx = kidXCur, ky = kidY();
+  const scale = kidScale();
+  const walking = !!walk;
+  const swing = walking ? Math.sin(walkStep) * 16 : 0;   // 走路时腿部前后摆动
+  const bob = walking ? Math.abs(Math.sin(walkStep)) * 3 : 0;
   ctx.save();
-  ctx.translate(kx, ky);
+  ctx.translate(kx, ky - bob);
   ctx.scale(scale, scale);
   /* 影子 */
   ctx.fillStyle = 'rgba(20,60,40,.25)';
   ctx.beginPath(); ctx.ellipse(0, 6, 46, 12, 0, 0, Math.PI * 2); ctx.fill();
-  /* 腿 */
+  /* 腿（走路时摆动） */
   ctx.strokeStyle = '#2f5a9a'; ctx.lineWidth = 13; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(-11, -60); ctx.lineTo(-15, -4); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(11, -60); ctx.lineTo(15, -4); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-11, -60); ctx.lineTo(-15 + swing, -4); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(11, -60); ctx.lineTo(15 - swing, -4); ctx.stroke();
   /* 鞋 */
   ctx.fillStyle = '#e05c5c';
-  roundRect(-24, -8, 20, 12, 5); ctx.fill();
-  roundRect(4, -8, 20, 12, 5); ctx.fill();
+  roundRect(-24 + swing, -8, 20, 12, 5); ctx.fill();
+  roundRect(4 - swing, -8, 20, 12, 5); ctx.fill();
   /* 身体（橙色 T 恤） */
   ctx.fillStyle = '#ff9c3c';
   roundRect(-23, -112, 46, 58, 14); ctx.fill();
   /* 短裤 */
   ctx.fillStyle = '#2f5a9a';
   roundRect(-23, -68, 46, 16, 6); ctx.fill();
-  /* 手臂：双手握枪，指向瞄准方向 */
+  /* 手臂：从肩膀伸到握把（枪与肩齐平 → 手臂大致水平前伸） */
   const p = gunPivot();
-  const lx = p.x - kx, ly = p.y - ky;         /* 肩/手相对位置 */
+  const gripX = p.x - kx, gripY = p.y - ky;      /* 握把相对位置（肩高） */
   ctx.strokeStyle = '#ffd7b0'; ctx.lineWidth = 11;
-  const handX = Math.cos(aimAngle) * 30, handY = Math.sin(aimAngle) * 30;
-  ctx.beginPath(); ctx.moveTo(-16, -104); ctx.lineTo(handX - 4, -74 + handY * 0.2); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(16, -104); ctx.lineTo(handX + 4, -74 + handY * 0.2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-16, -104); ctx.lineTo(gripX - 6, gripY + 2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(16, -104); ctx.lineTo(gripX + 6, gripY + 2); ctx.stroke();
   ctx.restore();
-  /* 水枪（在缩放坐标系里单独画，跟着瞄准角转） */
+  /* 水枪（在屏幕坐标系里画，跟着瞄准角转；支点在肩高） */
   ctx.save();
   ctx.translate(p.x, p.y);
   ctx.rotate(aimAngle);
@@ -782,25 +833,25 @@ function drawKid(t) {
   const back = recoil * 6;
   /* 枪身 */
   ctx.fillStyle = '#2f9fd6';
-  roundRect(-10 - back, -11, gl * 0.62, 22, 7); ctx.fill();
+  roundRect(-12 - back, -10, gl * 0.62, 20, 7); ctx.fill();
   /* 枪管 */
   ctx.fillStyle = '#1f7fa8';
   roundRect(gl * 0.5 - back, -7, gl * 0.5, 14, 5); ctx.fill();
   /* 喷嘴 */
   ctx.fillStyle = '#ffd35c';
   roundRect(gl * 0.94 - back, -6, gl * 0.12, 12, 4); ctx.fill();
-  /* 握把 */
+  /* 握把（在支点处，双手握着） */
   ctx.fillStyle = '#1f7fa8';
-  roundRect(-14 - back, 4, 16, 22, 6); ctx.fill();
+  roundRect(-12 - back, 6, 16, 20, 6); ctx.fill();
   /* 水箱 */
   ctx.fillStyle = '#7cf0ff';
-  roundRect(-34 - back, -12, 20, 30, 8); ctx.fill();
+  roundRect(-36 - back, -12, 20, 30, 8); ctx.fill();
   ctx.fillStyle = 'rgba(255,255,255,.55)';
-  roundRect(-30 - back, -8, 6, 22, 3); ctx.fill();
+  roundRect(-32 - back, -8, 6, 22, 3); ctx.fill();
   ctx.restore();
   /* 头（画在最上层） */
   ctx.save();
-  ctx.translate(kx, ky);
+  ctx.translate(kx, ky - bob);
   ctx.scale(scale, scale);
   ctx.fillStyle = '#ffd7b0';
   ctx.beginPath(); ctx.arc(0, -128, 24, 0, Math.PI * 2); ctx.fill();
@@ -808,12 +859,13 @@ function drawKid(t) {
   ctx.fillStyle = '#35c4e8';
   ctx.beginPath(); ctx.arc(0, -134, 25, Math.PI, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#2aa8c8';
+  const brim = walking ? 0 : (aimAngle > 0 ? 14 : -14);
   ctx.beginPath();
-  ctx.ellipse(aimAngle > 0 ? 14 : -14, -132, 20, 7, 0, 0, Math.PI * 2);
+  ctx.ellipse(brim, -132, 20, 7, 0, 0, Math.PI * 2);
   ctx.fill();
   /* 眼睛（看向靶位方向） */
   ctx.fillStyle = '#22313a';
-  const lookX = Math.cos(aimAngle) * 3;
+  const lookX = walking ? 0 : Math.cos(aimAngle) * 3;
   ctx.beginPath(); ctx.arc(-8 + lookX, -128, 3.2, 0, Math.PI * 2); ctx.fill();
   ctx.beginPath(); ctx.arc(8 + lookX, -128, 3.2, 0, Math.PI * 2); ctx.fill();
   /* 笑嘴 */
@@ -982,7 +1034,9 @@ $('btnRestart').addEventListener('click', () => {
 function resetGame() {
   level = 1; levelHits = 0; score = 0;
   rightTotal = 0; wrongTotal = 0;
-  quest = null; jet = null;
+  quest = null; jet = null; walk = null; walkStep = 0;
+  kidXCur = W * 0.5;
+  aimAngle = -Math.PI / 2;
   splashes = []; drips = [];
   nextT = 0; levelDoneT = 0; attempts = 0;
   updateHUD();
@@ -1002,7 +1056,7 @@ window.__test = {
     answer: quest ? quest.answer : null,
     ask: quest ? quest.ask : null,
     wet: targets.filter(t => t.wet).map(t => t.num),
-    jet: !!jet, nextT, levelDoneT, attempts,
+    jet: !!jet, walking: !!walk, kidX: Math.round(kidXCur), nextT, levelDoneT, attempts,
   }),
   fire: i => fireAt(i),
   fireByNum: n => fireAt(targets.findIndex(t => t.num === n)),
