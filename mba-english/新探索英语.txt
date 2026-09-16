@@ -1,0 +1,621 @@
+《新探索研究生英语读写教程（提高版）》完整整理
+Unit 1 - Unit 5
+（核心词汇 + 专有名词 + 难句解析带翻译）
+
+
+==================================================
+Unit 1 Challenge（挑战）
+==================================================
+
+【核心词汇】
+
+名词
+erosion              侵蚀，腐蚀
+glacier              冰川
+hemisphere           半球
+tropic               回归线；热带
+precipitation        降水；降水量
+desalination         （海水的）脱盐，淡化
+osmosis              渗透（作用）；耳濡目染
+molecule             分子
+proponent            支持者；拥护者
+sterilization        消毒，杀菌
+aerospace            航空航天工业
+
+动词
+bleach               使变白；漂白
+counteract           抵消；对抗
+prolong              延长，拉长
+blight               损害，妨害
+dissipate            （使）消散，消失
+garner               得到，收集
+extract              提取；提炼
+
+形容词
+skeptical            持怀疑态度的
+cyclical             循环的，周期的
+unprecedented        空前的，前所未有的
+finite               有限的
+thermal              热的，热量的
+metabolic            新陈代谢的
+staggering           大得惊人的；令人吃惊的
+viable               切实可行的
+permeable            可渗透的
+
+短语
+equate to            相当于，等于
+
+
+【专有名词】
+
+Pew Research Center                    皮尤研究中心
+NASA                                   美国国家航空航天局
+Royal Society                          英国皇家学会
+National Academy of Sciences           美国国家科学院
+Gravity Recovery and Climate Experiment 重力恢复和气候实验
+Greenland                              格陵兰岛
+the Andes                              安第斯山脉
+the Alps                               阿尔卑斯山脉
+University of Illinois                 （美国）伊利诺伊大学
+
+
+【难句解析】
+
+1. Climate change 101 (Title)
+
+【原文】Climate change 101
+
+【翻译】气候变化入门
+
+【解析】在美国大学课程编号系统中，101通常用于标记某一领域或主题入门级的基础课程。本文作者运用101代表文章中所包含的信息是理解气候变化这一主题所需的最基本信息。
+
+
+2. Since global temperature records began in the late 19th century, the planet's average surface temperature has risen by approximately 2.0°F (1.1°C), with 16 of the 17 hottest years on record occurring over the last 35 years. (Para. 2)
+
+【原文】Since global temperature records began in the late 19th century, the planet's average surface temperature has risen by approximately 2.0°F (1.1°C), with 16 of the 17 hottest years on record occurring over the last 35 years.
+
+【翻译】自19世纪末开始有全球温度记录以来，地球表面平均温度已上升约2.0华氏度（1.1摄氏度），在有记录的17个最热年份中，有16个出现在过去的35年里。
+
+【解析】此句结构比较复杂，since 引导时间状语从句，表示“自……以来”；主句使用现在完成时 has risen，与 since 引导的表示一段时间的状语连用；主句之后是 with 引导的伴随状语，现在分词 occurring 强调 occur 这一动作或状态与主句状态同时进行。
+
+
+3. Eighty percent of this additional heat is absorbed by the world's oceans, the surface of which has increased in temperature by 0.13°F per decade since 1901 (NASA, n.d.). (Para. 2)
+
+【原文】Eighty percent of this additional heat is absorbed by the world's oceans, the surface of which has increased in temperature by 0.13°F per decade since 1901 (NASA, n.d.).
+
+【翻译】这些增加的热量中有80%被地球上的海洋吸收，自1901年以来，海洋表面温度每十年升高0.13华氏度（美国航空航天局，未注明日期）。
+
+【解析】n.d. 为 no date 的缩写。在学术写作中若年代不明，常用 n.d. 标注。
+
+
+4. Ice ages—driven by slow variations in the Earth's orbit that alter the distribution of the Sun's energy—have occurred, on average, every 100,000 years. (Para. 3)
+
+【原文】Ice ages—driven by slow variations in the Earth's orbit that alter the distribution of the Sun's energy—have occurred, on average, every 100,000 years.
+
+【翻译】冰河期——由地球轨道的缓慢变化所驱动，这种变化改变了太阳能量的分布——平均每十万年发生一次。
+
+【解析】此句主句为 Ice ages have occurred every 100,000 years. driven 引导的过去分词短语作后置定语，相当于定语从句 which were driven ... 修饰 Ice ages 解释说明其形成的原因。句中破折号主要表示停顿，目的是把 driven 引导的插入成分隔开。
+
+
+5. A blanket of greenhouse gases—carbon dioxide, water vapor, nitrous oxide, and methane—in the Earth's atmosphere absorb heat and warm the planet's surface, a natural phenomenon known as the greenhouse effect. (Para. 4)
+
+【原文】A blanket of greenhouse gases—carbon dioxide, water vapor, nitrous oxide, and methane—in the Earth's atmosphere absorb heat and warm the planet's surface, a natural phenomenon known as the greenhouse effect.
+
+【翻译】地球大气中的大量温室气体——二氧化碳、水蒸气、氧化亚氮和甲烷——吸收热量并使地球表面变暖，这种自然现象被称为温室效应。
+
+【解析】此句中破折号的作用是用来解释名词短语 A blanket of greenhouse gases 的。本句后半部分为 known 引导的过去分词短语作后置定语，修饰名词短语 a natural phenomenon。
+
+
+6. Since the early 1800s, ocean acidity has increased by around 25%, depressing the metabolic rates of some species, lowering the immune responses of others, destabilizing marine ecosystems, and causing the bleaching, and possibly the eventual death, of the world's coral reefs. (Para. 5)
+
+【原文】Since the early 1800s, ocean acidity has increased by around 25%, depressing the metabolic rates of some species, lowering the immune responses of others, destabilizing marine ecosystems, and causing the bleaching, and possibly the eventual death, of the world's coral reefs.
+
+【翻译】自19世纪初以来，海洋酸度增加了约25%，抑制了某些物种的代谢率，降低了其他物种的免疫反应，破坏了海洋生态系统，也造成全球珊瑚礁白化，甚至有可能最终死去。
+
+【解析】此句中，主句使用现在完成时表示动作或状态从过去某时开始，持续到现在，还可能持续下去；主句后四个现在分词短语并列，在句中作结果状语，说明海水酸度上升对海洋物种的影响，此处并列短语的使用有加强语气的作用。
+
+
+7. Although the recent resolution reached in Paris is hugely significant, many claim it is too little, too late. (Para. 8)
+
+【原文】Although the recent resolution reached in Paris is hugely significant, many claim it is too little, too late.
+
+【翻译】尽管最近在巴黎达成的决议意义重大，但许多人认为这太微不足道、太迟了。
+
+【解析】此句中“在巴黎达成的决议”是指《巴黎协定》(Paris Agreement)，旨在大幅减少全球温室气体排放，将全球气温升幅限制在比工业化前水平高2°C以内，并寻求将气温升幅进一步限制在1.5°C以内的措施。
+
+
+==================================================
+Unit 2 Expansion（扩张）
+==================================================
+
+【核心词汇】
+
+名词
+dweller              居民；居住者
+cluster              串，束，簇；群，组
+agglomeration        聚集；城市群
+catalyst             催化剂；促进因素
+proximity            接近，临近
+congestion           交通拥挤，堵车
+emission             排放物，散发热
+ecologist            生态学家
+biodiversity         生物多样性
+insecurity           不安全；无保障
+
+动词
+regenerate           使复兴，振兴
+lessen               （使）降低；（使）减少
+redistribute         重新分配
+
+形容词
+counterintuitive     反直觉的
+electrical           电的；用电的
+viable               切实可行的
+unwanted             不需要的，多余的
+undue                不适当的；过度的
+exponential          指数式增长的
+exorbitant           （价格）过高的
+irreparable          不能修复的，无法弥补的
+overpopulated        人口过剩的
+insufficient         不足的，不够的
+dire                 极其严重的，极可怕的
+imbalanced           不平衡的；失调的
+unsustainable        不能继续的，无法维持的
+abhorrent            可恨的，令人憎恶的
+
+
+【专有名词】
+
+World Urbanization Prospects 《世界城镇化展望》
+Global Monitoring Report      《全球监测报告》
+
+
+【难句解析】
+
+1. This increase arises through economies of scale, as the growth in labor in the city allows firms to produce more output while their fixed costs remain largely the same. (Para. 2)
+
+【原文】This increase arises through economies of scale, as the growth in labor in the city allows firms to produce more output while their fixed costs remain largely the same.
+
+【翻译】这种增长通过规模经济实现，因为在固定成本基本不变的情况下，城市劳动力的增加能使企业提高产出。
+
+【解析】economies of scale: 规模经济（因生产规模扩大而成本降低）。
+
+
+2. Buildings require less electrical heating than those in more remote places due to typically higher temperatures in urban areas and buildings which lock those temperatures in. (Para. 3)
+
+【原文】Buildings require less electrical heating than those in more remote places due to typically higher temperatures in urban areas and buildings which lock those temperatures in.
+
+【翻译】由于城市地区温度通常较高，建筑物蓄热锁温，因此建筑物的电力供热需求小于偏远地区。
+
+【解析】此句中 due to 结构将句子分成前后两部分。前半句中 more remote places 等同于 rural areas。后半句中说明了为什么城市建筑比农村地区的建筑需要的电力供热更少，即城市温度通常更高、城市的建筑锁温蓄热。
+
+
+3. Public transportation has been proven to use less fuel for every passenger kilometer compared to private transportation (Chester et al., 2010). (Para. 3)
+
+【原文】Public transportation has been proven to use less fuel for every passenger kilometer compared to private transportation (Chester et al., 2010).
+
+【翻译】事实证明，与私人交通相比，公共交通每乘客行驶一公里所消耗的燃料更少（切斯特等，2010）。
+
+【解析】passenger kilometer: 旅客公里，乘客公里（指运输公司用来计算利润水平等的基本单位，其计算方法为：在给定的时间内，以公里为单位，用总旅程距离除以乘客人数）。
+
+
+4. The sharing economy is one example of innovation that can be profitable and beneficial to people's lives and the environment. (Para. 4)
+
+【原文】The sharing economy is one example of innovation that can be profitable and beneficial to people's lives and the environment.
+
+【翻译】共享经济就是一个例子，这一创新不仅有利可图，也有益于人们的生活和环境。
+
+【解析】sharing economy: 共享经济（人们通常可以通过互联网共享财产、服务等的经济体系）。
+
+
+5. Some local governments have schemes that allow private individuals or companies to use their facilities when empty (e.g. a school gym), to reduce spare capacity as much as possible. (Para. 4)
+
+【原文】Some local governments have schemes that allow private individuals or companies to use their facilities when empty (e.g. a school gym), to reduce spare capacity as much as possible.
+
+【翻译】一些地方政府制定了计划，允许私人或公司使用闲置中的设施（如学校体育馆），以尽可能减少闲置容量。
+
+
+6. As no country has ever reached middle or high income status without urbanization, it is evident that urbanization must be encouraged to allow developing countries the opportunity to derive the same benefits as developed countries, i.e. an improved standard of living. (Para. 5)
+
+【原文】As no country has ever reached middle or high income status without urbanization, it is evident that urbanization must be encouraged to allow developing countries the opportunity to derive the same benefits as developed countries, i.e. an improved standard of living.
+
+【翻译】没有任何国家未经城市化就达到了中等或高收入水平，所以很显然，必须鼓励城市化，使发展中国家能够有机会获得与发达国家同样的好处，即提高生活水平。
+
+【解析】此句为主从复合句。As 引导原因状语从句，其中用了双重否定（no... without...）表肯定，相当于 for every country that has reached middle or high income status, they have made it with urbanization。在主句中，it 为形式主语，真正主语为 that 引导的从句；allow 后面接双宾语，即 developing countries 和 the opportunity；动词不定式 to derive the same benefits as developed countries 作后置定语，补充说明 the opportunity；an improved standard of living 呼应 benefits。
+
+
+7. Social mobility will increase for all; something that no one can deny is a desirable goal. (Para. 5)
+
+【原文】Social mobility will increase for all; something that no one can deny is a desirable goal.
+
+【翻译】所有人的社会流动性都将增加；没有人能否认这是一个理想的愿景。
+
+【解析】此句句式较为特殊。分号连接两个逻辑关系紧密的分句，something 指代分号前的分句。分号后的分句中，that no one can deny 是同位语从句，修饰 something。整句话可理解为：Social mobility will increase for all. This is a desirable goal. No one can deny it.
+
+
+==================================================
+Unit 3 Behavior（行为）
+==================================================
+
+【核心词汇】
+
+名词
+deviance             偏常，离经叛道
+stationery           文具
+offspring            子女，子孙，后代
+nurture              教育，教养
+hypothesis           假设，假说
+predisposition       倾向；易患某疾病的倾向
+criminology          犯罪学
+inception            开始，开端
+theorist             理论家
+criminality          犯罪；犯罪行为
+dexterity            灵巧，熟练，敏捷
+skull                颅骨，头骨
+propensity           倾向，习性
+taxonomy             分类学；分类法
+physique             体格，体形
+ectomorph            瘦型体质（者）
+mesomorph            体育型体质（者）
+endomorph            胖型体质（者）
+fatherhood           父亲的身份或地位
+upbringing           养育；培养
+adolescence          青春期
+rationality          理性
+junction             连接点，接合处
+adolescent           青少年
+temptation           诱惑；引诱
+analogy              类比；比拟
+cusp                 交界点，转折点
+underdevelopment     发育不全；欠发达
+prefrontal cortex    前额叶皮质
+synapsis             突触
+neuroscience         神经科学
+synaptic pruning     突触修剪
+frontal lobe         大脑额叶
+dopamine             多巴胺
+hormone              激素；荷尔蒙
+nucleus accumbens    伏隔核
+oversimplification   过于简单化
+amygdala             杏仁核
+influx               涌入；流入
+
+动词
+substantiate         证实，证明
+hypothesize          假设，假定
+deviate              违背，偏离
+elapse               （时间）流逝，过去
+distort              歪曲；曲解
+discredit            使不再相信；使丧失信誉
+reprimand            训斥，谴责
+replicate            重做；重复
+trim                 修剪；缩减
+override             撤销，否决，推翻；比……更重要
+coincide             一致，相符；同时发生
+intervene            干预，介入，插手
+outweigh             重于，大于，超过
+suppress             抑制
+prune                修剪；缩减
+
+形容词
+savage               凶猛的，残暴的
+deviant              偏常的，离经叛道的
+chronic              难以根除的，积习难改的
+law-abiding          守法的
+integral             必需的，不可缺少的
+anthropological      人类学的
+atavistic            返祖性的；原始的
+bloodshot            （眼睛）充血的
+hawk-like            像鹰一样的
+innately             天生地，与生俱来地
+delinquent           违法的，不正当的
+intergenerational    跨代的，代与代之间的
+societal             社会的；关于社会的
+foolhardy            鲁莽的，有勇无谋的
+erratic              不规则的；不确定的；不稳定的
+burgeoning           迅速生长的；快速发展的
+neurological         神经系统的
+neuronal             神经元的
+synaptic             突触的
+underutilized        未充分利用的
+underdeveloped       发育不全的
+hard-wired           与生俱来的
+
+副词
+concurrently         同时发生地；并存地
+willfully            故意地，有意地
+headlong             轻率地，仓促地
+
+短语
+abide by             遵从；遵守
+
+
+【专有名词】
+
+Criminology: Studio sul Delitto, Sulle sue Cause e sui Mezzi di Repressione 《犯罪学：对犯罪及其动机和遏制手段的研究》
+Raffaele Garofalo    拉斐尔·加罗法洛
+Cesare Lombroso      切萨雷·龙勃罗梭
+L'uomo Delinquente   《犯罪人论》
+William Sheldon      威廉·谢尔登
+Atlas of Men         《男性图鉴：成年男子体型分类指南》
+Edwin M. Lemert      埃德温·M. 莱默特
+University of California （美国）加利福尼亚大学
+Social Pathology: A Systematic Approach to the Theory of Sociopathic Behavior 《社会病理学：一个关于反社会行为理论的系统化研究》
+Howard Becker        霍华德·贝克尔
+Outsiders            《局外人：越轨的社会学研究》
+IQ                   智商
+University of Queensland （澳大利亚）昆士兰大学
+
+
+【难句解析】
+
+1. Instead, he developed a theory of anthropological criminology stating not only that criminality was inherited, but that criminals could be identified by a series of prominent physical defects which confirmed their atavistic and savage nature. (Para. 2)
+
+【原文】Instead, he developed a theory of anthropological criminology stating not only that criminality was inherited, but that criminals could be identified by a series of prominent physical defects which confirmed their atavistic and savage nature.
+
+【翻译】相反，他提出了一种犯罪人类学理论，指出犯罪行为不仅具有遗传性，而且人们可以通过一系列显著的身体缺陷来识别罪犯，这些缺陷证实了罪犯天生的返祖性和残暴性。
+
+【解析】此句为主谓宾结构，主干部分为he developed a theory of anthropological criminology，现在分词短语 stating not only that...but that...作定语修饰a theory of anthropological criminology，作用相当于一个定语从句；该分词短语中not only...but (also)...结构连接两个并列的宾语从句，that criminality was inherited and that criminals could be...，第二个宾语从句中又包括一个由which引导的定语从句，修饰physical defects。
+
+
+2. The notion that physical appearance was innately bound to a propensity toward criminality was furthered by William Sheldon in Atlas of Men (1954), in which he proposed a taxonomy for categorizing the human physique. (Para. 2)
+
+【原文】The notion that physical appearance was innately bound to a propensity toward criminality was furthered by William Sheldon in Atlas of Men (1954), in which he proposed a taxonomy for categorizing the human physique.
+
+【翻译】威廉·谢尔登在《男性图鉴》（1954）中进一步提出了身体外型生来就与犯罪倾向相关的观点，并在书中提出了一种人类体型的分类法。
+
+【解析】此句为主谓宾结构，主干部分为the notion was furthered by William Sheldon，that引导的同位语从句对主语the notion进行解释说明，后半句中which引导的定语从句修饰Atlas of Men。
+
+
+3. Other early theorists laid the foundations for the most prominent school of thought in the 50s and 60s—"labeling theory," which hypothesizes that negative labels given to individuals by society actually promote deviant behavior. (Para. 3)
+
+【原文】Other early theorists laid the foundations for the most prominent school of thought in the 50s and 60s—"labeling theory," which hypothesizes that negative labels given to individuals by society actually promote deviant behavior.
+
+【翻译】其他早期的理论家为“标签理论”奠定了基础，这是上世纪五六十年代最著名的思想流派，该理论假设社会给予个人的负面标签实际上会促成越轨行为。
+
+【解析】此句破折号后的部分为同位语，对the most prominent school of thought进行解释说明。which引导定语从句修饰labeling theory，其中hypothesizes后面是宾语从句that negative labels...promote deviant behavior，过去分词短语given to individuals by society作定语修饰宾语从句的主语negative labels。
+lay the foundations / groundwork / base for ... 为……打基础
+school of thought 思想流派
+
+
+4. While this data, and other studies like it, strongly imply that criminal parents are likely to produce criminal offspring, it remains unclear whether this intergenerational deviance is genetically determined or largely due to the environment in which we are raised. (Para. 4)
+
+【原文】While this data, and other studies like it, strongly imply that criminal parents are likely to produce criminal offspring, it remains unclear whether this intergenerational deviance is genetically determined or largely due to the environment in which we are raised.
+
+【翻译】虽然这些数据以及其他类似的研究有力地表明，犯罪的父母可能会生养出犯罪的子女，但目前尚不清楚这种代际越轨是由基因决定的，还是主要由我们的成长环境决定的。
+
+【解析】此句为主从复合句，while引导让步状语从句，表示“尽管……”；主句中的it为形式主语，真正的主语为whether引导的名词性从句whether this intergenerational deviance is...raised。在该从句中又包括一个由which引导的定语从句，修饰the environment。
+
+
+5. One area of research that tests this hypothesis compares the behavior of identical (monozygotic) twins—those sharing an identical genetic makeup—to that of fraternal (dizygotic) twins, who share, on average, 50% of the same genes. (Para. 6)
+
+【原文】One area of research that tests this hypothesis compares the behavior of identical (monozygotic) twins—those sharing an identical genetic makeup—to that of fraternal (dizygotic) twins, who share, on average, 50% of the same genes.
+
+【翻译】有研究领域通过比较单卵双生子和异卵双生子的行为来验证这一假说，前者具有相同的基因构造，后者平均拥有50%的相同基因。
+
+【解析】此句可以简化为one area of research compares A to B，A表示the behavior of identical (monozygotic) twins，B表示the behavior of fraternal (dizygotic) twins。具体来看，定语从句that tests this hypothesis修饰本句主语one area of research；在compare A to B结构中，两个破折号之间的内容those sharing an identical genetic makeup是对identical (monozygotic) twins的解释说明；后半句中，第二个破折号后的that指代前半句中的the behavior；who引导的定语从句修饰fraternal (dizygotic) twins，也是对fraternal (dizygotic) twins的解释说明。
+
+
+6. To blame our genes for criminal behavior willfully ignores a broader societal responsibility to ensure that the environment in which we're raised doesn't promote criminal behavior. (Para. 7)
+
+【原文】To blame our genes for criminal behavior willfully ignores a broader societal responsibility to ensure that the environment in which we're raised doesn't promote criminal behavior.
+
+【翻译】故意将犯罪行为归咎于基因会忽视一份更大的社会责任，那就是确保我们成长的环境不会助长犯罪行为。
+
+【解析】此句主语为动词不定式短语 to blame our genes for criminal behavior，第二个动词不定式短语 to ensure that ... criminal behavior 作定语修饰 societal responsibility，对其进行解释说明；在 that 引导的宾语从句中，还包括一个定语从句 in which we're raised，修饰宾语从句的主语 the environment。
+
+
+==================================================
+Unit 4 Change（变革）
+==================================================
+
+【核心词汇】
+
+名词
+rust                 铁锈，锈
+dystopia             反面乌托邦，敌托邦
+heartland            心脏地带，最重要地区
+unionization         组织工会；加入工会
+fallout              影响，结果
+portfolio            系列产品，系列服务
+efficacy             有效性；功效
+demolition           摧毁，拆毁，拆除
+rebound              反弹；在回升
+transition           过渡；转变；变迁
+template             样板，标准
+buzz                 闹哄哄；喧闹
+autonomy             自主能力；自主
+
+动词
+restructure          重新组织，调整，改组
+curtail              减少，缩减，削减；限制
+instill              逐渐灌输，逐步培养
+allocate             分配，配给
+demolish             拆毁，毁掉
+revitalize           使恢复元气，给……注入新的活力
+disregard            忽视，轻视，不顾
+avert                防止，避免
+incentivize          激励，鼓励
+incorporate          把……并入；包含
+liken                把……比作，把……比拟为
+
+形容词
+staple               主要的；最重要的
+stagnant             不发展的，停滞不前的
+uphill               费力的；艰难的
+perceptible          可察觉的
+robust               强大的，稳固的
+dissimilar           不相同的，不相似的
+
+副词
+blatantly            极其明显地，公然地
+
+
+【专有名词】
+
+the Rust Belt        铁锈地带
+Great Lakes          五大湖
+the upper Midwest States （美国）中西部区的北部各州
+Detroit              （美国密歇根州）底特律市
+St. Louis            （美国密苏里州）圣路易斯市
+Cleveland            （美国俄亥俄州）克利夫兰市
+
+
+【难句解析】
+
+1. Automation forced thousands out of work and free trade agreements curtailed demand as the subsequent globalization and foreign monetary policies meant that coal and steel were cheaper to import than to produce domestically. (Para. 2)
+
+【原文】Automation forced thousands out of work and free trade agreements curtailed demand as the subsequent globalization and foreign monetary policies meant that coal and steel were cheaper to import than to produce domestically.
+
+【翻译】自动化迫使成千上万的人失去工作，自由贸易协定抑制了需求，因为随之而来的全球化和外汇政策意味着进口煤炭和钢铁比在国内生产更加便宜。
+
+【解析】此句是并列句，由并列连词and连接两个分句。第二个分句free trade agreements ... produce domestically结构较为复杂，其中as引导原因状语从句。该状语从句中，又包含一个由that引导的从句，作meant的宾语。该宾语从句中包含一个比较结构，将to import和to produce domestically两个不定式短语加以比较。
+
+
+2. He suggests that, in order to create a successful tourist industry, planners must, in consultation with local citizens, develop "a total tourism portfolio" highlighting natural features such as waterfronts and urban parks, buildings of interest, and promotion of local culture. (Para. 3)
+
+【原文】He suggests that, in order to create a successful tourist industry, planners must, in consultation with local citizens, develop "a total tourism portfolio" highlighting natural features such as waterfronts and urban parks, buildings of interest, and promotion of local culture.
+
+【翻译】他建议，为了成功开发旅游业，规划者必须与当地居民协商，制定“一揽子旅游整体规划”，凸显当地自然特色，如滨水区和城市公园，或突出名胜建筑和地方文化推介。
+
+【解析】此句主干部分是主谓宾结构，其中宾语是个从句，较为复杂。该宾语从句中包含三个状语，其中in order to ... 是目的状语，in consultation with ... 是方式状语，highlighting ... 是现在分词短语作后置定语。highlighting 后面是三个并列宾语，其中such as waterfronts and urban parks是natural features的宾语补足语。
+
+
+3. However, diversification requires investment, and while tax reductions, incentive payments, and no-interest loans may tempt businesses back to the area, they can also be costly to local tax payers. (Para. 6)
+
+【原文】However, diversification requires investment, and while tax reductions, incentive payments, and no-interest loans may tempt businesses back to the area, they can also be costly to local tax payers.
+
+【翻译】然而，多样化需要投资，而且虽然减税、激励金和无息贷款可能会吸引一些企业回迁，但对当地纳税人来说负担可不小。
+
+【解析】此句是并列句，由并列连词and连接两个分句。第二个分句while tax reductions ... 中包含一个由while引导的让步状语从句，该分句的主语是they，指代前面的tax reductions，incentive payments和no-interest loans。
+
+
+4. Towns and cities in the Rust Belt may well benefit from a two-pronged approach, using tourism and commerce to improve the local economy in order to increase the standard of living for the existing population without trying to return to population sizes of the past. (Para. 9)
+
+【原文】Towns and cities in the Rust Belt may well benefit from a two-pronged approach, using tourism and commerce to improve the local economy in order to increase the standard of living for the existing population without trying to return to population sizes of the past.
+
+【翻译】利用旅游业和商业改善当地经济，以提高现有人口的生活水平，同时不要试图恢复过去的人口规模，这种双管齐下的方法对铁锈地带的城市乡镇很可能大有裨益。
+
+【解析】此句中现在分词短语using tourism and commerce ... 作后置定语修饰approach。这个后置定语结构较为复杂，其中，to improve the local economy为第一个目的状语，说明发展旅游业和商业的目的；in order to increase ... 为第二个目的状语，说明改善当地经济状况的目的；介宾短语for the existing population作补语，补充说明宾语the standard of living；介宾短语without trying ... 作伴随状语。
+
+
+==================================================
+Unit 5 Energy（能源）
+==================================================
+
+【核心词汇】
+
+名词
+diesel               柴油
+combustion           燃烧
+chamber              室，腔
+carbohydrate         碳水化合物，糖类
+proponent            支持者，拥护者，提倡者
+pest                 害虫；害兽
+foodstuff            食品
+biomass              生物量；生物质
+sawdust              锯末，锯（木）屑
+landfill             废弃物的填埋；填埋场
+biodiesel            生物柴油
+ethanol              乙醇
+sugar beet           甜菜
+sugar cane           甘蔗
+pellet               小球，小丸
+turbine              涡轮机，汽轮机
+generator            发电机
+transformer          变压器
+photosynthesis       光合作用
+bioenergy            生物能源
+cellulose            纤维素
+oilseed              含油种子
+maize                玉米
+biofuel              生物燃料
+reservoir            储藏，积蓄；储层
+additive             添加剂
+magnitude            震级
+injection            （液体）注入，喷入
+extraction           取出；提炼
+fracking             水力压裂
+pore                 气孔，细孔
+shale                页岩
+fissure              裂缝，裂隙
+formaldehyde         甲醛
+hydrochloric acid    氢氯酸，盐酸
+hydroxide            氢氧化物
+carcinogen           致癌物质
+groundwater          地下水
+asthma               气喘；哮喘（病）
+radionuclide         放射性核素
+after-effect         后效，副作用；后遗效应
+
+动词
+herald               公开称赞；预示……的发生
+rotate               （使）旋转，（使）转动
+offset               补偿，抵消
+mitigate             减轻，缓解，缓和
+class                把……归类，把……看作
+divert               改变……的用途
+extract              提取；提炼
+fracture             （使）断裂，（使）折断
+extrapolate          推断，推知
+leach                （使）滤掉，过滤；浸出
+inject               （给……）注射（液体）
+jeopardize           危及，危害，损害
+sequester            隔绝或储存有害物质
+
+形容词
+adverse              不利的，有害的，反面的
+radiant              辐射的，放射的
+inedible             不宜食用的
+geothermal           地热的，地温的
+decomposable         可分解的
+anaerobic            厌氧的；无氧的
+debatable            有争议的，可争辩的
+unproductive         无结果的，徒劳的
+porous               多孔的，能渗透的
+hydraulic            水压的，液压的
+sedimentary          沉积的，沉积形成的
+untapped             未开发的，未利用的
+reliant              依赖……的
+aquatic              水栖的，水生的
+
+副词
+disproportionately   不成比例地
+
+短语
+therein lies sth.    这恰恰是……所在
+
+
+【专有名词】
+
+IEEP (Institute for European Environmental Policy) 欧洲环境政策研究所
+
+
+【难句解析】
+
+1. Broadly speaking, biomass can be divided into four distinct categories—wood and agricultural products such as logs, sawdust, and agricultural waste; solid waste (i.e. garbage); landfill gas (i.e. methane); and liquid fuels such as biodiesel and ethanol, which are produced from crops such as wheat, corn, sugar beet, and sugar cane. (Para. 2)
+
+【原文】Broadly speaking, biomass can be divided into four distinct categories—wood and agricultural products such as logs, sawdust, and agricultural waste; solid waste (i.e. garbage); landfill gas (i.e. methane); and liquid fuels such as biodiesel and ethanol, which are produced from crops such as wheat, corn, sugar beet, and sugar cane.
+
+【翻译】一般来说，生物质可分为四大类——木材和农产品，如原木、锯末和农业废弃物；固体废物（即垃圾）；填埋气（即甲烷）；以及液体燃料，如生物柴油和乙醇，这些燃料由小麦、玉米、甜菜和甘蔗等作物生产。
+
+【解析】此句主干部分为 biomass can be divided into four distinct categories，破折号之后的成分为同位语，用于解释说明 four distinct categories；关系代词 which 引导的定语从句修饰 liquid fuels。需要注意的是，biomass 是本文的核心概念，用 biomass 生产出的能量可被称为 bioenergy。
+
+
+2. While the effects of burning biomass can be mitigated to a certain extent by choosing to burn biomass that is less polluting, it is highly doubtful that it can ever be classed as truly carbon-neutral. (Para. 4)
+
+【原文】While the effects of burning biomass can be mitigated to a certain extent by choosing to burn biomass that is less polluting, it is highly doubtful that it can ever be classed as truly carbon-neutral.
+
+【翻译】虽然通过选择燃烧污染较小的生物质，可以在一定程度上减轻燃烧生物质的影响，但生物质能否被视为真正的碳中和，仍然非常令人怀疑。
+
+【解析】此句为主从复合句。前半句为 while 引导的让步状语从句，后半句 it is highly doubtful that ... 为主句，其中 it 为形式主语，that 引导的主语从句为真正的主语，that 引导的主语从句中 it 指代 biomass。需要注意的是，carbon-neutral（碳中和的；碳平衡的；碳中性的）指的是组织或机构以植树等方法抵消自身排放的二氧化碳，达到相对的“零排放”。
+
+
+3. These "energy crops" are predominantly inedible and, as they are cultivated on an industrial scale, are associated with the same environmental concerns as any other mass agricultural practice—namely, the pollution of water and soil from pest control, the excessive use of water, and the erosion of soil. (Para. 5)
+
+【原文】These "energy crops" are predominantly inedible and, as they are cultivated on an industrial scale, are associated with the same environmental concerns as any other mass agricultural practice—namely, the pollution of water and soil from pest control, the excessive use of water, and the erosion of soil.
+
+【翻译】这些“能源作物”大多不可食用，而且由于它们以工业规模种植，因此与其他大规模农业实践一样，会带来相同的环境问题——即病虫害防治造成的水和土壤污染、过度用水以及土壤侵蚀。
+
+【解析】此句主干为 These "energy crops" are predominantly inedible and ... are associated with the same environmental concerns。句子中共有两个 as。第一个 as 作从属连词，引导原因状语从句；第二个 as 与 the same 搭配，构成 the same ... as ... 结构。破折号后的内容为 environmental concerns 的同位语，对其作进一步的解释说明。namely 后的三个名词短语是并列结构，最后一个短语前用连词 and。
+
