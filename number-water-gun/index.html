@@ -348,16 +348,17 @@ $('btnMute').addEventListener('click', () => {
 
 /* ---------------- 场景几何 ---------------- */
 function horizonY() { return H * 0.50; }
-function targetY() { return H * 0.455; }              // 靶心高度
+function targetY() { return H * 0.415; }              // 靶心高度（更靠近地平线 = 更远）
 function targetX(i) {
   const margin = Math.max(0.055, 0.62 / TARGET_COUNT);
   const span = 1 - margin * 2;
   return W * (margin + span * i / (TARGET_COUNT - 1));
 }
-function targetR() { return Math.min(W / 26, H * 0.085); }
+/* 靶位半径：比原来小一圈，视觉上更远 */
+function targetR() { return Math.min(W / 34, H * 0.058); }
 function kidX() { return W * 0.5; }
-function kidY() { return H * 0.83; }
-function gunPivot() { return { x: kidX(), y: kidY() - H * 0.075 }; }   // 水枪转动轴（手的位置）
+function kidY() { return H * 0.78; }                  // 小朋友站位抬高
+function gunPivot() { return { x: kidX(), y: kidY() - H * 0.088 }; }   // 水枪转动轴（手的位置，整体抬高）
 
 /* ---------------- 出题 ---------------- */
 const rnd = n => Math.floor(Math.random() * n);
@@ -680,12 +681,13 @@ function drawTargets(t) {
     const wob = tg.shakeT > 0 ? Math.sin(tg.shakeT * 40) * 6 : 0;
     ctx.save();
     ctx.translate(x + wob, y);
-    /* 支架 */
+    /* 支架（随靶位一起缩放，远看才协调） */
+    const poleH = r * 1.15;
     ctx.fillStyle = '#7a5a34';
-    ctx.fillRect(-4, r * 0.8, 8, H * 0.075);
+    ctx.fillRect(-Math.max(2, r * 0.07), r * 0.7, Math.max(4, r * 0.14), poleH);
     ctx.fillStyle = '#5f4426';
     ctx.beginPath();
-    ctx.ellipse(0, r * 0.8 + H * 0.075, 20, 6, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, r * 0.7 + poleH, r * 0.42, r * 0.13, 0, 0, Math.PI * 2);
     ctx.fill();
     /* 靶面：同心圆 */
     const ringCols = tg.wet ? ['#c8e8f0', '#4fa8c4', '#2f7a94'] : ['#ffffff', '#ff5c5c', '#ffffff'];
@@ -937,11 +939,15 @@ function render(t) {
 
 /* ---------------- 点击 / 键盘 ---------------- */
 function targetAt(x, y) {
-  const r = targetR() * 1.25;                 // 热区放大，幼儿好点
+  /* 靶位变远变小后热区要更宽松（幼儿手指粗），且不小于 40px。
+   * 取「距离最近的靶位」而不是先命中的，避免窄屏热区重叠时总是打到靠左的靶 */
+  const r = Math.max(40, targetR() * 1.8);
+  let best = -1, bestD = Infinity;
   for (let i = 0; i < targets.length; i++) {
-    if (Math.hypot(x - targetX(i), y - targetY()) < r) return i;
+    const d = Math.hypot(x - targetX(i), y - targetY());
+    if (d < r && d < bestD) { bestD = d; best = i; }
   }
-  return -1;
+  return best;
 }
 canvas.addEventListener('pointerdown', e => {
   if (state !== STATE.RUNNING) return;
