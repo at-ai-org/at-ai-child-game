@@ -167,8 +167,8 @@
 
 <div class="hud">
   <div class="hud-chip">得分 <b id="hudScore">0</b></div>
-  <div class="hud-chip">关卡 <b id="hudLevel">1</b>/6</div>
-  <div class="hud-chip">荷叶 <b id="hudPad">0</b>/<b id="hudPadTotal">0</b></div>
+  <div class="hud-chip">关卡 <b id="hudLevel">1</b>/9</div>
+  <div class="hud-chip">数到 <b id="hudPad">0</b> / <b id="hudPadTotal">0</b></div>
 </div>
 
 <div id="captionBar"></div>
@@ -176,7 +176,7 @@
 
 <div id="result">
   <div class="result-card">
-    <h1 id="resultTitle">🐸 跳数小青蛙！</h1>
+    <h1 id="resultTitle">🐸 数数小青蛙！</h1>
     <p id="resultDesc"></p>
     <button id="btnRestart">再玩一次</button>
   </div>
@@ -185,11 +185,11 @@
 <div id="start">
   <h1>🐸 青蛙跳荷叶</h1>
   <p class="rules">
-    小青蛙要回家，池塘里有一串荷叶～<br>
-    先听清楚：<b>「一次跳 2 片！」</b>（也有 3 片、5 片和 10 片）<br>
-    ✅ 点对下一片荷叶 → 青蛙蹦过去，「2、4、6……」跟着数！<br>
-    ❌ 点错荷叶 → 扑通掉水里，再来一次<br>
-    6 关通关，跳数真好玩！
+    小青蛙要回家，荷叶上写着数字～<br>
+    要<b>按顺序</b>一片一片跳：<b>0 → 1 → 2 → 3……</b><br>
+    ✅ 点对下一片荷叶 → 青蛙蹦过去，跟着大声数出来！<br>
+    ❌ 点错荷叶 → 扑通掉水里，它会告诉你该跳几<br>
+    一共 <b>9 关</b>：前 5 关数到 10，后 4 关一直数到 20！
   </p>
   <button id="btnStart">开始跳荷叶</button>
 </div>
@@ -199,11 +199,14 @@
 window.addEventListener('contextmenu', e => e.preventDefault());
 
 /* =========================================================
- * 青蛙跳荷叶 —— 跳数（数轴上加/乘的前置）
+ * 青蛙跳荷叶 —— 按顺序数数（数感与数序启蒙）
  * 设计文档 G17 · 4-6 岁 · 点击
  * 荷叶标数字（从起点开始 +N 递增），点「下一片应该跳到」
  * 的荷叶。三个候选荷叶（正确 + 干扰），点对蛙跳 + 报数。
- * 关卡：2、2、3、3、5、10 六关。
+ * 关卡：共 9 关，按顺序一个一个数着跳。
+ *   第 1-5 关：从 0 跳到 10（每关一段连续区间）
+ *   第 6-9 关：从 11 跳到 20
+ * 每关的荷叶是连续整数（+1），孩子按顺序依次跳到下一片。
  * ========================================================= */
 
 const canvas = document.getElementById('game');
@@ -214,13 +217,19 @@ window.addEventListener('resize', resize);
 resize();
 
 const STATE = { START: 0, RUNNING: 1, FINISH: 2 };
-const STEP_SEQ = [2, 2, 3, 3, 5, 10];     // 每关步长
-const QUIZ_TOTAL = 6;
+/* 9 关布局：前 5 关覆盖 0-10，后 4 关覆盖 11-20
+ * 每关 [起点, 终点]，荷叶是连续整数 */
+const LEVEL_RANGES = [
+  [0, 3], [2, 5], [4, 7], [6, 9], [8, 10],       // 第 1-5 关：从 0 数到 10
+  [11, 14], [13, 16], [15, 18], [17, 20],        // 第 6-9 关：从 11 数到 20
+];
+const LEVEL_TOTAL = LEVEL_RANGES.length;         // 9 关
+const QUIZ_TOTAL = 9;
 
 let state = STATE.START;
 let level = 1;
 let score = 0, streak = 0, bestStreak = 0, wrongTotal = 0;
-let stepN = 2;                  // 本关步长
+let stepN = 1;                  // 固定为 1（按顺序跳），保留变量名避免历史引用
 let pads = [];                  // {num, x, y, isNext, decoy}
 let frog = { x: 0, y: 0, on: -1, jumping: null, wet: false };  // on = pads 下标
 let seqCount = 0;               // 已跳步数（报数用）
@@ -293,18 +302,18 @@ $('btnMute').addEventListener('click', () => {
 
 /* ---------------- 出题 ---------------- */
 function makeLevel() {
-  stepN = STEP_SEQ[level - 1];
+  stepN = 1;                       // 按顺序跳：每次 +1
   answered = false;
   resultT = 0;
   ripples = []; splashes = [];
   seqCount = 0;
-  /* 主路径荷叶：起点 0，步长 stepN，共 5 跳 + 起点 */
-  const hops = 5;
+  /* 主路径荷叶：本关区间内的连续整数（一个一个数着跳） */
+  const [from, to] = LEVEL_RANGES[Math.min(level, LEVEL_TOTAL) - 1];
   pads = [];
-  for (let i = 0; i <= hops; i++) {
-    pads.push({ num: i * stepN, decoy: false, landed: i === 0, glow: 0 });
+  for (let n = from; n <= to; n++) {
+    pads.push({ num: n, decoy: false, landed: n === from, glow: 0 });
   }
-  /* 干扰荷叶：数字是主数列附近的"陷阱"（不在主数列上），布置在上下错位的行 */
+  /* 干扰荷叶：区间附近的"陷阱"数字（不在本关连续数列上） */
   spawnDecoys();
   layoutPads();
 
@@ -314,24 +323,27 @@ function makeLevel() {
   const p0 = padXY(pads[0]);
   frog.x = p0.x; frog.y = p0.y;
 
-  speak('一次跳' + stepN + '片荷叶！从' + pads[0].num + '开始，下一片是' + stepN + '！');
-  caption('🔈 一次跳 ' + stepN + ' 片，跳到哪片？');
+  const nextNum = from + 1;
+  speak('从' + from + '开始，按顺序跳到' + to + '！下一片是' + nextNum + '！', { key: true });
+  caption('🔈 按顺序跳：下一片是 ' + nextNum + '？');
   updateHUD();
 }
 
 function spawnDecoys() {
-  /* 干扰数字：正确数字 ±1、±step 附近（绝不在主数列上） */
+  /* 干扰数字：本关连续数列附近的"陷阱"（跳错一步会落水），绝不在正确数列上 */
   const mainNums = new Set(pads.filter(p => !p.decoy).map(p => p.num));
+  const [from, to] = LEVEL_RANGES[Math.min(level, LEVEL_TOTAL) - 1];
   const pool = new Set();
-  for (const base of [stepN, stepN * 2, stepN * 3]) {
-    pool.add(base - 1);
-    pool.add(base + 1);
-    if (base + 2 <= stepN * 5) pool.add(base + 2);
+  /* 候选陷阱：区间内外的相邻数字 + 跨步数字 */
+  for (let n = Math.max(0, from - 1); n <= to + 2; n++) {
+    if (!mainNums.has(n)) pool.add(n);
   }
+  /* 再加几个"跳过头"的数字（+2 / +3），强化按顺序的概念 */
+  for (const d of [2, 3]) if (to + d <= 22 && !mainNums.has(to + d)) pool.add(to + d);
   const decoyNums = [...pool]
-    .filter(v => v > 0 && !mainNums.has(v))
+    .filter(v => v >= 0 && v <= 22)
     .sort(() => Math.random() - 0.5)
-    .slice(0, 2);
+    .slice(0, 3);
   for (const dn of decoyNums) {
     pads.push({ num: dn, decoy: true, landed: false, glow: 0 });
   }
@@ -371,11 +383,11 @@ canvas.addEventListener('pointerdown', e => {
 });
 
 function answerPad(idx) {
-  /* 判定只看数字：青蛙脚下的数字 + stepN === 点的荷叶数字 */
+  /* 判定：必须跳到"下一个数字"（按顺序，每次 +1） */
   const curNum = pads[frog.on].num;
   const target = pads[idx];
   if (idx === frog.on) return;               /* 点自己脚下，忽略 */
-  if (target.num === curNum + stepN && !target.decoy) {
+  if (target.num === curNum + 1 && !target.decoy) {
     /* 正确：跳！ */
     answered = true;
     const from = padXY(pads[frog.on]);
@@ -391,9 +403,9 @@ function answerPad(idx) {
     const p = padXY(target);
     splashes.push({ x: p.x, y: p.y, t: 0 });
     ripples.push({ x: p.x, y: p.y, t: 0 });
-    const right = curNum + stepN;
-    speak('扑通！要跳' + right + '哦！' + curNum + '加' + stepN + '是' + right + '，' + right + '！');
-    caption('🔊 ' + curNum + ' + ' + stepN + ' = ' + right + '，跳到 ' + right + '！');
+    const right = curNum + 1;
+    speak('扑通！要按顺序跳' + right + '哦！' + curNum + '的后面是' + right + '，' + right + '！', { key: true });
+    caption('🔊 ' + curNum + ' 的后面是 ' + right + '，跳到 ' + right + '！');
     updateHUD();
   }
 }
@@ -423,7 +435,7 @@ function update(dt) {
         toast('过关！+' + pads[frog.on].num);
         sfxRight();
         const nums = pads.filter(p => !p.decoy).map(p => p.num);
-        speak('到对岸啦！' + nums.slice(1).join('、') + '，跳' + stepN + '数真棒！');
+        speak('到对岸啦！' + nums[0] + '到' + nums[nums.length - 1] + '全跳对啦，按顺序数真棒！', { key: true });
         resultT = 2.0;
       } else {
         /* 下一跳 */
@@ -512,7 +524,7 @@ function drawPads(t) {
     const p = pads[i];
     const pos = padXY(p);
     const bob = Math.sin(t * 1.8 + i * 1.4) * 4;
-    const isNext = !p.decoy && frog.on >= 0 && p.num === pads[frog.on].num + stepN;
+    const isNext = !p.decoy && frog.on >= 0 && p.num === pads[frog.on].num + 1;
     ctx.save();
     ctx.translate(pos.x, pos.y + bob);
     /* 荷叶本体 */
@@ -556,37 +568,113 @@ function drawPads(t) {
 function drawFrog(t) {
   if (frog.wet) return;
   ctx.save();
-  ctx.translate(frog.x, frog.y - 22);
-  /* 跳跃中旋转/压缩 */
+  ctx.translate(frog.x, frog.y - 26);
+  /* 跳跃中拉伸/压缩 + 蹲伏蓄力 */
+  let jumpP = 0;
   if (frog.jumping) {
-    const p = Math.min(1, frog.jumping.t);
-    const squash = 1 + Math.sin(p * Math.PI) * 0.2;
+    jumpP = Math.min(1, frog.jumping.t);
+    const squash = 1 + Math.sin(jumpP * Math.PI) * 0.22;
     ctx.scale(1 / squash, squash);
   }
-  /* 身体 */
-  ctx.fillStyle = '#5cd860';
+  /* 腿的张合：起跳时蹲下、空中伸展、落地收拢 */
+  const legTuck = frog.jumping ? Math.sin(jumpP * Math.PI) : 0;      // 0=收拢 1=伸展
+  const legPhase = Math.sin(t * 2.2) * 0.5 + 0.5;                    // 站立时的轻微呼吸
+
+  /* ---------- 后腿（大腿 + 小腿 + 脚蹼），显示在身体后层 ---------- */
+  for (const side of [-1, 1]) {
+    const hipX = side * 20, hipY = 6;
+    /* 大腿：向后上方鼓起 */
+    ctx.fillStyle = '#4cc451';
+    ctx.beginPath();
+    ctx.ellipse(hipX, hipY + 2, 13, 10, side * -0.5, 0, Math.PI * 2);
+    ctx.fill();
+    /* 小腿：斜向下后方 */
+    const kneeX = side * (26 + legTuck * 6);
+    const kneeY = 12 - legTuck * 5;
+    const footX = side * (30 + legTuck * 14);
+    const footY = 26 - legTuck * 12;
+    ctx.strokeStyle = '#4cc451';
+    ctx.lineWidth = 9;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(hipX, hipY + 3);
+    ctx.quadraticCurveTo(kneeX, kneeY, footX, footY);
+    ctx.stroke();
+    /* 脚蹼（三趾） */
+    ctx.fillStyle = '#43b849';
+    for (let toe = -1; toe <= 1; toe++) {
+      ctx.beginPath();
+      ctx.ellipse(footX + toe * 5, footY + 3, 4.5, 6, side * 0.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  /* ---------- 前腿（较细，撑在身侧前方） ---------- */
+  for (const side of [-1, 1]) {
+    const shX = side * 14, shY = 2;
+    const handX = side * (17 + legTuck * 4);
+    const handY = 16 - legTuck * 8 + legPhase * 1.2;
+    ctx.strokeStyle = '#52cf57';
+    ctx.lineWidth = 6.5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(shX, shY);
+    ctx.quadraticCurveTo(side * 19, shY + 9, handX, handY);
+    ctx.stroke();
+    /* 前脚趾（四趾小圆） */
+    ctx.fillStyle = '#52cf57';
+    for (let toe = -1.5; toe <= 1.5; toe++) {
+      ctx.beginPath();
+      ctx.arc(handX + toe * 3.2, handY + 2.5, 2.3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  /* ---------- 身体 ---------- */
+  const bodyGrad = ctx.createRadialGradient(-6, -8, 4, 0, 0, 32);
+  bodyGrad.addColorStop(0, '#7dff86');
+  bodyGrad.addColorStop(0.6, '#5cd860');
+  bodyGrad.addColorStop(1, '#3fae46');
+  ctx.fillStyle = bodyGrad;
   ctx.beginPath();
   ctx.ellipse(0, 0, 26, 20, 0, 0, Math.PI * 2);
   ctx.fill();
+  /* 背部斑点 */
+  ctx.fillStyle = 'rgba(40,120,50,.35)';
+  for (const [sx, sy, sr] of [[-12, -4, 3.4], [10, -6, 3], [-3, 6, 2.6], [15, 3, 2.2]]) {
+    ctx.beginPath(); ctx.arc(sx, sy, sr, 0, Math.PI * 2); ctx.fill();
+  }
   /* 肚皮 */
-  ctx.fillStyle = '#b8ffb0';
+  ctx.fillStyle = '#c8ffc0';
   ctx.beginPath();
-  ctx.ellipse(0, 6, 16, 10, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 7, 15, 10, 0, 0, Math.PI * 2);
   ctx.fill();
-  /* 眼睛 */
-  ctx.fillStyle = '#5cd860';
-  ctx.beginPath(); ctx.arc(-11, -16, 9, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(11, -16, 9, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#fff';
-  ctx.beginPath(); ctx.arc(-11, -16, 6, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(11, -16, 6, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#222';
-  const look = frog.jumping ? 3 : Math.sin(t * 2) * 2;
-  ctx.beginPath(); ctx.arc(-11 + look, -16, 2.6, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(11 + look, -16, 2.6, 0, Math.PI * 2); ctx.fill();
-  /* 嘴 */
-  ctx.strokeStyle = '#2a7a30'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.arc(0, -6, 8, 0.3, Math.PI - 0.3); ctx.stroke();
+
+  /* ---------- 头部（鼓出的两只大眼睛） ---------- */
+  for (const side of [-1, 1]) {
+    /* 眼泡 */
+    ctx.fillStyle = '#5cd860';
+    ctx.beginPath(); ctx.arc(side * 11, -17, 10, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(side * 11, -17, 6.8, 0, Math.PI * 2); ctx.fill();
+    /* 瞳孔：看向要跳的方向 */
+    const look = frog.jumping ? 3 : Math.sin(t * 2) * 2;
+    ctx.fillStyle = '#1d2b1f';
+    ctx.beginPath(); ctx.arc(side * 11 + look, -17, 3, 0, Math.PI * 2); ctx.fill();
+    /* 眼神光 */
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    ctx.beginPath(); ctx.arc(side * 11 + look - 1.4, -18.6, 1.2, 0, Math.PI * 2); ctx.fill();
+  }
+  /* 嘴（跳跃时张开） */
+  ctx.strokeStyle = '#2a7a30';
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  if (frog.jumping && jumpP > 0.15 && jumpP < 0.85) {
+    ctx.ellipse(0, -4, 6.5, 5, 0, 0, Math.PI * 2);   /* 张嘴 */
+  } else {
+    ctx.arc(0, -7, 8, 0.28, Math.PI - 0.28);          /* 微笑 */
+  }
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -612,7 +700,7 @@ function drawRipples(t) {
 }
 
 function drawStepBanner() {
-  /* 顶部步长提示 */
+  /* 顶部"下一片"提示 */
   ctx.fillStyle = 'rgba(6,26,40,.8)';
   const bw = 170;
   roundRect(W / 2 - bw / 2, H * 0.05, bw, 54, 16);
@@ -623,7 +711,8 @@ function drawStepBanner() {
   ctx.fillStyle = '#ffd35c';
   ctx.font = 'bold 22px system-ui, sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('一次跳 ' + stepN + ' 片', W / 2, H * 0.05 + 27);
+  const nw = frog.on >= 0 ? pads[frog.on].num + 1 : null;
+  ctx.fillText(frog.on >= 0 ? '按顺序跳：下一片是 ' + nw + '？' : '准备出发', W / 2, H * 0.05 + 27);
 }
 
 function roundRect(x, y, w, h, r) {
@@ -651,14 +740,14 @@ function toast(text) {
 
 function showResult() {
   let title, medal;
-  if (wrongTotal === 0)      { title = '🥇 跳数小神蛙！'; medal = '金牌'; }
-  else if (wrongTotal <= 3)  { title = '🥈 跳数小青蛙！'; medal = '银牌'; }
-  else                        { title = '🥉 跳数小蝌蚪！'; medal = '铜牌'; }
+  if (wrongTotal === 0)      { title = '🥇 数数小神蛙！'; medal = '金牌'; }
+  else if (wrongTotal <= 3)  { title = '🥈 数数小青蛙！'; medal = '银牌'; }
+  else                        { title = '🥉 数数小蝌蚪！'; medal = '铜牌'; }
   $('resultTitle').textContent = title;
   $('resultDesc').innerHTML =
     `得分 <b style="color:#ffd35c">${score}</b> 分<br>` +
     `跳过了 2 个 2 个数、3 个 3 个数、5 个 5 个数、10 个 10 个数！<br>` +
-    `你已经会跳数啦！（${medal}）`;
+    `你已经会按顺序数到 20 啦！（${medal}）`;
   $('result').classList.add('show');
   state = STATE.FINISH;
   speak('太棒了！两个两个数、五个五个数，你都会啦！');
@@ -716,9 +805,9 @@ function resetGame() {
 window.__test = {
   start: () => { initAudio(); $('start').style.display = 'none'; resetGame(); state = STATE.RUNNING; makeLevel(); },
   state: () => ({
-    state, level, step: stepN, score, wrongTotal, frogOn: frog.on,
+    state, level, step: 1, score, wrongTotal, frogOn: frog.on,
     frogNum: frog.on >= 0 ? pads[frog.on].num : null,
-    nextNum: frog.on >= 0 ? pads[frog.on].num + stepN : null,
+    nextNum: frog.on >= 0 ? pads[frog.on].num + 1 : null,
     mainNums: pads.filter(p => !p.decoy).map(p => p.num),
     padsNums: pads.map(p => p.num),
     decoys: pads.filter(p => p.decoy).length,
