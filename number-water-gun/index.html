@@ -359,9 +359,9 @@ function targetX(i) {
 /* 靶位半径：比原来小一圈（视觉更远），但窄屏给下限保证数字看得清 */
 function targetR() { return Math.max(14, Math.min(W / 34, H * 0.058)); }
 function kidXHome() { return W * 0.5; }
-function kidY() { return H * 0.78; }
-/* 小朋友的绘制缩放（身体/枪的尺寸都按它算，保证比例一致） */
-function kidScale() { return Math.min(W, H) / 620; }
+function kidY() { return H * 0.885; }                 // 站得更靠后（离靶位更远）
+/* 小朋友绘制缩放：身形比原来小一圈（第三人称背后视角） */
+function kidScale() { return Math.min(W, H) / 900; }
 /* 小朋友当前横向位置（开枪前会走到目标靶位正下方） */
 let kidXCur = null;
 if (kidXCur === null) kidXCur = W * 0.5;
@@ -370,8 +370,11 @@ function shoulderLocalY() { return -104; }
 function gunPivot() {
   return { x: kidXCur, y: kidY() + shoulderLocalY() * kidScale() };
 }
+/* 水枪长度（kid 单位 → 屏幕像素，随身形同步缩放） */
+const GUN_LEN_UNITS = 62;
+function gunLen() { return GUN_LEN_UNITS * kidScale(); }
 /* 站线：在小朋友身前（靠靶位一侧），小朋友站在线后 */
-function standLineY() { return kidY() + 6 - H * 0.045; }
+function standLineY() { return kidY() - H * 0.032; }
 
 /* ---------------- 出题 ---------------- */
 const rnd = n => Math.floor(Math.random() * n);
@@ -788,89 +791,124 @@ function drawTargets(t) {
 
 function muzzlePos() {
   const p = gunPivot();
-  const len = H * 0.075;
+  const len = gunLen();                     // 随身形缩放，喷嘴就在枪管末端
   return { x: p.x + Math.cos(aimAngle) * len, y: p.y + Math.sin(aimAngle) * len };
 }
 
 function drawKid(t) {
+  /* 第三人称背后视角：只看到小朋友的后背和后脑勺（面朝靶位） */
   const kx = kidXCur, ky = kidY();
-  const scale = kidScale();
+  const sc = kidScale();
   const walking = !!walk;
-  const swing = walking ? Math.sin(walkStep) * 16 : 0;   // 走路时腿部前后摆动
-  const bob = walking ? Math.abs(Math.sin(walkStep)) * 3 : 0;
+  const step = walking ? Math.sin(walkStep) : 0;      // 走路时腿部交替
+  const bob = walking ? Math.abs(Math.sin(walkStep)) * 2.4 : 0;
   ctx.save();
   ctx.translate(kx, ky - bob);
-  ctx.scale(scale, scale);
+  ctx.scale(sc, sc);
+
   /* 影子 */
-  ctx.fillStyle = 'rgba(20,60,40,.25)';
-  ctx.beginPath(); ctx.ellipse(0, 6, 46, 12, 0, 0, Math.PI * 2); ctx.fill();
-  /* 腿（走路时摆动） */
-  ctx.strokeStyle = '#2f5a9a'; ctx.lineWidth = 13; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(-11, -60); ctx.lineTo(-15 + swing, -4); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(11, -60); ctx.lineTo(15 - swing, -4); ctx.stroke();
-  /* 鞋 */
-  ctx.fillStyle = '#e05c5c';
-  roundRect(-24 + swing, -8, 20, 12, 5); ctx.fill();
-  roundRect(4 - swing, -8, 20, 12, 5); ctx.fill();
-  /* 身体（橙色 T 恤） */
-  ctx.fillStyle = '#ff9c3c';
-  roundRect(-23, -112, 46, 58, 14); ctx.fill();
-  /* 短裤 */
-  ctx.fillStyle = '#2f5a9a';
-  roundRect(-23, -68, 46, 16, 6); ctx.fill();
-  /* 手臂：从肩膀伸到握把（枪与肩齐平 → 手臂大致水平前伸） */
-  const p = gunPivot();
-  const gripX = p.x - kx, gripY = p.y - ky;      /* 握把相对位置（肩高） */
-  ctx.strokeStyle = '#ffd7b0'; ctx.lineWidth = 11;
-  ctx.beginPath(); ctx.moveTo(-16, -104); ctx.lineTo(gripX - 6, gripY + 2); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(16, -104); ctx.lineTo(gripX + 6, gripY + 2); ctx.stroke();
+  ctx.fillStyle = "rgba(20,60,40,.26)";
+  ctx.beginPath(); ctx.ellipse(0, 4, 42, 11, 0, 0, Math.PI * 2); ctx.fill();
+
+  /* 腿（背后视角：两条竖直的腿，走路时前后交替抬起） */
+  ctx.strokeStyle = "#2f5a9a"; ctx.lineWidth = 13; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(-10, -62); ctx.lineTo(-11, -6 - Math.max(0, step) * 8); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(10, -62); ctx.lineTo(11, -6 - Math.max(0, -step) * 8); ctx.stroke();
+
+  /* 鞋（只看到鞋跟） */
+  ctx.fillStyle = "#e05c5c";
+  roundRect(-20, -8 - Math.max(0, step) * 8, 19, 11, 5); ctx.fill();
+  roundRect(1, -8 - Math.max(0, -step) * 8, 19, 11, 5); ctx.fill();
+  ctx.fillStyle = "#f5f5f5";
+  ctx.beginPath(); ctx.ellipse(-10, -3 - Math.max(0, step) * 8, 8, 3, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(11, -3 - Math.max(0, -step) * 8, 8, 3, 0, 0, Math.PI * 2); ctx.fill();
+
+  /* 短裤（背面） */
+  ctx.fillStyle = "#2f5a9a";
+  roundRect(-22, -70, 44, 18, 7); ctx.fill();
+  ctx.fillStyle = "#27508a";
+  ctx.fillRect(-2, -68, 4, 16);                       // 裤缝
+
+  /* 上衣背面（橙色 T 恤） */
+  ctx.fillStyle = "#ff9c3c";
+  roundRect(-23, -114, 46, 50, 13); ctx.fill();
+  /* 后背印的小图案（一颗星星，背后视角的识别点） */
+  ctx.fillStyle = "rgba(255,255,255,.9)";
+  ctx.beginPath();
+  for (let i = 0; i < 5; i++) {
+    const a1 = -Math.PI / 2 + i * (Math.PI * 2 / 5);
+    const a2 = a1 + Math.PI / 5;
+    ctx.lineTo(Math.cos(a1) * 9, -92 + Math.sin(a1) * 9);
+    ctx.lineTo(Math.cos(a2) * 4, -92 + Math.sin(a2) * 4);
+  }
+  ctx.closePath(); ctx.fill();
+
+  /* 背包式水箱（在背上，看得见）+ 背带 */
+  ctx.fillStyle = "#7cf0ff";
+  roundRect(-17, -112, 34, 40, 10); ctx.fill();
+  ctx.strokeStyle = "#2aa8c8"; ctx.lineWidth = 2;
+  roundRect(-17, -112, 34, 40, 10); ctx.stroke();
+  /* 水量刻度 */
+  ctx.fillStyle = "rgba(255,255,255,.65)";
+  roundRect(-12, -106, 7, 26, 3); ctx.fill();
+  /* 背带（从肩上绕过） */
+  ctx.strokeStyle = "#1f7fa8"; ctx.lineWidth = 5;
+  ctx.beginPath(); ctx.moveTo(-14, -112); ctx.lineTo(-15, -100); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(14, -112); ctx.lineTo(15, -100); ctx.stroke();
+  /* 水管：从水箱绕过右肩连到水枪 */
+  ctx.strokeStyle = "#8fe3f5"; ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(16, -96);
+  ctx.quadraticCurveTo(30, -120, 8, -128);
+  ctx.stroke();
+
+  /* 手臂：从双肩向前伸（背后视角只露出手臂的外侧一点） */
+  const gp = { x: 0, y: shoulderLocalY() };           // 握把（kid-local）
+  ctx.strokeStyle = "#ffd7b0"; ctx.lineWidth = 10; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(-19, -106); ctx.lineTo(gp.x - 5, gp.y + 3); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(19, -106); ctx.lineTo(gp.x + 5, gp.y + 3); ctx.stroke();
+
+  /* 头（后脑勺）：头发 + 棒球帽，看不到脸 */
+  ctx.fillStyle = "#4a3226";                          // 头发
+  ctx.beginPath(); ctx.arc(0, -132, 25, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#35c4e8";                          // 帽子（背面）
+  ctx.beginPath(); ctx.arc(0, -137, 26, Math.PI, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#2aa8c8";                          // 帽子后扣带
+  roundRect(-9, -137, 18, 6, 3); ctx.fill();
+  /* 帽檐从头顶后方露出一小截（因为是背面，帽檐朝靶位方向） */
+  ctx.fillStyle = "#2aa8c8";
+  ctx.beginPath();
+  ctx.ellipse(0, -158, 17, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  /* 后颈露出的皮肤 */
+  ctx.fillStyle = "#ffd7b0";
+  roundRect(-8, -116, 16, 8, 3); ctx.fill();
+
   ctx.restore();
-  /* 水枪（在屏幕坐标系里画，跟着瞄准角转；支点在肩高） */
+
+  /* 水枪：握在身前、与肩齐平、指向靶位；因为枪在身体前方，
+   * 所以画在小朋友之上（越肩视角能看到枪身与枪管） */
   ctx.save();
-  ctx.translate(p.x, p.y);
+  ctx.translate(gunPivot().x, gunPivot().y);
   ctx.rotate(aimAngle);
-  const gl = H * 0.075;
+  ctx.scale(sc, sc);
+  const gl = GUN_LEN_UNITS;
   const back = recoil * 6;
   /* 枪身 */
-  ctx.fillStyle = '#2f9fd6';
-  roundRect(-12 - back, -10, gl * 0.62, 20, 7); ctx.fill();
+  ctx.fillStyle = "#2f9fd6";
+  roundRect(-12 - back, -9, gl * 0.6, 18, 6); ctx.fill();
   /* 枪管 */
-  ctx.fillStyle = '#1f7fa8';
-  roundRect(gl * 0.5 - back, -7, gl * 0.5, 14, 5); ctx.fill();
+  ctx.fillStyle = "#1f7fa8";
+  roundRect(gl * 0.5 - back, -6, gl * 0.5, 12, 4); ctx.fill();
   /* 喷嘴 */
-  ctx.fillStyle = '#ffd35c';
-  roundRect(gl * 0.94 - back, -6, gl * 0.12, 12, 4); ctx.fill();
-  /* 握把（在支点处，双手握着） */
-  ctx.fillStyle = '#1f7fa8';
-  roundRect(-12 - back, 6, 16, 20, 6); ctx.fill();
-  /* 水箱 */
-  ctx.fillStyle = '#7cf0ff';
-  roundRect(-36 - back, -12, 20, 30, 8); ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,.55)';
-  roundRect(-32 - back, -8, 6, 22, 3); ctx.fill();
-  ctx.restore();
-  /* 头（画在最上层） */
-  ctx.save();
-  ctx.translate(kx, ky - bob);
-  ctx.scale(scale, scale);
-  ctx.fillStyle = '#ffd7b0';
-  ctx.beginPath(); ctx.arc(0, -128, 24, 0, Math.PI * 2); ctx.fill();
-  /* 棒球帽 */
-  ctx.fillStyle = '#35c4e8';
-  ctx.beginPath(); ctx.arc(0, -134, 25, Math.PI, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#2aa8c8';
-  const brim = walking ? 0 : (aimAngle > 0 ? 14 : -14);
-  ctx.beginPath();
-  ctx.ellipse(brim, -132, 20, 7, 0, 0, Math.PI * 2);
-  ctx.fill();
-  /* 眼睛（看向靶位方向） */
-  ctx.fillStyle = '#22313a';
-  const lookX = walking ? 0 : Math.cos(aimAngle) * 3;
-  ctx.beginPath(); ctx.arc(-8 + lookX, -128, 3.2, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(8 + lookX, -128, 3.2, 0, Math.PI * 2); ctx.fill();
-  /* 笑嘴 */
-  ctx.strokeStyle = '#c8392f'; ctx.lineWidth = 2.4;
-  ctx.beginPath(); ctx.arc(0, -120, 8, 0.25, Math.PI - 0.25); ctx.stroke();
+  ctx.fillStyle = "#ffd35c";
+  roundRect(gl * 0.94 - back, -5.5, gl * 0.12, 11, 4); ctx.fill();
+  /* 握把（双手握着，就在小朋友肩前） */
+  ctx.fillStyle = "#1f7fa8";
+  roundRect(-11 - back, 5, 14, 17, 5); ctx.fill();
+  /* 小水壶（枪身上方） */
+  ctx.fillStyle = "#7cf0ff";
+  roundRect(-6 - back, -20, 22, 12, 5); ctx.fill();
   ctx.restore();
 }
 
