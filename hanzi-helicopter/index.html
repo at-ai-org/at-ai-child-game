@@ -373,6 +373,7 @@ let literShow = 0;                   // 平滑显示值
 let growPop = 0;
 let lastHanzi = null;
 let candidateBtns = [];              // 当前候选按钮
+let challengeOpen = false;           // 挑战面板是否已开（防重复弹出）
 let quizDone = 0;                    // 已出题数（每级 10）
 
 /* 当前级别（0=L1）与级别内剩余敌机 */
@@ -596,7 +597,7 @@ function buildChallenge(han, py) {
     const j = Math.floor(Math.random() * (i + 1));
     const tmp = texts[i]; texts[i] = texts[j]; texts[j] = tmp;
   }
-  boardEl.innerHTML = '';
+  boardEl.innerHTML = '';        // 先清空旧的 4 个候选项，防止叠加出两套
   candidateBtns = [];
   texts.forEach((tx, idx) => {
     const btn = document.createElement('button');
@@ -609,17 +610,22 @@ function buildChallenge(han, py) {
 }
 
 function openChallenge() {
+  if (challengeOpen) return;           // 已开则不重刷候选板（避免出现两套字）
+  challengeOpen = true;
   buildChallenge(lockedEnemy.han, lockedEnemy.py);
   challengeBox.classList.add('show');
 }
 function closeChallenge() {
+  challengeOpen = false;
   challengeBox.classList.remove('show');
   candidateBtns = [];          // 关闭即清空候选（避免残留误点）
 }
 
 /* 点选汉字（正确 → 发射导弹；错误 → 播报正确字再选） */
 function pickHanzi(text, btn) {
-  if (state !== STATE.CHALLENGE || !lockedEnemy) return;
+  if (state !== STATE.CHALLENGE || !lockedEnemy || !challengeOpen) return;
+  // 只接受当前面板里的按钮：旧面板残留的按钮点击一律忽略
+  if (btn && candidateBtns.length && !candidateBtns.some(c => c.btn === btn)) return;
   if (text === answerHanzi) {
     sfxRight();
     closeChallenge();
@@ -656,6 +662,8 @@ function explodeEnemy() {
   const idx = enemies.indexOf(lockedEnemy);
   if (idx >= 0) enemies.splice(idx, 1);
   lockedEnemy = null;
+  // 关掉面板并清掉候选，避免残留按钮被误点、也避免下一帧重复锁定同一架
+  closeChallenge();
   missile = null;
   killCount++;
   quizDone = killCount;
@@ -723,8 +731,12 @@ function update(dt, t) {
       spawnEnemy();
       spawnDelay = 0.8;
     }
+    // 锁定判定：只在没有已锁定敌机时触发一次。
+    // lockedEnemy / 挑战面板已开时禁止重复锁定，否则同一架敌机会把候选板
+    // 再刷一遍（重洗 4 个字），表现为「偶尔跳出来好多自动字的选项」。
     const front = sorted[0];
-    if (front && front.y >= LOCK_Y - 0.001 && killCount < KILL_TARGET && finishTimer < 0) {
+    if (front && !lockedEnemy && !challengeOpen &&
+        front.y >= LOCK_Y - 0.001 && killCount < KILL_TARGET && finishTimer < 0) {
       lockedEnemy = front;
       state = STATE.CHALLENGE;
       openChallenge();
@@ -1050,18 +1062,18 @@ function drawPlayer(t) {
   ctx.save();
   ctx.translate(pos.x, pos.y);
 
-  // 引擎喷焰（朝下）
+  // 引擎喷焰（朝下，从机身尾部/滑橇下方喷出）
   const boost = state === STATE.FIRING ? 1.5 : 1;
   const fl = ss * (0.26 + Math.random() * 0.14) * boost;
-  const fg = ctx.createLinearGradient(0, ss * 0.50, 0, ss * 0.50 + fl);
+  const fg = ctx.createLinearGradient(0, ss * 0.42, 0, ss * 0.42 + fl);
   fg.addColorStop(0, 'rgba(120,190,255,.95)');
   fg.addColorStop(0.5, 'rgba(255,170,80,.6)');
   fg.addColorStop(1, 'rgba(255,60,40,0)');
   ctx.fillStyle = fg;
   ctx.beginPath();
-  ctx.moveTo(-ss * 0.06, ss * 0.48);
-  ctx.lineTo(0, ss * 0.50 + fl);
-  ctx.lineTo(ss * 0.06, ss * 0.48);
+  ctx.moveTo(-ss * 0.055, ss * 0.42);
+  ctx.lineTo(0, ss * 0.42 + fl);
+  ctx.lineTo(ss * 0.055, ss * 0.42);
   ctx.closePath(); ctx.fill();
 
   // 主旋翼（旋转叶片 + 模糊盘）
@@ -1087,15 +1099,18 @@ function drawPlayer(t) {
   ctx.fill();
   ctx.restore();
 
-  // 尾梁（朝上）+ 尾桨
+  // 尾梁（朝下，拖在机身后面）+ 尾桨
+  // 机头（座舱）朝上飞行，尾梁必须向下延伸；原先画在 -0.52（朝上）会顶在
+  // 机头前方，看起来像倒着飞。尾梁止于滑橇横杆（y=0.40）之前，避免与滑橇相交。
   ctx.fillStyle = '#2f5fd0';
-  ctx.fillRect(-ss * 0.04, -ss * 0.52, ss * 0.08, ss * 0.34);
+  ctx.fillRect(-ss * 0.035, ss * 0.16, ss * 0.07, ss * 0.22);
+  // 尾桨（尾梁末端，落在两条滑橇支腿之间）
   const ta = t * 20;
   ctx.strokeStyle = 'rgba(230,240,255,.55)';
   ctx.lineWidth = Math.max(1, ss * 0.022);
   ctx.beginPath();
-  ctx.moveTo(-ss * 0.11 + Math.cos(ta) * ss * 0.02, -ss * 0.50 + Math.sin(ta) * ss * 0.02);
-  ctx.lineTo( ss * 0.11 - Math.cos(ta) * ss * 0.02, -ss * 0.50 - Math.sin(ta) * ss * 0.02);
+  ctx.moveTo(-ss * 0.08 + Math.cos(ta) * ss * 0.016, ss * 0.38 + Math.sin(ta) * ss * 0.016);
+  ctx.lineTo( ss * 0.08 - Math.cos(ta) * ss * 0.016, ss * 0.38 - Math.sin(ta) * ss * 0.016);
   ctx.stroke();
 
   // 机身（圆胖座舱）
@@ -1311,13 +1326,15 @@ window.__testCandidates = () =>
     ? candidateBtns.map(c => ({ id: c.text, text: c.text }))   // id 即字面（便于断言）
     : [];                                                      // 仅挑战中返回候选
 window.__testPickHanzi = id => {
-  if (state !== STATE.CHALLENGE || !lockedEnemy) return false;
+  if (state !== STATE.CHALLENGE || !lockedEnemy || !challengeOpen) return false;
   const c = candidateBtns.find(x => x.text === id);
   if (!c) return false;
   pickHanzi(c.text, c.btn);
   return true;
 };
 window.__testState = () => state;
+window.__testChallengeOpen = () => challengeOpen;
+window.__testBoardCount = () => boardEl.querySelectorAll('.key').length;   // 面板里应恒为 4
 window.__testProgress = () => ({
   killCount, quizDone, streak, bestStreak, wrongTotal,
   target: answerHanzi, targetPy: answerPy,
@@ -1354,6 +1371,7 @@ function resetGame() {
   literProgress = 0; literShow = 0; growPop = 0;
   quizDone = 0;
   candidateBtns = [];
+  challengeOpen = false;
   boardEl.innerHTML = '';
   closeChallenge();
   updateHUD();
