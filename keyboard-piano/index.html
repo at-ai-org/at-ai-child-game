@@ -100,7 +100,7 @@
   }
   /* 白键 */
   .key.white {
-    flex: 1 1 0; min-width: 0; height: var(--white-h, 158px); align-self: flex-start;
+    flex: 0 0 auto; width: var(--white-w, 68px); height: var(--white-h, 158px);
     background: linear-gradient(180deg, #ffffff 0%, #f0f4fb 72%, #d9e2f0 100%);
     color: #2a3550;
     border: 1px solid #b8c4d8;
@@ -153,6 +153,25 @@
   }
   #seqList::-webkit-scrollbar { width: 6px; }
   #seqList::-webkit-scrollbar-thumb { background: rgba(120,200,255,.3); border-radius: 3px; }
+  /* 分组框：同时按下的键框在一起 */
+  .seq-group {
+    display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+    padding: 5px 7px; border-radius: 12px;
+    border: 2px solid transparent; position: relative;
+  }
+  .seq-group.chords {
+    border-color: rgba(107,213,255,.75);
+    background: rgba(61,139,255,.14);
+    box-shadow: 0 0 14px rgba(107,213,255,.25) inset;
+    animation: chordIn .28s cubic-bezier(.2,1.6,.4,1);
+  }
+  @keyframes chordIn { from { transform: scale(.86); opacity: .4; } to { transform: scale(1); opacity: 1; } }
+  .seq-gtag {
+    position: absolute; top: -8px; left: 8px;
+    background: linear-gradient(90deg, #3d8bff, #6bd5ff); color: #06142e;
+    font-size: 10px; font-weight: 800; letter-spacing: .5px;
+    padding: 1px 7px; border-radius: 999px; white-space: nowrap;
+  }
   .seq-item {
     position: relative;
     min-width: 44px; padding: 7px 9px 6px; border-radius: 9px;
@@ -453,12 +472,18 @@ function buildKeyboard() {
   /* 三排：Q排在上、A排中间、Z排在下（与物理键盘一致，列数不同靠居中） */
   const rowsWrap = document.createElement('div');
   rowsWrap.style.cssText = 'display:flex;flex-direction:column;gap:8px;flex:1;min-height:0;justify-content:center;';
+  /* 所有字母键等宽等高（键盘 26 键的实际观感），按需计算键宽后居中排布 */
   const rowSizes = [10, 9, 7];
+  const keyGap = 6;
+  const availW = (wKeys.clientWidth || window.innerWidth - 220) - 8;
+  /* 以最长一排（10 键）为基准算键宽，保证三排键宽一致 */
+  const keyW = Math.max(30, Math.min(76, Math.floor((availW - keyGap * 9) / 10)));
+  document.documentElement.style.setProperty('--white-w', keyW + 'px');
   let cursor = 0;
   rowSizes.forEach((size) => {
     const row = document.createElement('div');
-    /* 每排自身用 justify-content:center 居中，宽度按键数自适应 */
-    row.style.cssText = 'display:flex;gap:6px;justify-content:center;flex-shrink:0;';
+    /* 每排自身用 justify-content:center 居中，键宽固定所以自然形成阶梯错位 */
+    row.style.cssText = 'display:flex;gap:' + keyGap + 'px;justify-content:center;flex-shrink:0;';
     for (let i = 0; i < size; i++) {
       const k = WHITE_KEYS[cursor++];
       row.appendChild(makeKeyEl(k));
@@ -533,6 +558,7 @@ function releaseKey(code) {
   noteOff(code);
   const el = keyEls[code];
   if (el) el.classList.remove('active');
+  closeGroupIfIdle();          // 所有键松开 → 封口当前分组，下次按键开新组
 }
 const activeCodeSet = new Set();
 
@@ -554,29 +580,81 @@ function spawnFloatNote(k, el) {
 }
 
 /* ---------------- 按键顺序记录 ---------------- */
-let sequence = [];                 // 本次全部按键记录 [{cap, name, kind, t}]
+/* 记录按"组"组织：同时按下的多个键合成一组（和弦），单独按下就是一组一个
+ * groups: [{ notes: [{cap, name, solfege, kind}], t }] */
+let groups = [];
+let curGroup = null;               // 当前正在按住的组
 const seqList = document.getElementById('seqList');
-const MAX_SHOW = 20;
+const MAX_SHOW = 20;               // 记录区最多展示最近 20 个键位
 
+/* 展平为键位列表（供计数与复制） */
+function allNotes() {
+  const out = [];
+  for (const g of groups) for (const n of g.notes) out.push(n);
+  return out;
+}
+/* 兼容旧接口 */
+Object.defineProperty(window, '__seqCompat', { value: true });
+
+/* 和弦判定时间窗：与组内上一键相隔 < 220ms 才算同时按下 */
+const CHORD_WINDOW = 220;
 function pushSequence(k) {
-  sequence.push({ cap: k.cap, name: k.name, solfege: k.solfege, kind: k.kind });
+  const now = Date.now();
+  /* 仍有键按着、且与上一键在时间窗内 → 并入当前组（和弦）；否则新建一组 */
+  const inWindow = curGroup && (now - curGroup.lastT) < CHORD_WINDOW;
+  if (!curGroup || !inWindow) {
+    curGroup = { notes: [], t: now, lastT: now };
+    groups.push(curGroup);
+  }
+  curGroup.lastT = now;
+  curGroup.notes.push({ cap: k.cap, name: k.name, solfege: k.solfege, kind: k.kind });
   renderSequence();
+}
+/* 当所有键都松开时，封口当前组（下次按键开新组） */
+function closeGroupIfIdle() {
+  if (activeCodeSet.size === 0) curGroup = null;
 }
 
 function renderSequence() {
-  const total = sequence.length;
+  const notes = allNotes();
+  const total = notes.length;
   document.getElementById('seqCount').textContent = total + ' 个';
-  const shown = sequence.slice(-MAX_SHOW);   // 只展示最后 20 个
   if (!total) {
     seqList.innerHTML = '<div class="seq-empty">按下的琴键会<br>按顺序记录在这里 🎵</div>';
     return;
   }
+  /* 只展示最后 MAX_SHOW 个键位：从后往前取满为止（整组保留，不足则截断该组） */
+  const shownGroups = [];
+  let budget = MAX_SHOW;
+  for (let i = groups.length - 1; i >= 0 && budget > 0; i--) {
+    const g = groups[i];
+    if (g.notes.length <= budget) {
+      shownGroups.unshift(g);
+      budget -= g.notes.length;
+    } else {
+      shownGroups.unshift({ notes: g.notes.slice(-budget), t: g.t });
+      budget = 0;
+    }
+  }
   seqList.innerHTML = '';
-  for (const s of shown) {
-    const d = document.createElement('div');
-    d.className = 'seq-item ' + (s.kind === 'white' ? 'w' : 'b');
-    d.innerHTML = `<span class="k">${s.cap}</span><span class="n">${s.name}</span>`;
-    seqList.appendChild(d);
+  for (const g of shownGroups) {
+    const multi = g.notes.length > 1;
+    /* 多个键同按：外层加分组框，标注"和弦" */
+    const wrap = document.createElement('div');
+    wrap.className = 'seq-group' + (multi ? ' chords' : '');
+    if (multi) {
+      const tag = document.createElement('span');
+      tag.className = 'seq-gtag';
+      tag.textContent = g.notes.length + ' 键';
+      wrap.appendChild(tag);
+    }
+    for (const s of g.notes) {
+      const d = document.createElement('div');
+      d.className = 'seq-item ' + (s.kind === 'white' ? 'w' : 'b');
+      d.innerHTML = `<span class="k">${s.cap}</span><span class="n">${s.name}</span>`;
+      wrap.appendChild(d);
+    }
+    seqList.appendChild(wrap);
   }
   /* 自动滚到底部（最新在最后） */
   seqList.scrollTop = seqList.scrollHeight;
@@ -584,12 +662,19 @@ function renderSequence() {
 
 /* 复制：完整键位序列（键名 + 音名） */
 function sequenceToText() {
-  if (!sequence.length) return '';
-  const keysLine = sequence.map(s => s.cap).join(' ');
-  const notesLine = sequence.map(s => s.name).join(' ');
-  return `本次按键顺序（共 ${sequence.length} 个）\n` +
+  const notes = allNotes();
+  if (!notes.length) return '';
+  const keysLine = notes.map(s => s.cap).join(' ');
+  const notesLine = notes.map(s => s.name).join(' ');
+  /* 和弦组用 [ ] 框出来，便于看出同时按下的键 */
+  const groupLine = groups.map(g =>
+    g.notes.length > 1 ? '[' + g.notes.map(n => n.cap).join('+') + ']'
+                       : g.notes[0].cap
+  ).join(' ');
+  return `本次按键顺序（共 ${notes.length} 个键位 / ${groups.length} 组）\n` +
          `键位：${keysLine}\n` +
-         `音符：${notesLine}`;
+         `音符：${notesLine}\n` +
+         `分组：${groupLine}`;
 }
 async function copySequence() {
   const text = sequenceToText();
@@ -670,7 +755,8 @@ document.getElementById('hcOk').addEventListener('click', () => { location.href 
 
 document.getElementById('btnCopy').addEventListener('click', copySequence);
 document.getElementById('btnClear').addEventListener('click', () => {
-  sequence = [];
+  groups = [];
+  curGroup = null;
   renderSequence();
   showCopyToast('已清空记录', false);
 });
@@ -692,6 +778,11 @@ function fitKeyHeights() {
   if (!area) return;
   const h = area.clientHeight;
   if (!h) return;
+  /* 键宽：按左区可用宽度 / 最长一排（10 键）计算，保证所有字母键等宽 */
+  const wKeys = document.querySelector('.zone.row-layout .zone-keys');
+  const availW = (wKeys && wKeys.clientWidth ? wKeys.clientWidth : area.clientWidth - 180) - 8;
+  const keyW = Math.max(30, Math.min(76, Math.floor((availW - 6 * 9) / 10)));
+  document.documentElement.style.setProperty('--white-w', keyW + 'px');
   /* 白键 3 排 + 2 个 gap(8) + 区域上下留白 */
   const whiteH = Math.max(78, Math.min(158, Math.floor((h - 40) / 3) - 8));
   document.documentElement.style.setProperty('--white-h', whiteH + 'px');
@@ -718,9 +809,10 @@ window.__testRelease = cap => {
   releaseKey(all.code);
   return true;
 };
-window.__testSequence = () => sequence.map(s => s.cap);
+window.__testSequence = () => allNotes().map(s => s.cap);
+window.__testGroups = () => groups.map(g => g.notes.map(n => n.cap));
 window.__testSequenceText = () => sequenceToText();
-window.__testState = () => ({ seqLen: sequence.length, activeCount: activeCodeSet.size, wave: waveType, vol: volumeLevel });
+window.__testState = () => ({ seqLen: allNotes().length, groupCount: groups.length, activeCount: activeCodeSet.size, wave: waveType, vol: volumeLevel });
 </script>
 </body>
 </html>
