@@ -220,7 +220,7 @@ window.addEventListener('contextmenu', e => e.preventDefault());
       🎮 快捷游戏目录 <span class="arrow">▼</span>
     </button>
     <div id="quickList">
-      <div class="ql-title">全部 21 个教育游戏 · 点击直接开始</div>
+      <div class="ql-title">全部 22 个教育游戏 · 点击直接开始</div>
       <div class="ql-grid" id="quickGrid"></div>
     </div>
   </div>
@@ -457,6 +457,17 @@ window.addEventListener('contextmenu', e => e.preventDefault());
       </div>
       <span class="play">开始游戏</span>
     </a>
+    <a class="card" href="keyboard-piano/index.html">
+      <div class="icon" aria-hidden="true">🎹</div>
+      <div class="name">电子琴</div>
+      <div class="desc">按电脑键盘弹琴！26 个字母键是白键（do re mi…），9 个数字键是黑键（升号音）。敲键时键位和音符会飘出来，还能记录本次按下的所有键位并一键复制。</div>
+      <div class="tags">
+        <span class="tag">音乐启蒙</span>
+        <span class="tag">键盘演奏</span>
+        <span class="tag">实时发声</span>
+      </div>
+      <span class="play">开始游戏</span>
+    </a>
     <a class="card" href="racing-3d/index.html" data-quick="off">
       <div class="icon" aria-hidden="true">🏎️</div>
       <div class="name">极速飞车 3D</div>
@@ -485,10 +496,12 @@ window.addEventListener('contextmenu', e => e.preventDefault());
 
   /* 分类规则：按卡片 tag 第一项归类 */
   function catOf(tagsText) {
-    if (/数字|数序|口算|按数取物|跳数|序数/.test(tagsText)) return '数学';
-    if (/拼音|汉字|识字/.test(tagsText)) return '语文';
-    if (/观察|记忆|拼组/.test(tagsText)) return '思维';
-    if (/交通|时间/.test(tagsText)) return '生活';
+    /* 只按卡片第一个标签分类，优先级：音乐/语文/思维/生活 > 数学 */
+    if (/音乐|琴|演奏/.test(tagsText)) return '音乐';
+    if (/拼音|汉字|识字|阅读/.test(tagsText)) return '语文';
+    if (/观察|记忆|拼组|形状/.test(tagsText)) return '思维';
+    if (/交通|时间|序数|生活/.test(tagsText)) return '生活';
+    if (/数字|数序|口算|按数取物|跳数|数量|加法|比较/.test(tagsText)) return '数学';
     return '综合';
   }
 
@@ -506,7 +519,7 @@ window.addEventListener('contextmenu', e => e.preventDefault());
     a.href = href;
     a.innerHTML = '<span class="qi">' + icon.textContent.trim() + '</span>' +
       '<span>' + name.textContent.trim() + '</span>' +
-      '<span class="qcat">' + (tag ? catOf(tag.textContent + (card.textContent || '')) : '综合') + '</span>';
+      '<span class="qcat">' + (tag ? catOf(tag.textContent) : '综合') + '</span>';
     grid.appendChild(a);
   });
 
