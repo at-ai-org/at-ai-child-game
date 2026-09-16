@@ -467,8 +467,12 @@ function makeQuestOnce(form) {
 
 /* ---------------- 开枪 ---------------- */
 function fireAt(idx) {
-  if (state !== STATE.RUNNING || !quest) return;
+  if (state !== STATE.RUNNING) return;
   if (jet) return;                                  // 水柱还没喷完
+  if (!quest) {                                     // 换题/过关的空档：给反馈，不静默
+    speak2(levelHits >= HITS_PER_LEVEL ? '这一关打中啦，准备下一关' : '准备好，下一题马上来');
+    return;
+  }
   if (targets[idx].wet) {                           // 这个已经打中过了
     speak2('这个靶位已经打中啦，换一个吧');
     return;
