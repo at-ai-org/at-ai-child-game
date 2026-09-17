@@ -3,120 +3,107 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>极速飞车 3D</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2064%2064%22%3E%0A%20%20%3Crect%20width=%2264%22%20height=%2264%22%20rx=%2214%22%20fill=%22%23d64545%22/%3E%0A%20%20%3Ctext%20x=%2232%22%20y=%2233%22%20font-size=%2240%22%20text-anchor=%22middle%22%20dominant-baseline=%22central%22%20font-family=%22Apple%20Color%20Emoji,%20Segoe%20UI%20Emoji,%20Noto%20Color%20Emoji,%20sans-serif%22%3E%F0%9F%8F%8E%EF%B8%8F%3C/text%3E%0A%3C/svg%3E">
+<title>极速飞车 · 无尽公路（伪 3D）</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2064%2064%22%3E%0A%20%20%3Crect%20width=%2264%22%20height=%2264%22%20rx%3D%2214%22%20fill%3D%22%23d64545%22/%3E%0A%20%20%3Ctext%20x%3D%2232%22%20y%3D%2233%22%20font-size%3D%2240%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22central%22%20font-family%3D%22Apple%20Color%20Emoji,%20Segoe%20UI%20Emoji,%20Noto%20Color%20Emoji,%20sans-serif%22%3E%F0%9F%8F%8E%EF%B8%8F%3C/text%3E%0A%3C/svg%3E">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; overflow: hidden; background: #0b1530; }
   body { font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; }
-  #game { position: fixed; inset: 0; display: block; }
+  #game { position: fixed; inset: 0; display: block; width: 100%; height: 100%; }
 
-  /* HUD */
-  .hud { position: fixed; top: 72px; left: 16px; right: 16px; display: flex; justify-content: space-between; gap: 10px; pointer-events: none; z-index: 5; }
-  .hud-chip {
-    background: rgba(10, 18, 42, .68); color: #eaf2ff;
-    border: 1px solid rgba(130, 190, 255, .30); border-radius: 999px;
-    padding: 8px 18px; font-size: 17px; font-weight: 700; white-space: nowrap;
-    backdrop-filter: blur(6px);
-  }
-  .hud-chip b { color: #ffd35c; font-size: 20px; }
-  #hudLap small, #hudTime small { color: #9db4d8; font-size: 13px; font-weight: 600; }
-  #hudSpeed { min-width: 130px; text-align: center; }
-  #hudSpeed small { display: block; font-size: 11px; color: #9db4d8; letter-spacing: 2px; margin-top: -2px; }
+  /* ---------- HUD：左上角 里程 + 超越 ---------- */
+  #hudPanel { position: fixed; top: 62px; left: 14px; z-index: 5; pointer-events: none;
+    display: flex; flex-direction: column; gap: 9px; }
+  .stat { display: flex; align-items: center; gap: 10px;
+    background: rgba(10, 18, 42, .66); border: 1px solid rgba(130, 190, 255, .30);
+    border-radius: 16px; padding: 8px 16px 8px 12px;
+    backdrop-filter: blur(6px); box-shadow: 0 4px 16px rgba(0, 0, 0, .3); }
+  .stat .ico { font-size: 20px; line-height: 1; width: 24px; text-align: center; }
+  .stat .txt { display: flex; flex-direction: column; }
+  .stat .lab { font-size: 11px; letter-spacing: 3px; color: #9db4d8; font-weight: 600; }
+  .stat .val { font-size: 23px; font-weight: 800; color: #eaf2ff; line-height: 1.15; font-variant-numeric: tabular-nums; }
+  .stat .val u { text-decoration: none; font-size: 10px; color: #9db4d8; margin-left: 2px; letter-spacing: 1px; align-self: flex-end; }
+  #statPass .val { color: #7dffa1; }
+  /* 「中华大地已走 N 圈」：金色，和里程/超车区分开 */
+  #statLap .val { color: #ffd35c; }
+  #statLap .lab { color: #e8c874; }
+  /* 「当前处于 X 省」：青蓝色，字号略小于数字型数值（它是文字不是数字） */
+  #statGeo .val { color: #7fe0ff; font-size: 18px; }
+  #statGeo .lab { color: #7fb9d8; }
+  @keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.34); } 100% { transform: scale(1); } }
+  .bump { animation: bump .32s cubic-bezier(.2, 1.6, .4, 1); }
 
-  /* 圈数进度 */
-  #lapDots { position: fixed; top: 62px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; z-index: 5; pointer-events: none; }
-  .lap-dot { width: 12px; height: 12px; border-radius: 50%; background: rgba(255,255,255,.22); border: 1.5px solid rgba(255,255,255,.4); }
-  .lap-dot.done { background: #ffd35c; border-color: #ffd35c; box-shadow: 0 0 8px rgba(255, 211, 92, .8); }
-  .lap-dot.cur { border-color: #7dffa1; background: rgba(125, 255, 161, .35); animation: pulse 1s infinite alternate; }
-  @keyframes pulse { from { box-shadow: 0 0 2px rgba(125,255,161,.4); } to { box-shadow: 0 0 10px rgba(125,255,161,.95); } }
+  /* 速度表（右下角）：有了油门才需要看速度 */
+  #speedPanel { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 5;
+    pointer-events: none; background: rgba(10, 18, 42, .66); border: 1px solid rgba(130, 190, 255, .30);
+    border-radius: 16px; padding: 8px 18px; text-align: right; backdrop-filter: blur(6px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .3); }
+  #speedPanel .lab { font-size: 11px; letter-spacing: 3px; color: #9db4d8; font-weight: 600; }
+  #speedPanel .val { font-size: 30px; font-weight: 800; color: #eaf2ff; line-height: 1.05; font-variant-numeric: tabular-nums; }
+  #speedPanel .val u { text-decoration: none; font-size: 11px; color: #9db4d8; margin-left: 3px; }
 
-  /* 计次板（超车数） */
-  #posBoard {
-    position: fixed; top: 96px; left: 50%; transform: translateX(-50%);
+  /* 季节 / 天气 提示胶囊 */
+  #skyChip { position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
     background: rgba(10, 18, 42, .55); border: 1px solid rgba(130, 190, 255, .22);
-    border-radius: 12px; padding: 5px 14px; color: #cfe2ff; font-size: 13px; font-weight: 600;
-    z-index: 5; pointer-events: none; letter-spacing: 1px;
-  }
+    border-radius: 999px; padding: 6px 18px; color: #cfe2ff;
+    font-size: 14px; font-weight: 700; letter-spacing: 1px;
+    z-index: 5; pointer-events: none; white-space: nowrap; backdrop-filter: blur(6px); }
+  #skyChip.flash { animation: chipFlash 1.1s ease-out; }
+  @keyframes chipFlash { 0% { background: rgba(255, 214, 92, .92); color: #3a2200; border-color: #ffd35c; transform: translateX(-50%) scale(1.16); }
+    100% { background: rgba(10, 18, 42, .55); color: #cfe2ff; transform: translateX(-50%) scale(1); } }
 
-  /* 冲出赛道提示条 */
-  #offroadTip {
-    position: fixed; top: 62%; left: 50%; transform: translateX(-50%);
+  #offroadTip { position: fixed; top: 62%; left: 50%; transform: translateX(-50%);
     background: rgba(140, 26, 26, .82); border: 2px solid rgba(255, 110, 110, .9);
     border-radius: 14px; padding: 10px 26px; color: #ffe3e3;
     font-size: 19px; font-weight: 800; letter-spacing: 1px;
     z-index: 5; pointer-events: none; opacity: 0;
-    transition: opacity .18s; text-shadow: 0 2px 6px rgba(0,0,0,.5);
-    white-space: nowrap;
-  }
+    transition: opacity .18s; text-shadow: 0 2px 6px rgba(0,0,0,.5); white-space: nowrap; }
 
-  /* 触屏转向按钮（移动端） */
-  #touchUI { position: fixed; bottom: 0; left: 0; right: 0; display: none; z-index: 6; padding: 18px 22px calc(18px + env(safe-area-inset-bottom)); justify-content: space-between; }
-  #touchUI button {
-    width: 92px; height: 92px; border-radius: 50%; border: 2px solid rgba(150, 210, 255, .55);
-    background: rgba(20, 34, 70, .55); color: #dff2ff; font-size: 34px; font-weight: 800;
-    backdrop-filter: blur(4px); touch-action: none; user-select: none; -webkit-user-select: none;
-  }
+  /* 起跑倒计时 */
+  #countdown { position: fixed; top: 42%; left: 50%; transform: translate(-50%, -50%) scale(.4);
+    font-size: 150px; font-weight: 900; color: #fff; letter-spacing: 6px;
+    text-shadow: 0 0 30px rgba(90, 170, 255, .95), 0 8px 40px rgba(0, 0, 0, .6);
+    z-index: 6; pointer-events: none; opacity: 0; font-variant-numeric: tabular-nums; }
+  #countdown.show { animation: cdPop .72s cubic-bezier(.2, 1.5, .4, 1) forwards; }
+  #countdown.go { color: #7dffa1; text-shadow: 0 0 40px rgba(90, 255, 150, .95), 0 8px 40px rgba(0, 0, 0, .6); }
+  @keyframes cdPop { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.4); }
+    25% { opacity: 1; transform: translate(-50%, -50%) scale(1.12); }
+    70% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.4); } }
+
+  /* 触屏按钮 */
+  #touchUI { position: fixed; bottom: 0; left: 0; right: 0; display: none; z-index: 6;
+    padding: 14px 20px calc(14px + env(safe-area-inset-bottom)); justify-content: space-between; align-items: flex-end; }
+  #touchUI .side { display: flex; gap: 14px; }
+  #touchUI button { width: 84px; height: 84px; border-radius: 50%; border: 2px solid rgba(150, 210, 255, .55);
+    background: rgba(20, 34, 70, .55); color: #dff2ff; font-size: 30px; font-weight: 800;
+    backdrop-filter: blur(4px); touch-action: none; user-select: none; -webkit-user-select: none; font-family: inherit; }
   #touchUI button:active { background: rgba(70, 130, 220, .6); }
 
   /* 开始界面 */
-  #start {
-    position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column;
+  #start { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column;
     align-items: center; justify-content: center; text-align: center;
     background: linear-gradient(180deg, rgba(7, 13, 32, .92), rgba(7, 13, 32, .55) 45%, rgba(7, 13, 32, .92));
-    color: #fff; padding: 20px;
-  }
-  #start h1 { font-size: 46px; letter-spacing: 4px; text-shadow: 0 4px 24px rgba(60, 140, 255, .55); margin-bottom: 8px; }
-  #start .sub { color: #9db4d8; font-size: 16px; margin-bottom: 26px; }
-  #start .rules {
-    background: rgba(10, 16, 40, .72); border: 1px solid rgba(120, 200, 255, .35);
-    border-radius: 18px; padding: 20px 30px; color: #cfe2ff; font-size: 17px; line-height: 2.1;
-    max-width: 560px; margin-bottom: 28px;
-  }
+    color: #fff; padding: 20px; }
+  #start h1 { font-size: 44px; letter-spacing: 4px; text-shadow: 0 4px 24px rgba(60, 140, 255, .55); margin-bottom: 8px; }
+  #start .sub { color: #9db4d8; font-size: 15px; letter-spacing: 2px; margin-bottom: 22px; }
+  #start .rules { background: rgba(10, 16, 40, .72); border: 1px solid rgba(120, 200, 255, .35);
+    border-radius: 18px; padding: 18px 30px; color: #cfe2ff; font-size: 16px; line-height: 2.05;
+    max-width: 640px; margin-bottom: 24px; }
   #start .rules b { color: #ffd35c; }
-  #start .rules kbd {
-    display: inline-block; background: linear-gradient(160deg, #1c2a58, #101a3e);
+  #start .rules kbd { display: inline-block; background: linear-gradient(160deg, #1c2a58, #101a3e);
     border: 1px solid rgba(150, 210, 255, .5); border-bottom-width: 3px; border-radius: 8px;
     color: #dff2ff; font-family: inherit; font-size: 16px; font-weight: 800;
-    padding: 2px 12px; margin: 0 3px; box-shadow: 0 3px 8px rgba(0,0,0,.4);
-  }
-  #start button {
-    font-size: 22px; font-weight: 800; letter-spacing: 6px;
+    padding: 2px 12px; margin: 0 3px; box-shadow: 0 3px 8px rgba(0,0,0,.4); }
+  #start button { font-size: 22px; font-weight: 800; letter-spacing: 6px;
     padding: 15px 70px; border-radius: 999px; border: none; cursor: pointer;
     color: #07240f; background: linear-gradient(160deg, #7dffa1, #2ecc71);
     box-shadow: 0 6px 26px rgba(46, 204, 113, .45), inset 0 2px 3px rgba(255,255,255,.5);
-    transition: transform .12s;
-  }
+    transition: transform .12s; font-family: inherit; }
   #start button:hover { transform: scale(1.06); }
   #start .kbd-tip { margin-top: 16px; color: #9db4d8; font-size: 14px; }
 
-  /* 结算界面 */
-  #result {
-    position: fixed; inset: 0; z-index: 10; display: none;
-    align-items: center; justify-content: center;
-    background: rgba(6, 10, 26, .78); backdrop-filter: blur(5px);
-  }
-  #result.show { display: flex; }
-  .result-card {
-    background: linear-gradient(165deg, #14224a, #0c1531);
-    border: 1px solid rgba(140, 200, 255, .35); border-radius: 24px;
-    padding: 34px 52px; text-align: center; color: #fff;
-    box-shadow: 0 20px 70px rgba(0, 0, 0, .6);
-    animation: pop .35s cubic-bezier(.2, 1.6, .4, 1);
-  }
-  @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-  .result-card h1 { font-size: 34px; margin-bottom: 10px; }
-  .result-card p { color: #cfe2ff; font-size: 17px; line-height: 2; }
-  .result-card p b { color: #ffd35c; font-size: 20px; }
-  .result-card button {
-    margin-top: 18px; font-size: 19px; font-weight: 800; letter-spacing: 3px;
-    padding: 12px 46px; border-radius: 999px; border: none; cursor: pointer;
-    color: #07240f; background: linear-gradient(160deg, #7dffa1, #2ecc71);
-    box-shadow: 0 5px 20px rgba(46, 204, 113, .4);
-  }
-  .result-card button:hover { transform: scale(1.05); }
-
-/* ---- 返回主页按钮 + 确认弹窗 ---- */
+/* ---- 返回主页 + 确认弹窗 ---- */
 #btnHome { position: absolute; top: 12px; left: 12px; z-index: 60; font-size: 20px; line-height: 1; padding: 9px 13px; border-radius: 12px; cursor: pointer; background: rgba(10, 16, 40, .72); border: 1px solid rgba(120, 200, 255, .35); color: #dff2ff; font-family: inherit; }
 #btnHome:active { transform: scale(.94); }
 #homeConfirm { position: absolute; inset: 0; z-index: 90; background: rgba(4, 8, 22, .62); display: none; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
@@ -136,1025 +123,2709 @@
 <div id="homeConfirm">
   <div class="hc-card">
     <h2>🏠 返回游戏主页？</h2>
-    <p>当前的游戏进度将会丢失哦</p>
+    <p>这次的里程记录将会丢失哦</p>
     <div class="hc-btns">
       <button id="hcOk">确认返回</button>
-      <button id="hcCancel">再玩一会儿</button>
+      <button id="hcCancel">再开一会儿</button>
     </div>
   </div>
 </div>
 
 <canvas id="game"></canvas>
 
-<div class="hud">
-  <div class="hud-chip" id="hudLap">第 <b id="lapNum">1</b> / 3 圈</div>
-  <div class="hud-chip" id="hudSpeed"><b id="speedNum">0</b> km/h<small>SPEED</small></div>
-  <div class="hud-chip" id="hudTime"><small>TIME</small> <b id="timeNum">0:00.0</b></div>
+<div id="hudPanel">
+  <div class="stat" id="statDist">
+    <span class="ico">🛣️</span>
+    <span class="txt"><span class="lab">里程 DISTANCE</span><span class="val"><span id="distVal">0</span><u>km</u></span></span>
+  </div>
+  <div class="stat" id="statPass">
+    <span class="ico">🚗</span>
+    <span class="txt"><span class="lab">超越 OVERTAKEN</span><span class="val"><span id="passVal">0</span><u>辆</u></span></span>
+  </div>
+  <div class="stat" id="statLap">
+    <span class="ico">🇨🇳</span>
+    <span class="txt"><span class="lab" id="lapLab">中华大地已走 0 圈</span><span class="val"><span id="lapVal">0</span><u>圈</u></span></span>
+  </div>
+  <div class="stat" id="statGeo">
+    <span class="ico">📍</span>
+    <span class="txt"><span class="lab">当前位于 LOCATION</span><span class="val">当前处于 <span id="geoVal">河北省</span></span></span>
+  </div>
 </div>
-<div id="lapDots"></div>
-<div id="posBoard">🏆 完赛 <b id="posNum" style="color:#ffd35c">6</b> / 6 · 超越 <b id="passNum" style="color:#7dffa1">0</b> 辆</div>
-<div id="offroadTip">⚠️ 冲出赛道了！按 ← 或 → 回到路面</div>
+<div id="speedPanel">
+  <div class="lab">速度 SPEED</div>
+  <div class="val"><span id="speedVal">0</span><u>km/h</u></div>
+</div>
+<div id="skyChip">🌸 春天 · ☀️ 晴朗</div>
+<div id="offroadTip">⚠️ 冲出公路了！按 ← → （或 A D）回到路面</div>
 <div id="countdown"></div>
 
 <div id="touchUI">
-  <button id="btnLeft" aria-label="左转">◀</button>
-  <button id="btnRight" aria-label="右转">▶</button>
+  <div class="side">
+    <button id="btnLeft" aria-label="左转">◀</button>
+    <button id="btnRight" aria-label="右转">▶</button>
+  </div>
+  <div class="side">
+    <button id="btnBrake" aria-label="刹车">▼</button>
+    <button id="btnGas" aria-label="加速">▲</button>
+  </div>
 </div>
 
 <div id="start">
-  <h1>🏎️ 极速飞车 3D</h1>
-  <div class="sub">THREE.JS RACING</div>
+  <h1>🏎️ 极速飞车 · 无尽公路</h1>
+  <div class="sub">PSEUDO-3D ENDLESS HIGHWAY</div>
   <div class="rules">
-    一场 <b>3 圈</b>的公路竞速，你要从最后一名追到冠军！<br>
-    油门是自动的，你只需要掌握<b>方向</b>：<br>
-    <kbd>←</kbd> 向左转弯　<kbd>→</kbd> 向右转弯<br>
-    撞上对手或冲出赛道会减速，跑稳才是最快路线。
+    这条路<b>永远没有终点</b>，一路超车，记下你的<b>里程</b>与<b>超越车辆数</b>。<br>
+    <b>单向三车道</b>：所有车都往同一个方向跑，三条车道随便挑。<br>
+    <b>油门自动</b>，你只需要 <kbd>←</kbd> <kbd>→</kbd>（或 <kbd>A</kbd> <kbd>D</kbd>）左右转向
+    （<kbd>↑</kbd>/<kbd>W</kbd> 可以补一脚更快的加速，<kbd>↓</kbd>/<kbd>S</kbd> 刹车）<br>
+    <b>超车要靠左右走线</b>：前面的车会守着自己的车道，
+    直接怼上去会<b>撞车减速</b>（还震屏），只有变道绕过去才算超越。<br>
+    左边路边每 1 公里会立一块<b>地区指示牌</b>，
+    把中国的 34 个省级行政区（含港澳台）依次报一遍——<br>
+    每报完一轮（34 公里），左上角就会记上<b>「中华大地已走 N 圈」</b>。<br>
+    公路会陪你走过<b>春 · 夏 · 秋 · 冬</b>，
+    晴天、阴云、大雨、<b>雷电</b>、飞雪、浓雾、大风都会轮番登场，<br>
+    雨天雪天路滑会打滑，大风会把你往路边推——稳住方向就是最快的。
   </div>
   <button id="btnStart">出 发</button>
-  <p class="kbd-tip">按 <b>回车</b> 也能发车 · 触屏设备用屏幕下方的左右按钮</p>
+  <p class="kbd-tip">按 <b>回车</b> 也能发车 · 触屏设备用屏幕下方的按钮</p>
 </div>
 
-<div id="result">
-  <div class="result-card">
-    <h1 id="resultTitle">🏁 比赛结束</h1>
-    <p id="resultDesc"></p>
-    <button id="btnRestart">再跑一次</button>
-  </div>
-</div>
-
-<script src="three.min.js"></script>
 <script>
-/* 屏蔽右键菜单：防止游戏中误触（触屏板双指/鼠标右键弹出系统菜单打断游戏） */
+/* 屏蔽右键菜单 */
 window.addEventListener('contextmenu', e => e.preventDefault());
 
 /* =========================================================
- * 极速飞车 3D Racing —— 单文件 three.js 赛车（非教育向）
- * 自动油门，仅左右方向键/触屏按钮控制转向；
- * 程序化闭合弯道 + 5 辆 AI 对手 + 3 圈计分 + 名次结算。
+ * 极速飞车 · 无尽公路（2D Canvas 伪 3D）
+ * ---------------------------------------------------------
+ * 伪 3D 原理（经典 OutRun / Pole Position 做法）：
+ *   1. 公路是一条沿 z 轴无限延伸的带子，远处分很多「路段」；
+ *   2. 每段路有自己的 z、弯道量 curve、上下坡量 hill；
+ *   3. 把每段路投影到屏幕上：近处宽、远处窄，收束到地平线一点；
+ *   4. 相机在 z 上不断前移，段落的 z 超过相机就回绕到最远处
+ *      —— 于是只需要固定数量的路段就能表现无限长的公路；
+ *   5. 弯道不真的转动相机，而是把地面横向平移（curve 累积），
+ *      画面就会自然地「甩」向一边，这就是伪 3D 的灵魂。
+ * 四季 + 天气与 3D 版一致，但全部用 2D 方式绘制（雨丝、雪花、
+ * 闪电白闪、雾罩、路面积水反光……），性能极好且不依赖 WebGL。
  * ========================================================= */
 'use strict';
 
 const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d', { alpha: false });
 const $ = id => document.getElementById(id);
 
-/* ---------- 基础常量 ---------- */
-const LAPS_TOTAL   = 3;      // 总圈数
-const RIVALS_COUNT = 5;      // AI 对手数
-const ROAD_W       = 11;     // 路面半宽
-const CURVE_SEG    = 220;    // 赛道中心线采样段数
-const AI_SPEEDS    = [30.5, 31.3, 32.1, 32.9, 33.7]; // 对手基础速度 m/s（玩家极速 34，想赢必须走线）
+/* ---------- 画面参数 ----------
+ * 逻辑分辨率固定 1024×640，resize 时用「等比缩放 + 居中」映射到真实画布，
+ * 并额外把超出的部分补足（避免宽屏出现黑边）。
+ */
+const VIEW_W = 1024, VIEW_H = 640;
+let HORIZON_Y = VIEW_H * 0.46;      // 地平线屏幕高度
 
-const STATE = { START: 0, COUNTDOWN: 1, RUNNING: 2, FINISH: 3 };
+/* ---------- 世界尺度：1 米 = 100 世界单位 ----------
+ * 由 HUD 的换算推出：updateHUD 里 `km = PS.z / 100000`，
+ * 所以 1 km = 100000 单位 → 1 m = 100 单位。
+ * 路边设施的间距全部按「米」来定义，再乘 M 换算成世界单位，
+ * 这样「每 20 米一棵树」这种需求可以直接照着写，不用猜单位。 */
+const M           = 100;              // 1 米 = 100 世界单位
+
+/* ---------- 路边设施间距（按米定义）---------- */
+const TREE_STEP   = 20 * M;           // 大树：两侧各一棵，每 20 米
+const POLE_STEP   = 21 * M;           // 电线杆：只在右侧，每 21 米
+const POLE_SIDE   = 1;                // +1 = 右侧（-1 则是左侧）
+
+/* ---------- 路边设施尺寸倍数 ----------
+ * 大树和电线杆的「整体放大倍数」。1 = 上一版的大小。
+ * 【为什么需要放大 5 倍】原来 scale 只有 1.5~2.2，画出来近处树高仅约 40px、
+ * 电线杆仅约 23px —— 在 1024×640 的画面里只有一小撮，
+ * 完全不像「路边的树/ 电线杆」，更像是地上的杂草和牙签。
+ * 放大 5 倍后：近处树高约 200px（占画面高度 1/3），
+ * 电线杆约 114px，和路面半宽（近处约 128~239px）比例相当，
+ * 一眼就能看出是路边的大树和一列电线杆。
+ * 注意：这里乘的是「尺度」而不是像素，所以远近透视关系完全不变，
+ * 远处的树/杆依旧按同样的比例缩小。 */
+const TREE_SCALE_MUL = 5;
+const POLE_SCALE_MUL = 5;
+
+/* 房屋 / 鱼塘的整体放大倍数（1 = 上一版大小）。
+ * 放大到 5 倍后，近处房屋约 65px 宽、鱼塘约 100px 宽，
+ * 在 1024 宽的画面上是「看得清的门面和水面」，不再是几个小点。 */
+const HOUSE_SCALE_MUL = 5;
+const POND_SCALE_MUL  = 5;
+
+/* ---------- 左侧河流 ----------
+ * 河道横跨 [RIV_IN, RIV_OUT] 倍路宽。宽度 = RIV_OUT - RIV_IN。
+ * 路面全宽是 2.0 倍路宽；这里取 4.0 倍 —— 也就是「比路面宽一倍」
+ * （原先 2.0 倍路宽与路面等宽，现在按要求加宽一倍）。
+ * 起点 3.30 仍紧贴草地外缘（草地画到 3.2），保证路肩草与河岸相接。 */
+const RIV_IN  = 3.30;
+const RIV_OUT = 7.30;                 // 3.30 + 4.0 = 比路面宽一倍
+
+/* ---------- 道路左侧的「地区指示牌」----------
+ * 牌子上依次标注中国的全部 34 个省级行政区：
+ *   23 个省 + 5 个自治区 + 4 个直辖市 + 2 个特别行政区。
+ * 之所以是 34 个，是因为「省级行政区」在行政区划上就是这么划分的 ——
+ * 台湾省、香港特别行政区、澳门特别行政区都在这 34 个之内，一个不少。
+ *
+ * 顺序按「华北 → 东北 → 华东 → 中南 → 西南 → 西北」习惯排列，
+ * 最后是自治区、直辖市和港澳台，方便按区域辨认。 */
+const CN_REGIONS = [
+  /* 23 个省 */
+  '河北', '山西', '辽宁', '吉林', '黑龙江', '江苏', '浙江', '安徽',
+  '福建', '江西', '山东', '河南', '湖北', '湖南', '广东', '海南',
+  '四川', '贵州', '云南', '陕西', '甘肃', '青海', '台湾',
+  /* 5 个自治区 */
+  '内蒙古', '广西', '西藏', '宁夏', '新疆',
+  /* 4 个直辖市 */
+  '北京', '天津', '上海', '重庆',
+  /* 2 个特别行政区 */
+  '香港', '澳门',
+];
+/* 把简称补成完整的行政区名称，供左上角「当前处于 X」使用。
+ * 三类需要不同后缀，否则会念错：
+ *   直辖市 → 市（北京 → 北京市）
+ *   自治区 → 自治区（内蒙古 → 内蒙古自治区）
+ *   特别行政区 → 特别行政区（香港 → 香港特别行政区）
+ *   其余（23 个省）→ 省（江西 → 江西省）
+ * 用 Set 查表，避免一长串 if / 数组查找。 */
+const CN_SUFFIX_FIX = {
+  '北京': '北京市', '天津': '天津市', '上海': '上海市', '重庆': '重庆市',
+  '内蒙古': '内蒙古自治区', '广西': '广西壮族自治区', '西藏': '西藏自治区',
+  '宁夏': '宁夏回族自治区', '新疆': '新疆维吾尔自治区',
+  '香港': '香港特别行政区', '澳门': '澳门特别行政区',
+};
+function regionFullName(name) {
+  return CN_SUFFIX_FIX[name] || (name + '省');
+}
+/* 指示牌间距：每 12 个路段一块（= 26.4 米）。
+ * 用「绝对世界坐标」决定牌子在第几个位置，再对省份数量取模，
+ * 于是跑完全程 34 个省份会依次出现，之后自动从头循环 ——
+ * 不会因为环长度（420 段）除不尽 34 而错位或跳号。
+ * 注意：BOARD_STEP 依赖 SEG_LEN，所以它的定义放在 SEG_LEN 之后（见下方）。 */
+
+/* ---------- 公路参数 ---------- */
+const ROAD_W      = 2200;             // 路面半宽（世界单位）
+const SEG_LEN     = 220;              // 每段路长度
+/* 地区指示牌间距：**每 1 公里一块**。
+ * 1 km = 100000 单位（由 HUD 的 km = z/100000 推出）= 454.5 个路段。
+ *
+ * 【为什么用「绝对世界坐标」而不是「每 N 段」】
+ * 段长 220 单位，1km = 454.545… 段，除不尽；用「每 N 段」会累积误差。
+ * 这里仍然用 placeEvery 那套绝对坐标判定（和树/电线杆同源），
+ * 间距严格 1km。
+ *
+ * 【与「环缓冲」的关系】环总长只有 92400 单位 = 0.924km，
+ * 所以任一时刻环内**只存在 1 块牌子**（下一个在 1km 处，还没进环）。
+ * 这是符合预期的：牌子会一块接一块地出现，而不会同屏挤很多块 ——
+ * 反而让每块牌子都值得一看。
+ *
+ * 省份序号 k 由绝对坐标决定，跑完 34 个（= 34km）自动从头循环。 */
+const BOARD_STEP  = 1000 * M;
+const SEG_COUNT   = 420;              // 路段总数（覆盖 420*220 = 92400 单位）
+const CAM_HEIGHT  = 1600;             // 相机离地高度
+/* 坡度振幅。原为 420，但实测近处（k≈0.2 段）路面 y 对前进的敏感度高达
+ * 130 px/段，满速 30fps 下单帧能移动 98px —— 加上大雨天路面有水膜高光，
+ * 看上去就是路面在「一级一级跳台阶」。降到 260 后坡道依然明显，
+ * 但近处的上下起伏平缓很多（约减少 38%），配合 hillAt 的样条插值，
+ * 台阶感基本消失。仍远小于 CAM_HEIGHT(1600)，不会把路面推到地平线以上。 */
+const HILL_AMP    = 260;              // 坡度振幅（必须远小于 CAM_HEIGHT）
+
+/* ---------- 坡道形状：上下起伏的「长坡 + 缓坡」----------
+ * 原来只有一个正弦：sin(s/9000)，波长仅 0.57km。
+ * 那更像「路面在原地轻微打摆」，而不是真正的上坡下坡 ——
+ * 可视距离 0.84km 内能看到 1.5 个完整周期，起伏太快太碎。
+ *
+ * 现在改成三个频率叠加（都远长于可视距离的一部分）：
+ *   26km 波长的「主坡」——缓慢爬升、到顶后俯冲，是长坡的骨架
+ *   15km 波长的「次坡」——在主坡上叠出起伏变化，避免规律得像节拍器
+ *    8km 波长的「细节」——小幅颠簸，增加真实感
+ * 权重和为 1.0，所以振幅仍不超过 HILL_AMP（不会把路面推到地平线以上）。
+ * 实测最大坡度比原来还小（5.5e-5 vs 1.1e-4），
+ * 也就是近处更平顺，但「上下坡」的感受反而更强 ——
+ * 因为坡度是**持续变化**的，而不是快速来回摆。 */
+const HILL_WAVES = [
+  { L: 26000, A: 0.62 },
+  { L: 15000, A: 0.28 },
+  { L:  8000, A: 0.10 },
+];
+/* 坡道高度：给定世界坐标 s（单位），返回该处高度 */
+function hillHeightAt(s) {
+  let v = 0;
+  for (const w of HILL_WAVES) v += w.A * Math.sin(s / w.L);
+  return v * HILL_AMP;
+}
+const CAM_DEPTH   = 1 / Math.tan((62 / 2) * Math.PI / 180);  // 视场 62°
+/* 可视距离：DRAW_DIST 段 × 段长。远处用雾自然淡出，
+ * 所以这个值决定了「路能看多远」，调大后纵深明显变好。 */
+const DRAW_DIST   = 380;
+const FOG_DIST    = DRAW_DIST * SEG_LEN;
+/* 相机离地高度（用于计算相机俯仰：稍抬头能减轻近处拉伸畸变） */
+let CAM_PITCH = 0.0;
+/* camDepth = CAM_DEPTH × 视场系数，是投影公式的分子（见 projSeg） */
+let camDepth  = CAM_DEPTH;
+
+/* ---------- 车辆 ---------- */
+const RIVALS_COUNT = 8;
+/* 表显极速 125 km/h（MAX_KMH）。
+ * PX_PER_KMH 是「表显 km/h」到「世界单位/秒」的换算率 —— 它同时决定两件事：
+ *   1. 仪表盘怎么把世界速度换算成玩家看到的 km/h；
+ *   2. 车实际跑多快（世界单位/秒）。
+ * 所以调「快慢」只改这一个数就行：
+ *   满速 = MAX_KMH × PX_PER_KMH = 125 × 40 = 5000 世界单位/秒。
+ *
+ * 原来是 125 × 96 = 12000（表显 300 km/h），对小朋友来说太快：
+ * 路面线条飞掠而过、来不及看清路况。现在把换算率降到 40，
+ * 表显仍是 125 km/h，但实际行驶速度只有原来的 42%，节奏明显舒缓
+ * （换算率只影响玩家车；AI 车速 / 转向 / 离心力全都是相对 MAX_SPEED
+ *   的比例值，会自动跟着一起缩放，不会出现 AI 比玩家快一截的问题）。 */
+const MAX_KMH      = 125;
+const PX_PER_KMH   = 40;
+const MAX_SPEED    = MAX_KMH * PX_PER_KMH;   // 玩家极速（世界单位/秒）
+/* 加速 / 刹车 / 滑行减速度都按极速等比缩放。
+ * 它们是「世界单位/秒²」的绝对值，原来按 12000 的极速调好
+ * （如 ACCEL 4200 ≈ 2.9 秒到极速）。极速降到 5000 后若不跟着缩放，
+ * 相对加速能力就变成原来的 2.4 倍 —— 起步瞬间到顶、刹车一脚骤停，
+ * 手感会完全变味。这里统一乘 (MAX_SPEED/12000) 保持原本的加减速节奏。 */
+const SPD_K        = MAX_SPEED / 12000;      // 相对原调校的比例（= 0.417）
+const ACCEL        = 4200 * SPD_K;
+const BRAKE        = 9000 * SPD_K;
+const DECEL        = 2600 * SPD_K;
+const OFFROAD_DECEL = 5200 * SPD_K;
+const OFFROAD_LIMIT = MAX_SPEED * 0.42;
+const CENTRIFUGAL  = 0.30;            // 弯道离心力（满速时约 0.78/s，为转向能力的 56%）
+
+/* ---------- 车道布局（单向三车道）----------
+ * 横向坐标以「路面半宽」为单位：0 = 路中，±1 = 贴路缘。
+ *
+ * 【为什么要改成三车道】原来只有两条车道，而车宽占 0.78 个半路宽 ——
+ * 整幅路面（2.0）最多并排 2.56 个车身，8 辆 AI 只能挤在一起。
+ * 现在改成三车道：车道中心 -LANE_C / 0 / +LANE_C，
+ * 车宽同时收窄到 0.40，于是整幅路能并排 5 辆车，车与车之间留得出空隙。
+ *
+ * LANE_C = 0.66 的来历：路面可用范围是 ±1（贴路缘），
+ * 三条车道均分就是每条宽 2/3 ≈ 0.66，车道中心正好落在 -0.66 / 0 / +0.66。 */
+const LANE_C   = 0.66;                 // 车道中心（三车道：-0.66 / 0 / +0.66）
+const LANES    = [-LANE_C, 0, LANE_C]; // 三条车道中心，AI 从这里选车道
+
+/* 车宽系数：车宽 = 投影路面半宽 × 该系数（AI 与玩家共用同一个值）。
+ * 放在这里是为了让下面的碰撞阈值能直接引用它，保证
+ * 「画面里的车宽」和「碰撞判定用的宽度」永远是同一个数。
+ * 0.40 = 车道宽(0.66) 的约 60%，车明确落在自己那条车道里、
+ * 左右各留约 0.13 的余量，并排时不会贴在一起。 */
+const CAR_W_RATIO = 0.40;
+
+/* ---------- 碰撞（超车必须靠左右走线）----------
+ * 之前没有任何碰撞判定，玩家可以「压着别人的车顶过去」也算超车 ——
+ * 超车不需要任何操作，左右转向变得毫无意义。
+ * 现在加上横向重叠判定，撞车会被弹开并减速，想超车就必须先变道。
+ *
+ * 横向坐标用「路面半宽」为单位（offset：0=路中，±1=贴路缘）。
+ * 车宽 = CAR_W_RATIO × 路面半宽，所以车在横向上占 CAR_W_RATIO，
+ * 半个车身 = CAR_W_RATIO/2。两车「车身相碰」的条件就是 |dx| < CAR_W_RATIO。
+ * 这里直接复用 CAR_W_RATIO，保证判定框和画面里看到的车永远一致 ——
+ * 绝不会出现「看着没碰到却判定撞车」的错位。 */
+const HIT_DX   = CAR_W_RATIO;   // 横向重叠阈值（= 车宽，车身相接即算撞）
+const HIT_DZ   = 150;       // 纵向重叠阈值（世界单位，约 0.68 个段长 ≈ 一个车身）
+const HIT_GRACE = 0.7;      // 撞车后的无敌时间（秒），避免连续判定卡死
+const HIT_SLOW  = 0.62;     // 撞击后保留的速度比例（太重会连续被追尾、超不过去）
+const HIT_NUDGE = 0.06;     // 撞击时把玩家往对手一侧顶回的最大量（防止借碰撞变道）
+
+/* AI 之间的「保持车距」（世界单位，约 4.5 个车身）。
+ * 同车道且距离小于它就松油门，避免车流叠在一起 —— 这是让 AI「分散」的第二道保障
+ * （第一道是开局按车道分配 + 每车不同的巡航速度）。 */
+const KEEP_GAP  = 2600;
+
+/* ---------- 季节 ---------- */
+const SEASONS = [
+  { name:'春天', icon:'🌸', sky:['#4aa4e8','#a8d8f8'], ground:['#5aa855','#4a9147'], road:'#4a5058', rumble:['#e05555','#f2f2f2'], tree:['#4fae5c','#6cc46a','#8ed07a'], sun:'#fff6d8', dark:0.00, flower:true },
+  { name:'夏天', icon:'🌿', sky:['#2b8fd8','#8ecbf0'], ground:['#3f8f42','#357c39'], road:'#43484f', rumble:['#e05555','#f2f2f2'], tree:['#1f6b30','#2f8c3f','#3fa34e'], sun:'#fffbe0', dark:0.00, flower:true },
+  { name:'秋天', icon:'🍁', sky:['#3f7fb8','#d8bd8e'], ground:['#9a8b45','#87793c'], road:'#4a4a4a', rumble:['#d9542e','#f0e6d0'], tree:['#d78b2a','#e0b03c','#b85a20'], sun:'#ffe9c0', dark:0.05, flower:false },
+  { name:'冬天', icon:'❄️', sky:['#6d88a8','#c3d4e2'], ground:['#e4eef8','#d2e0ee'], road:'#5a6068', rumble:['#c9d6e2','#ffffff'], tree:['#6f7f78','#93a3a0','#c2d3d8'], sun:'#eef4fb', dark:0.12, flower:false },
+];
+const SEASON_DURATION = 75;
+
+/* ---------- 天气 ---------- */
+const WEATHERS = [
+  { key:'clear',  name:'晴朗', icon:'☀️', w:30, rain:0,    snow:0,   dim:0.00, grip:1.00, fog:1.00, wind:0,   thunder:0 },
+  { key:'cloudy', name:'阴云', icon:'☁️', w:22, rain:0,    snow:0,   dim:0.34, grip:1.00, fog:1.15, wind:0.7, thunder:0 },
+  { key:'wind',   name:'大风', icon:'💨', w:12, rain:0,    snow:0,   dim:0.10, grip:0.94, fog:0.95, wind:5.0, thunder:0 },
+  { key:'fog',    name:'浓雾', icon:'🌫️', w:12, rain:0,    snow:0,   dim:0.16, grip:0.96, fog:0.32, wind:0.8, thunder:0 },
+  { key:'rain',   name:'大雨', icon:'🌧️', w:18, rain:1,    snow:0,   dim:0.46, grip:0.80, fog:0.60, wind:1.4, thunder:0 },
+  { key:'storm',  name:'雷雨', icon:'⛈️', w:10, rain:1.5,  snow:0,   dim:0.60, grip:0.76, fog:0.50, wind:2.4, thunder:1 },
+  { key:'snow',   name:'飞雪', icon:'🌨️', w:14, rain:0,    snow:1,   dim:0.22, grip:0.70, fog:0.46, wind:1.0, thunder:0 },
+];
+const SEASON_WEIGHT = {
+  春天: { rain:2.0, cloudy:1.3, snow:0.15, storm:0.7 },
+  夏天: { storm:2.2, rain:1.4, clear:1.0, snow:0.0 },
+  秋天: { wind:2.2, cloudy:1.4, fog:0.9, snow:0.1 },
+  冬天: { snow:3.0, fog:1.6, clear:0.7, storm:0.3, rain:0.4 },
+};
+const WEATHER_MIN = 20, WEATHER_MAX = 34;
+
+const STATE = { START:0, COUNTDOWN:1, RUNNING:2 };
 let state = STATE.START;
 
-/* ---------- 渲染器 / 场景 / 相机 ---------- */
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+/* =========================================================
+ * 一、无限公路：路段表（环形缓冲）
+ * 用「有界噪声」按弧长算出每段的弯道量与坡度量，
+ * 路段 z 超出相机就回绕到最远端，于是路永远开不到头。
+ * ========================================================= */
+/* 弯道噪声：只用「波长比可视距离短」的频率。
+ * 刻意避开 L=26000 这种超低频——那会让整段视野内 curve 几乎同号，
+ * 横向偏移单方向累积到上限，路面就整条偏到屏幕一侧再也回不来。
+ * 现在的波长保证视野内左右弯交替出现，路面自然左右回摆。 */
+const WAVES = [
+  { L: 9000, A: 1.00, p: 0.0 },
+  { L: 4300, A: 0.62, p: 1.7 },
+  { L: 2100, A: 0.30, p: 3.9 },
+  { L: 1100, A: 0.14, p: 5.3 },
+];
+function noiseAt(s) {
+  let v = 0;
+  for (const w of WAVES) v += w.A * Math.sin(s / w.L + w.p);
+  return v;
+}
+function curveAt(s) { return noiseAt(s) * 1.15; }         // 弯道量（正左负右）
 
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x89c6f5);
-scene.fog = new THREE.Fog(0x9fd0f7, 90, 320);
-
-const camera = new THREE.PerspectiveCamera(64, window.innerWidth / window.innerHeight, 0.1, 600);
-
-/* 灯光：环境 + 太阳（开阴影：PCFSoft + 紧凑正交 frustum 跟随玩家，2048 贴图
- * 覆盖 ±90m，树和车在路面上投出软边影子，同时保住 60fps） */
-scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x3a7d3f, 0.95));
-const sun = new THREE.DirectionalLight(0xfff4d6, 1.15);
-sun.position.set(60, 110, 40);
-sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
-const SC = sun.shadow.camera;          // 正交阴影相机
-SC.left = -90; SC.right = 90; SC.top = 90; SC.bottom = -90;
-SC.near = 20; SC.far = 260;
-sun.shadow.bias = -0.0004;             // 技能库推荐：消除 shadow acne
-sun.shadow.normalBias = 0.02;
-const SUN_OFF = new THREE.Vector3(60, 110, 40);   // 太阳相对目标的固定偏移
-scene.add(sun);
-scene.add(sun.target);                  // target 也要进场景才会更新矩阵
-/* frustum ±110：覆盖玩家周围 90m 内的树（对角最坏 ~127m 只在最角落，树稀疏可接受；
- * 2048 贴图下 220m 宽 → ~9.3cm/texel，车速尺度下足够软清晰） */
-SC.left = -110; SC.right = 110; SC.top = 110; SC.bottom = -110;
-SC.updateProjectionMatrix();
-
-/* ---------- 赛道中心线（程序化闭合曲线） ---------- */
-const curvePts = [];
-(function buildTrack() {
-  /* 用椭圆 + 3 个不同相位的正弦扰动，捏出一条有机的闭合赛道 */
-  for (let i = 0; i < CURVE_SEG; i++) {
-    const a = i / CURVE_SEG * Math.PI * 2;
-    const R = 130;
-    const w1 = Math.sin(a * 2 + 0.6) * 26;
-    const w2 = Math.sin(a * 3 - 1.2) * 14;
-    const w3 = Math.cos(a * 5 + 2.0) * 6;
-    const r = R + w1 + w2 + w3;
-    curvePts.push(new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r));
+const segments = [];
+for (let i = 0; i < SEG_COUNT; i++) segments.push({ index: i, curve: 0, y: 0, sprites: [] });
+/* 初始铺路：s 从 0 开始 */
+function resetSegments() {
+  for (let i = 0; i < SEG_COUNT; i++) {
+    segments[i].index = i;
+    segments[i].curve = curveAt(i * SEG_LEN);
+    /* 坡度：必须远小于相机高度，否则近处路面会被推到地平线以上（路面翻转消失） */
+    segments[i].y = hillHeightAt(i * SEG_LEN);   // 多频叠加的上下坡（见 hillHeightAt）
+    segments[i].sprites = makeSprites(i, segments[i].curve);
   }
-})();
-const center = new THREE.CatmullRomCurve3(curvePts, true, 'catmullrom', 0.5);
-const trackLen = center.getLength();
-const SEG_SAMPLES = 700;   // 均匀弧长采样（用于帧间位置推进）
-const centerSamples = center.getSpacedPoints(SEG_SAMPLES); // 闭环含首尾重复点
-/* 每个采样点的切线 / 内法线（左手） */
-const tangents = [], normals = [];
-for (let i = 0; i < SEG_SAMPLES; i++) {
-  const p = centerSamples[i];
-  const q = centerSamples[(i + 1) % SEG_SAMPLES];
-  const t = q.clone().sub(p).setY(0).normalize();
-  tangents.push(t);
-  normals.push(new THREE.Vector3(-t.z, 0, t.x)); // 指向弯道内侧（左）
 }
 
-/* 距离 s（0..trackLen）→ 采样索引 */
-function sToIdx(s) {
-  s = ((s % trackLen) + trackLen) % trackLen;
-  return Math.floor(s / trackLen * SEG_SAMPLES) % SEG_SAMPLES;
-}
-/* 距离 s + 横向偏移 o → 世界坐标（含平滑插值） */
-function trackPos(s, o, y) {
-  const f = ((s % trackLen) + trackLen) % trackLen / trackLen * SEG_SAMPLES;
-  const i = Math.floor(f) % SEG_SAMPLES;
-  const k = f - Math.floor(f);
-  const p0 = centerSamples[i], p1 = centerSamples[(i + 1) % SEG_SAMPLES];
-  const t0 = tangents[i], t1 = tangents[(i + 1) % SEG_SAMPLES];
-  const n0 = normals[i], n1 = normals[(i + 1) % SEG_SAMPLES];
-  const pos = p0.clone().lerp(p1, k);
-  const nor = n0.lerp(n1, k).normalize();
-  pos.addScaledVector(nor, o);
-  pos.y = y || 0;
-  return pos;
-}
-/* 距离 s 处的曲率（估算弯道方向强度，AI 用） */
-function curvatureAt(s) {
-  const i = sToIdx(s);
-  const n0 = normals[i], n1 = normals[(i + 4) % SEG_SAMPLES];
-  return n1.dot(n0); // ~1 直道，<1 弯道
-}
-
-/* ---------- 天空穹顶：大球 BackSide + 上下渐变 shader ----------
- * 技能库 threejs-shaders 的渐变模式；地平线附近叠一条热霾亮带衔接雾色 */
-const sky = new THREE.Mesh(
-  new THREE.SphereGeometry(560, 24, 12),
-  new THREE.ShaderMaterial({
-    side: THREE.BackSide,
-    depthWrite: false,
-    fog: false,
-    uniforms: {
-      topColor: { value: new THREE.Color(0x2e7fd4) },   // 天顶
-      midColor: { value: new THREE.Color(0x9fd0f7) },   // 地平线（衔接雾色）
-      hazeColor: { value: new THREE.Color(0xeaf6ff) },  // 近地平线亮带
-    },
-    vertexShader: `
-      varying vec3 vDir;
-      void main() {
-        vDir = normalize(position);
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `,
-    fragmentShader: `
-      uniform vec3 topColor, midColor, hazeColor;
-      varying vec3 vDir;
-      void main() {
-        float h = clamp(vDir.y, 0.0, 1.0);
-        vec3 col = mix(midColor, topColor, pow(h, 0.75));
-        col = mix(col, hazeColor, smoothstep(0.28, 0.02, h) * 0.55);
-        gl_FragColor = vec4(col, 1.0);
-      }
-    `,
-  })
-);
-sky.frustumCulled = false;
-scene.add(sky);
-/* 太阳光晕：贴在穹顶内侧的加法混合亮斑，位置与太阳光方向一致 */
-{
-  const sunHalo = new THREE.Mesh(
-    new THREE.CircleGeometry(46, 24),
-    new THREE.MeshBasicMaterial({ color: 0xfff8d8, transparent: true, opacity: 0.9, fog: false, blending: THREE.AdditiveBlending, depthWrite: false })
-  );
-  sunHalo.position.set(150, 320, 100);
-  sunHalo.lookAt(0, 0, 0);
-  sky.add(sunHalo);
-}
-
-/* ---------- 赛道网格（路面 / 路肩 / 中线） ---------- */
-(function buildRoad() {
-  /* 5 列条带：路肩L | 路左l | 中m | 路右r | 路肩R，4 条 quad 带 index */
-  const verts = [], uvs = [], idx = [];
-  const N = SEG_SAMPLES;
-  for (let i = 0; i <= N; i++) {
-    const j = i % N;
-    const pC = centerSamples[j], nC = normals[j];
-    const cols = [-ROAD_W - 1.4, -ROAD_W, 0, ROAD_W, ROAD_W + 1.4];
-    for (const off of cols) {
-      const p = pC.clone().addScaledVector(nC, off);
-      p.y = 0.02;
-      verts.push(p.x, p.y, p.z);
+/* 场景物件（树 / 花 / 路牌 / 灌木 / 石头 / 电线杆 / 房屋）：
+ * 由「路段序号」确定性生成，所以同一段路每次回绕都长一样，
+ * 视觉稳定且不需要额外内存。
+ *
+ * 密度演进：早期每侧只有 1~2 棵树 + 偶尔一朵花，跑起来两侧基本是
+ * 一大片空绿，速度感全靠路面线条撑着。现在改成
+ *   · 近景带（1.25~2.2 倍路宽）：树 / 灌木 / 石头 / 花，密一些
+ *   · 远景带（2.4~5.5 倍路宽）：成片的树林 / 电线杆 / 远处农舍
+ * 近密远疏 + 大小错落，路边就有了层次，不再是空绿一片。 */
+function makeSprites(idx, curve) {
+  const sp = [];
+  for (const side of [-1, 1]) {
+    const sr = side > 0 ? 100 : 0;              // 左右两侧用不同随机种子
+    /* ---- 近景带：树 ---- */
+    const nTree = (idx % 2 === 0) ? 2 : 1;
+    for (let k = 0; k < nTree; k++) {
+      const r = rnd(idx * 7 + k * 3 + sr);
+      if (r < 0.16) continue;
+      sp.push({
+        type: 'tree', side,
+        offset: side * (ROAD_W * 1.24 + r * ROAD_W * 0.95),
+        scale: 0.75 + rnd(idx * 11 + k + sr) * 0.7,
+        kind: Math.floor(rnd(idx * 13 + k + sr) * 3) % 3,
+      });
     }
-    const v = i / N;
-    for (const u of [0, 0.086, 0.5, 0.914, 1]) uvs.push(u, v);
-  }
-  for (let i = 0; i < N; i++) {
-    for (let c = 0; c < 4; c++) {
-      const a = i * 5 + c, b = a + 1, d = a + 5, e = d + 1;
-      idx.push(a, d, b, b, d, e);
+    /* ---- 近景带：灌木丛（矮，贴着路边，速度感最强）---- */
+    const rB = rnd(idx * 23 + sr);
+    if (rB > 0.42) {
+      sp.push({
+        type: 'bush', side,
+        offset: side * (ROAD_W * 1.10 + rB * ROAD_W * 0.30),
+        scale: 0.65 + rB * 0.55,
+        kind: Math.floor(rB * 5) % 3,
+      });
     }
-  }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
-  g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-  g.setIndex(idx);
-  const tex = makeRoadTexture();
-  const mat = new THREE.MeshLambertMaterial({ map: tex });   // Lambert 才能接收阴影
-  const mesh = new THREE.Mesh(g, mat);
-  mesh.frustumCulled = false;
-  mesh.receiveShadow = true;
-  scene.add(mesh);
+    /* ---- 近景带：石头 ---- */
+    const rS = rnd(idx * 29 + sr);
+    if (rS > 0.80) {
+      sp.push({ type: 'rock', side, offset: side * (ROAD_W * 1.12 + rS * ROAD_W * 0.45), scale: 0.5 + rS * 0.5, kind: 0 });
+    }
+    /* ---- 近景带：小花 / 草丛（春夏才画）---- */
+    const rf = rnd(idx * 17 + (side > 0 ? 55 : 0));
+    if (rf > 0.45) sp.push({ type: 'flower', side, offset: side * (ROAD_W * 1.06 + rf * ROAD_W * 0.4), scale: 0.7 + rf * 0.6, kind: Math.floor(rf * 3) % 3 });
+    /* ---- 远景带：成片树林（每 3 段一组，制造林线）---- */
+    if (idx % 3 === 0) {
+      const rF = rnd(idx * 37 + sr);
+      const cnt = 2 + Math.floor(rF * 2);
+      for (let k = 0; k < cnt; k++) {
+        const rr = rnd(idx * 41 + k * 7 + sr);
+        /* 左侧有河（3.3~5.3 倍路宽），树不能长在水里：
+         * 左侧的林线要么在河边以内（<3.2），要么挪到河对岸（>5.4）。 */
+        let off = 2.5 + rr * 3.0;
+        /* 河道占 3.30~7.30，所以左侧要么在河边以内、要么在河对岸(>7.4) */
+        if (side < 0) off = (rr < 0.5) ? 2.5 + rr * 1.4 : 7.4 + rr * 1.6;
+        sp.push({
+          type: 'tree', side, far: true,
+          offset: side * ROAD_W * off,
+          scale: 0.9 + rr * 1.1,
+          kind: Math.floor(rr * 3) % 3,
+        });
+      }
+    }
+    /* ---- 远景带：远处农舍 / 谷仓 —— 只在【右侧】----
+     * 【为什么只在右侧】左侧整条被大河占着（3.30~7.30 倍路宽），
+     * 沿路一排房子要么压在水上、要么被推到河对岸的远处看不见。
+     * 现在房子和鱼塘**都只放在右侧**：左侧保持「路肩草 → 大河 → 对岸树林」
+     * 的干净构图，右侧是「路肩草 → 房屋 → 鱼塘 → 田野」的村落带。
+     *
+     * 右侧没有河，横向用 1.9~3.4 倍路宽（这个范围保证近处也在屏内，
+     * 见下面关于「被推出屏幕」的说明）。 */
+    const HOUSE_BAND_IN = 1.9;
+    const HOUSE_BAND_SPAN = 1.5;               // 1.9 ~ 3.4 倍路宽
+    /* 鱼塘放在房子【后面】（离路更远的一侧），两者之间留 10 米空白。
+     * 10 米 = 1000 单位；换算成偏移单位时以路宽为尺度，
+     * 于是「中心距」= 房半宽 + 10 米 + 塘半宽（边缘到边缘正好空 10 米）。
+     * 房屋宽约 21 米、鱼塘宽约 36 米（见各自的 scale），
+     * 所以中心距约 38.5 米 —— 用 offset 单位表示就是 1.752 倍路宽。
+     * 这个值随 HOUSE_SCALE_MUL / POND_SCALE_MUL 变化，
+     * 所以直接由两个 scale 算出来，改尺寸时间距自动保持 10 米。 */
+    const houseScaleBase = 2.6 + rnd(idx * 61 + sr) * 1.4;   // 未乘倍数的基础 scale
+    const pondScaleBase  = 3.0 + rnd(idx * 79 + sr) * 1.6;
+    const houseWOffset = houseScaleBase * HOUSE_SCALE_MUL * 100 * 1.30;   // 偏移单位下的宽度
+    /* 鱼塘的地面宽度系数与绘制一致（pw2 = sc*1.9，椭圆半轴 0.56 倍） */
+    const pondWOffset  = pondScaleBase  * POND_SCALE_MUL  * 100 * 1.90;
+    const POND_GAP_10M = (houseWOffset / 2 + 10 * M + pondWOffset / 2) / ROAD_W;  // 倍路宽
 
-  /* 路肩草地渐变 */
-  const gGeo = new THREE.CircleGeometry(420, 48);
-  const gTex = makeGrassTexture();
-  const grass = new THREE.Mesh(gGeo, new THREE.MeshLambertMaterial({ map: gTex }));
-  grass.rotation.x = -Math.PI / 2;
-  grass.position.y = -0.06;
-  grass.receiveShadow = true;
-  scene.add(grass);
-})();
+    const rH = rnd(idx * 53 + sr);
+    if (side > 0 && rH > 0.975) {
+      const offH = HOUSE_BAND_IN + rnd(idx * 59 + sr) * HOUSE_BAND_SPAN;
+      sp.push({
+        type: 'house', side,
+        offset: side * ROAD_W * offH,
+        scale: houseScaleBase * HOUSE_SCALE_MUL,
+        kind: Math.floor(rnd(idx * 67 + sr) * 3) % 3,
+      });
+      /* 房子后面的鱼塘（椭圆），与房子之间空出 10 米。
+       * 挂在同一个 (idx, side) 分支里 —— 所以「有房子」才「有鱼塘」，
+       * 两者必然前后成对，不会各自随机撒在别处。 */
+      sp.push({
+        type: 'pond', side,
+        offset: side * ROAD_W * (offH + POND_GAP_10M),
+        scale: pondScaleBase * POND_SCALE_MUL,
+        kind: Math.floor(rnd(idx * 83 + sr) * 3) % 3,
+      });
+    }
+    /* 注：电线杆已改到下面「等间距路边设施」里按 21 米严格布置，这里不再随机放。 */
+  }
+  /* 弯道警示牌：弯较急的路段放一块 */
+  if (idx % 9 === 0 && Math.abs(curve) > 0.7) {
+    const s = curve > 0 ? 1 : -1;
+    sp.push({ type: 'sign', side: s, offset: s * ROAD_W * 1.14, scale: 1, kind: curve > 0 ? 0 : 1 });
+  }
+  /* 隧道口龙门架：每 96 段一个，给长途驾驶一个「里程碑」参照物 */
+  if (idx % 96 === 0) sp.push({ type: 'gantry', side: 0, offset: 0, scale: 1, kind: 0 });
 
-/* 程序化路面贴图：深灰沥青 + 红白路肩 + 黄色中线（双虚线） */
-function makeRoadTexture() {
-  const W = 256, H = 256;
-  const cv = document.createElement('canvas');
-  cv.width = W; cv.height = H;
-  const c = cv.getContext('2d');
-  c.fillStyle = '#3f4550';
-  c.fillRect(0, 0, W, H);
-  /* 沥青颗粒 */
-  for (let i = 0; i < 900; i++) {
-    c.fillStyle = Math.random() < .5 ? 'rgba(255,255,255,.045)' : 'rgba(0,0,0,.08)';
-    c.fillRect(Math.random() * W, Math.random() * H, 2, 2);
-  }
-  /* 左右红白路肩 */
-  const shW = 22;
-  for (let y = 0; y < H; y += 32) {
-    c.fillStyle = '#e04a4a'; c.fillRect(0, y, shW, 32); c.fillRect(W - shW, y, shW, 32);
-    c.fillStyle = '#f2f2f2'; c.fillRect(0, y + 32, shW, 32); c.fillRect(W - shW, y + 32, shW, 32);
-  }
-  /* 黄色中线（实线）+ 左右车道白色虚线（增强道路感） */
-  c.fillStyle = '#ffd35c';
-  c.fillRect(W / 2 - 5, 0, 10, H);
-  c.fillStyle = 'rgba(245,245,245,.92)';
-  for (let y = 0; y < H; y += 64) {
-    c.fillRect(W * 0.31 - 3, y, 6, 34);
-    c.fillRect(W * 0.69 - 3, y, 6, 34);
-  }
-  /* 轮胎磨痕（中央两条暗带） */
-  c.fillStyle = 'rgba(0,0,0,.16)';
-  c.fillRect(W * 0.28, 0, 26, H);
-  c.fillRect(W * 0.66, 0, 26, H);
-  const tex = new THREE.CanvasTexture(cv);
-  tex.wrapS = THREE.ClampToEdgeWrapping;
-  tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(1, 90);
-  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();   // 斜视角看路面不再糊成一片
-  return tex;
-}
-/* 程序化草地贴图 */
-function makeGrassTexture() {
-  const S = 256;
-  const cv = document.createElement('canvas');
-  cv.width = S; cv.height = S;
-  const c = cv.getContext('2d');
-  c.fillStyle = '#4e9d4e';
-  c.fillRect(0, 0, S, S);
-  for (let i = 0; i < 1400; i++) {
-    const g = 120 + Math.random() * 70;
-    c.fillStyle = `rgba(${Math.floor(g * 0.55)},${Math.floor(g)},${Math.floor(g * 0.5)},.5)`;
-    c.fillRect(Math.random() * S, Math.random() * S, 3, 3);
-  }
-  const tex = new THREE.CanvasTexture(cv);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(34, 34);
-  return tex;
-}
+  /* ===== 等间距路边设施：大树（两侧）+ 电线杆（右侧）=====
+   * 【为什么不能用「每 N 段放一个」】
+   * 段长 220 单位 = 2.2 米，而要求是每 20 米 / 每 21 米 ——
+   * 20 米 = 9.0909 段、21 米 = 9.5455 段，都不是整数。
+   * 若按「每 N 段」放置，实际间距只能是 2.2 米的整数倍，做不到 20/21 米。
+   * 所以这里改成**按绝对世界坐标判定**：找出落在本段
+   * [idx*SEG_LEN, (idx+1)*SEG_LEN) 区间内的所有 k*STEP，
+   * 并把它的「段内位置 t (0..1)」一起存下来，渲染时按 t 插值定位。
+   * 这样不论段边界怎么切，全局间距都严格是 20 米 / 21 米。 */
+  const placeEvery = (step, makeSprite) => {
+    const z0 = idx * SEG_LEN, z1 = z0 + SEG_LEN;
+    const kLo = Math.ceil(z0 / step);
+    const kHi = Math.floor((z1 - 1e-6) / step);
+    for (let k = kLo; k <= kHi; k++) {
+      if (k < 0) continue;
+      const z = k * step;
+      const t = (z - z0) / SEG_LEN;          // 0..1 段内位置
+      makeSprite(t, k);
+    }
+  };
 
-/* ---------- 环境装饰：树 / 起跑门 / 看台 ---------- */
-(function buildScenery() {
-  /* 树：InstancedMesh × 3（树干 1 个 + 三种叶色 3 个 = 4 个 draw call，原来 300 个）
-   * 技能库 threejs-geometry：同几何体大量重复 → 实例化渲染；matrix 用 dummy 组装 */
-  const TREE_COUNT = 150;
-  const dummy = new THREE.Object3D();
-  /* 先把 150 棵树的变换算好（位置/缩放），再按叶色分桶填进 3 个 InstancedMesh */
-  const treeDefs = [];
-  for (let i = 0; i < TREE_COUNT; i++) {
-    const s = Math.random() * trackLen;
-    const side = Math.random() < .5 ? -1 : 1;
-    const off = side * (ROAD_W + 6 + Math.random() * 26);
-    treeDefs.push({
-      p: trackPos(s, off, 0),
-      sc: 0.8 + Math.random() * 1.1,
-      rotY: Math.random() * Math.PI * 2,
-      leafKind: i % 3,
+  /* 大树：左右各一棵，每 20 米。
+   * 两侧的树用不同的随机种子，所以大小/种类/微小偏移左右不同，
+   * 不会像镜像复制那样死板。 */
+  placeEvery(TREE_STEP, (t, k) => {
+    for (const side of [-1, 1]) {
+      const sr = side > 0 ? 100 : 0;
+      sp.push({
+        type: 'tree', side, t, big: true,
+        /* 树根位置：贴路缘外侧一点。加一点随机横向偏移让林带不那么笔直 */
+        offset: side * ROAD_W * (1.22 + rnd(k * 7 + sr) * 0.22),
+        scale: (1.5 + rnd(k * 11 + sr) * 0.7) * TREE_SCALE_MUL,   // 大树（含整体放大倍数）
+        kind: Math.floor(rnd(k * 13 + sr) * 3) % 3,
+      });
+    }
+  });
+
+  /* 电线杆：只在右侧，每 21 米。 */
+  placeEvery(POLE_STEP, (t, k) => {
+    sp.push({
+      type: 'pole', side: POLE_SIDE, t,
+      offset: POLE_SIDE * ROAD_W * 1.62,
+      scale: 1 * POLE_SCALE_MUL, kind: 0,
     });
-  }
-  const trunkMat = new THREE.MeshLambertMaterial({ color: 0x6b4a2e });
-  const leafMats = [0x2f7d3a, 0x3c9950, 0x276b33].map(c => new THREE.MeshLambertMaterial({ color: c }));
-  const trunkGeo = new THREE.CylinderGeometry(0.35, 0.5, 3, 6);
-  const leafGeo = new THREE.IcosahedronGeometry(2.3, 0);
+  });
 
-  const trunkInst = new THREE.InstancedMesh(trunkGeo, trunkMat, TREE_COUNT);
-  /* 按叶色统计数量后再正式建实例，确保 count 精确 */
-  const kindCount = [0, 0, 0];
-  treeDefs.forEach(t => kindCount[t.leafKind]++);
-  const leafInstByKind = leafMats.map((m, k) => new THREE.InstancedMesh(leafGeo, m, kindCount[k]));
-  {
-    let trunkIdx = 0;
-    const kindIdx = [0, 0, 0];
-    for (const t of treeDefs) {
-      /* 树干 */
-      dummy.position.copy(t.p);
-      dummy.position.y = 1.5 * t.sc;
-      dummy.rotation.set(0, t.rotY, 0);
-      dummy.scale.setScalar(t.sc);
-      dummy.updateMatrix();
-      trunkInst.setMatrixAt(trunkIdx++, dummy.matrix);
-      /* 树冠（带随机歪斜，保持原来的自然感） */
-      dummy.position.copy(t.p);
-      dummy.position.y = 3.9 * t.sc;
-      dummy.rotation.set((Math.random() - .5) * .8, t.rotY, (Math.random() - .5) * .8);
-      dummy.updateMatrix();
-      leafInstByKind[t.leafKind].setMatrixAt(kindIdx[t.leafKind]++, dummy.matrix);
-    }
-    trunkInst.instanceMatrix.needsUpdate = true;
-    leafInstByKind.forEach(m => { m.instanceMatrix.needsUpdate = true; });
-  }
-  trunkInst.castShadow = true;
-  leafInstByKind.forEach(m => { m.castShadow = true; });
-  scene.add(trunkInst, ...leafInstByKind);
+  /* 地区指示牌：只在【左侧】，每 26.4 米（12 段）一块。
+   * 省份由**绝对序号 k** 取模决定，所以：
+   *   · 间距与段边界无关（和树/电线杆用的是同一套 placeEvery）
+   *   · 34 个省依次循环，跑完一圈从头再来，不会跳号
+   * 左侧现在只有「路肩草 → 大河」，牌子立在草地与河之间（1.5 倍路宽），
+   * 既不挡路也不会插到水里。 */
+  placeEvery(BOARD_STEP, (t, k) => {
+    const region = CN_REGIONS[((k % CN_REGIONS.length) + CN_REGIONS.length) % CN_REGIONS.length];
+    sp.push({
+      type: 'regionBoard', side: -1, t, region,
+      /* 横向位置 1.74 倍路宽：牌面宽 22 米（半宽 0.50 倍路宽），
+       * 所以牌面横跨 1.24~2.24 倍路宽 —— 内侧 1.24 稳稳在路缘（1.0）之外
+       * 不会压到路面，外侧 2.24 也在河岸（3.30）之内不会插进水里。
+       * 这个数字是算出来的，不是估的：中心必须 > 1.05 + 半宽(0.50)。 */
+      offset: -ROAD_W * 1.74,
+      scale: 1, kind: 0,
+    });
+  });
 
-  /* 路边距离柱：每 25m 左右各一根红白条纹柱（InstancedMesh，56 → 1 draw call） */
-  const postGeo = new THREE.CylinderGeometry(0.22, 0.22, 2.1, 8);
-  const postTexCanvas = document.createElement('canvas');
-  postTexCanvas.width = 8; postTexCanvas.height = 32;
-  {
-    const c = postTexCanvas.getContext('2d');
-    c.fillStyle = '#f2f2f2'; c.fillRect(0, 0, 8, 32);
-    c.fillStyle = '#e04a4a';
-    c.fillRect(0, 0, 8, 8); c.fillRect(0, 16, 8, 8);
-  }
-  const postTex = new THREE.CanvasTexture(postTexCanvas);
-  const postMat = new THREE.MeshLambertMaterial({ map: postTex });
-  const postSpacing = trackLen / Math.round(trackLen / 25);
-  const postCount = Math.round(trackLen / postSpacing) * 2;
-  const postInst = new THREE.InstancedMesh(postGeo, postMat, postCount);
-  {
-    let pi = 0;
-    for (let s = 0; s < trackLen; s += postSpacing) {
-      for (const side of [-1, 1]) {
-        const p = trackPos(s, side * (ROAD_W + 1.1), 1.05);
-        dummy.position.copy(p);
-        dummy.rotation.set(0, 0, 0);
-        dummy.scale.setScalar(1);
-        dummy.updateMatrix();
-        postInst.setMatrixAt(pi++, dummy.matrix);
-      }
-    }
-    postInst.count = pi;
-    postInst.instanceMatrix.needsUpdate = true;
-  }
-  scene.add(postInst);
-
-  /* 急弯箭头警示牌：曲率大的路段，弯道外侧立黄底箭头牌（指向前方道路走向） */
-  (function buildCurveSigns() {
-    const signCanvas = document.createElement('canvas');
-    signCanvas.width = 64; signCanvas.height = 64;
-    const c = signCanvas.getContext('2d');
-    c.fillStyle = '#ffd35c'; c.fillRect(0, 0, 64, 64);
-    c.strokeStyle = '#111'; c.lineWidth = 3; c.strokeRect(2, 2, 60, 60);
-    c.fillStyle = '#111';
-    c.beginPath();
-    c.moveTo(14, 44); c.lineTo(34, 24); c.lineTo(54, 44);
-    c.lineTo(44, 44); c.lineTo(44, 56); c.lineTo(24, 56); c.lineTo(24, 44);
-    c.closePath(); c.fill();
-    const signTex = new THREE.CanvasTexture(signCanvas);
-    const signMat = new THREE.MeshBasicMaterial({ map: signTex, side: THREE.DoubleSide });
-    const signGeo = new THREE.PlaneGeometry(2.4, 2.4);
-    const poleMat2 = new THREE.MeshLambertMaterial({ color: 0x8a8f9a });
-    const poleGeo2 = new THREE.BoxGeometry(0.12, 1.6, 0.12);
-    const step = 6;                                  // 每 6 个采样点检查一次曲率
-    const placed = [];
-    for (let i = 0; i < SEG_SAMPLES; i += step) {
-      const n0 = normals[i], n1 = normals[(i + 8) % SEG_SAMPLES];
-      const curv = 1 - n0.dot(n1);
-      if (curv < 0.02) continue;                     // 只在急弯放牌
-      /* 与上一个牌至少隔 30 个采样点 */
-      if (placed.some(p2 => Math.min(Math.abs(p2 - i), SEG_SAMPLES - Math.abs(p2 - i)) < 30)) continue;
-      placed.push(i);
-      const crossY = n0.x * n1.z - n0.z * n1.x;      // 弯道方向
-      const outerSide = crossY > 0 ? -1 : 1;         // 离心甩向外侧 → 牌立外侧
-      const s = i / SEG_SAMPLES * trackLen;
-      const base = trackPos(s, outerSide * (ROAD_W + 2.2), 0);
-      const g = new THREE.Group();
-      const pole = new THREE.Mesh(poleGeo2, poleMat2);
-      pole.position.set(0, 0.8, 0);
-      const board = new THREE.Mesh(signGeo, signMat);
-      board.position.set(0, 2.4, 0);
-      /* 箭头牌面向来车方向（沿切线看过去） */
-      const ahead = trackPos(s + 6, outerSide * (ROAD_W + 2.2), 0);
-      g.position.copy(base);
-      g.lookAt(ahead.x, base.y, ahead.z);
-      /* 镜像：右弯时箭头指右 */
-      if (crossY < 0) board.scale.x = -1;
-      g.add(pole, board);
-      scene.add(g);
-    }
-  })();
-
-  /* 起跑门（两柱 + 横梁 + 方格旗纹理） */
-  const gateGroup = new THREE.Group();
-  const poleGeo = new THREE.CylinderGeometry(0.4, 0.4, 9, 10);
-  const poleMat = new THREE.MeshLambertMaterial({ color: 0xd8dde6 });
-  const pL = new THREE.Mesh(poleGeo, poleMat); pL.position.set(-ROAD_W - 1.6, 4.5, 0);
-  const pR = new THREE.Mesh(poleGeo, poleMat); pR.position.set(ROAD_W + 1.6, 4.5, 0);
-  const beamTex = makeCheckerTexture();
-  const beam = new THREE.Mesh(
-    new THREE.BoxGeometry(ROAD_W * 2 + 4.6, 1.7, 0.5),
-    new THREE.MeshLambertMaterial({ map: beamTex })
-  );
-  beam.position.set(0, 8.6, 0);
-  gateGroup.add(pL, pR, beam);
-  const gp = trackPos(0, 0, 0);
-  gateGroup.position.copy(gp);
-  gateGroup.lookAt(trackPos(4, 0, 0));
-  scene.add(gateGroup);
-
-  /* 起跑线（黑白格） */
-  const lineTex = makeCheckerTexture();
-  lineTex.repeat.set(7, 3);
-  const startLine = new THREE.Mesh(
-    new THREE.PlaneGeometry(ROAD_W * 2, 3),
-    new THREE.MeshBasicMaterial({ map: lineTex })
-  );
-  const lp = trackPos(1.5, 0, 0);
-  startLine.position.copy(lp);
-  startLine.position.y = 0.04;
-  startLine.lookAt(trackPos(2.5, 0, 0));
-  startLine.rotateX(-Math.PI / 2);
-  scene.add(startLine);
-
-  /* 远处看台（简单体块 + 彩旗） */
-  const standMat = new THREE.MeshLambertMaterial({ color: 0xcfd6e4 });
-  for (let k = -1; k <= 1; k += 2) {
-    const st = new THREE.Mesh(new THREE.BoxGeometry(30, 4, 8), standMat);
-    const sp = trackPos(14, k * (ROAD_W + 9), 2);
-    st.position.copy(sp);
-    st.lookAt(trackPos(14 + 4, k * (ROAD_W + 9), 2));
-    scene.add(st);
-  }
-})();
-function makeCheckerTexture() {
-  const S = 64;
-  const cv = document.createElement('canvas');
-  cv.width = S; cv.height = S;
-  const c = cv.getContext('2d');
-  const n = 8, cell = S / n;
-  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
-    c.fillStyle = (x + y) % 2 ? '#111' : '#f5f5f5';
-    c.fillRect(x * cell, y * cell, cell, cell);
-  }
-  const tex = new THREE.CanvasTexture(cv);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  return tex;
+  return sp;
 }
-
-/* ---------- 车辆模型（低多边形卡丁风格） ---------- */
-/* 材质缓存（技能库 threejs-materials：同材质复用 = 减少着色器变体与切换开销） */
-const carMatCache = new Map();
-function carMat(color, opts) {
-  const key = color + '|' + JSON.stringify(opts || {});
-  if (!carMatCache.has(key)) {
-    carMatCache.set(key, new THREE.MeshLambertMaterial(Object.assign({ color }, opts || {})));
-  }
-  return carMatCache.get(key);
+function buildScenery() { resetSegments(); }
+resetSegments();
+/* 确定性伪随机：同一路段每次回绕都长一样，视觉稳定 */
+function rnd(n) {
+  const x = Math.sin(n * 12.9898 + 78.233) * 43758.5453;
+  return x - Math.floor(x);
 }
-function buildCar(bodyColor, accentColor, isPlayer) {
-  const g = new THREE.Group();
-  /* 内组翻转 π：模型鼻锥建在局部 -Z（nose z=-2.4），而 r147 的 Object3D.lookAt
-   * 会把局部 +Z 指向前方——不翻转的话整车会倒着开（尾灯朝前）。 */
-  const inner = new THREE.Group();
-  inner.rotation.y = Math.PI;
-  g.add(inner);
-  const body = carMat(bodyColor);
-  const accent = carMat(accentColor);
-  const dark = carMat(0x151820);
-  const glass = carMat(0x9fd8ff, { transparent: true, opacity: 0.85 });
+buildScenery();
 
-  /* 底盘 */
-  const chassis = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.34, 4.2), body);
-  chassis.position.y = 0.42;
-  /* 座舱（前倾挡风造型） */
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.55, 1.9), body);
-  cabin.position.set(0, 0.86, 0.25);
-  /* 挡风玻璃 */
-  const wind = new THREE.Mesh(new THREE.BoxGeometry(1.38, 0.5, 0.14), glass);
-  wind.position.set(0, 0.9, -0.72);
-  wind.rotation.x = 0.34;
-  /* 前鼻锥 */
-  const nose = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.28, 1.0), accent);
-  nose.position.set(0, 0.4, -2.4);
-  /* 尾翼 */
-  const wing = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.09, 0.55), accent);
-  wing.position.set(0, 1.05, 2.1);
-  const wL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.42, 0.4), dark);
-  wL.position.set(-0.8, 0.82, 2.1);
-  const wR = wL.clone(); wR.position.x = 0.8;
-  /* 四轮 */
-  const wheelGeo = new THREE.CylinderGeometry(0.44, 0.44, 0.36, 12);
-  wheelGeo.rotateZ(Math.PI / 2);
-  const wheels = [];
-  for (const [wx, wz] of [[-1.02, -1.4], [1.02, -1.4], [-1.05, 1.45], [1.05, 1.45]]) {
-    const w = new THREE.Mesh(wheelGeo, dark);
-    w.position.set(wx, 0.44, wz);
-    inner.add(w);
-    wheels.push(w);
-  }
-  /* 尾灯 */
-  const tailMat = new THREE.MeshBasicMaterial({ color: 0xff3333 });
-  const tL = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.12, 0.06), tailMat);
-  tL.position.set(-0.55, 0.62, 2.32);
-  const tR = tL.clone(); tR.position.x = 0.55;
-  /* 车顶号码圆牌（玩家无 / AI 有序号色环） */
-  inner.add(chassis, cabin, wind, nose, wing, wL, wR, tL, tR);
-  if (!isPlayer) {
-    const plate = new THREE.Mesh(
-      new THREE.CircleGeometry(0.42, 20),
-      new THREE.MeshBasicMaterial({ color: 0xffffff })
-    );
-    plate.position.set(0, 1.55, 2.15);
-    plate.rotation.y = Math.PI;
-    inner.add(plate);
-  }
-  /* 车身投影（车底一块半透明深色椭圆，视觉上"坐"在路面上） */
-  const shadow = new THREE.Mesh(
-    new THREE.CircleGeometry(1.6, 18),
-    new THREE.MeshBasicMaterial({ color: 0x1a2a3a, transparent: true, opacity: 0.34, depthWrite: false })
-  );
-  shadow.rotation.x = -Math.PI / 2;
-  shadow.position.y = 0.045;
-  shadow.scale.set(1, 1.55, 1);
-  g.add(shadow);
-  /* 全车投影（内组递归开启，车影由太阳阴影相机负责） */
-  inner.traverse(o => { if (o.isMesh) o.castShadow = true; });
-  g.userData.wheels = wheels;         // wheels[0]/[1] 是前轮
-  g.userData.inner = inner;
-  return g;
-}
+/* =========================================================
+ * 二、车辆
+ * ========================================================= */
+/* lap = 「中华大地已走 N 圈」的圈数。
+ * 判圈依据：指示牌上的省份序号按 34 循环，所以每跑满
+ * 34 个省份（= 34 × BOARD_STEP = 34km）就算走完一轮。
+ * lapMark 记录上一次已经结算到第几个「34 的整数倍」，
+ * 这样才能**累加**而不是每次经过就 +1。 */
+const PS = { z:0, playerX:0, speed:0, passed:0, lap:0, lapMark:0 };
+/* 走完一轮所需的距离（34 个省份 × 每块牌子的间距） */
+const LAP_DIST = CN_REGIONS.length * BOARD_STEP;
+/* 左上角「当前处于 X」已显示的省份；初值 null 保证第一帧一定会刷新一次 */
+let shownRegion = null;
+PS.playerX = 0;
 
-/* ---------- 玩家 ---------- */
-const player = buildCar(0x3d8bff, 0xffd35c, true);
-scene.add(player);
-const PS = {                 // player state
-  s: 0,                      // 沿赛道距离
-  o: 0,                      // 横向偏移（-ROAD_W..ROAD_W）
-  speed: 0,
-  steer: 0,                  // 平滑转向量
-  visualYaw: 0,
-  lap: 1,
-  passed: 0,
-  finished: false,
-  finishTime: 0,
-};
-
-/* ---------- AI 对手 ---------- */
-const RIVAL_DEFS = [
-  ['#ff6b6b', '#fff1c9'],
-  ['#6bd5ff', '#ffeede'],
-  ['#9d7bff', '#e8ffe8'],
-  ['#ffa94d', '#fff6c9'],
-  ['#51cf66', '#eef7ff'],
+const RIVAL_COLORS = [
+  ['#ff6b6b','#c94a4a'], ['#6bd5ff','#3aa8d8'], ['#9d7bff','#6f52d0'], ['#ffa94d','#d9822b'],
+  ['#51cf66','#37a34a'], ['#ff8ab0','#d9648c'], ['#4dd0c4','#2fa89e'], ['#ffe066','#d9b93d'],
 ];
 const rivals = [];
-function spawnRivals() {
+/* 取一条「空着的车道」：优先选当前没有别的车占用的车道。
+ * 【为什么需要】原来生成位置是 (rand-0.5)*1.1，也就是随机撒在路中间一小段
+ * （-0.55..+0.55）里 —— 8 辆车全堆在路中央，看起来「全挤在一起」。
+ * 现在改成「按车道分配」：先算出每条车道上有多少车在附近，
+ * 挑最空的那条，同分时再随机，于是车流自然散开成三列。 */
+function pickFreeLane(z, self) {
+  /* 统计每条车道上、距离 z 一定范围内的车辆数 */
+  const counts = LANES.map(() => 0);
+  const RANGE = 3000;                     // 只关心这个纵向范围内的拥挤度
+  for (const r of rivals) {
+    if (r === self) continue;
+    if (Math.abs(r.z - z) > RANGE) continue;
+    /* 归到最近的一条车道 */
+    let bi = 0, bd = Infinity;
+    for (let i = 0; i < LANES.length; i++) {
+      const d = Math.abs(LANES[i] - (r.baseLane !== undefined ? r.baseLane : r.offset));
+      if (d < bd) { bd = d; bi = i; }
+    }
+    counts[bi]++;
+  }
+  const min = Math.min(...counts);
+  const cand = [];
+  for (let i = 0; i < LANES.length; i++) if (counts[i] === min) cand.push(i);
+  const pick = cand[Math.floor(Math.random() * cand.length)];
+  return LANES[pick];
+}
+function spawnRival(i, z, offset) {
+  /* 【每辆车有自己的巡航速度】cruise 是这辆车的「性格」：
+   * 0.62~0.90 倍极速，车流才有快慢、才会自然拉开距离。
+   * 原来这里虽然算了一个随机速度，但下面 update 里的
+   * `want` 把它整个覆盖成了同一个常数（见那里的注释），
+   * 于是所有 AI 同速、永远分不开 —— 这是「挤在一块」的根因之一。 */
+  const cruise = 0.62 + rnd(i * 31 + Math.floor(z / SEG_LEN)) * 0.28;
+  return {
+    z, offset, speed: MAX_SPEED * cruise, cruise,
+    color: RIVAL_COLORS[i % RIVAL_COLORS.length],
+    lane: offset, baseLane: offset,      // baseLane = 它守的那条车道（摆动绕它进行）
+    wobble: rnd(i * 7) * 6.28, fading: 0,
+    seen: undefined, seenAhead: undefined, hitThisFrame: false,
+  };
+}
+function resetRivals() {
   rivals.length = 0;
+  /* 开局：车道用「轮转发牌」的方式均分（-0.66 → 0 → +0.66 → -0.66 …），
+   * 保证三条车道上的车数最多只差 1 辆。
+   * 这里不用 pickFreeLane 是因为它是「贪心挑最空的一条」，
+   * 在初始化阶段会连着选同一条车道，反而分不均（实测 4/2/2）。
+   * 纵向也拉开：每辆车间隔 1.9 倍车流间距，前后不会挤成一坨。 */
+  const startLane = Math.floor(Math.random() * LANES.length);   // 随机起始车道，每局不同
   for (let i = 0; i < RIVALS_COUNT; i++) {
-    const mesh = buildCar(RIVAL_DEFS[i][0], RIVAL_DEFS[i][1], false);
-    scene.add(mesh);
-    rivals.push({
-      mesh,
-      s: 6 + i * 5.5,         // 起跑排位：玩家前方
-      o: (i % 2 ? 1 : -1) * (2.2 + (i > 1 ? 1.6 : 0)),
-      baseSpeed: AI_SPEEDS[i],
-      speed: 0,
-      lap: 1,
-      targetO: 0,
-      wobbleT: Math.random() * 10,
-      finished: false,
-      finishTime: 0,
-      finishOrder: 0,
-    });
+    const z = 1500 + i * 1700 + rnd(i) * 500;
+    const lane = LANES[(startLane + i) % LANES.length];
+    rivals.push(spawnRival(i, z, lane));
+  }
+}
+resetRivals();
+
+/* =========================================================
+ * 三、气候状态
+ * ========================================================= */
+const climate = {
+  seasonIdx: 0, seasonT: SEASON_DURATION,
+  weather: WEATHERS[0], weatherT: 18,
+  rain: 0, snow: 0, dim: 0, grip: 1, fogK: 1, wind: 0, wetness: 0, thunder: 0,
+  flash: 0, dark: 0, windTime: 0,
+};
+function pickWeather(seasonName) {
+  const mod = SEASON_WEIGHT[seasonName] || {};
+  const keyMap = { cloudy: 'cloudy' };
+  const list = WEATHERS.map(w => ({ w, wt: w.w }));
+  for (const it of list) {
+    const k = keyMap[it.w.key] || it.w.key;
+    if (mod[k] != null) it.wt *= mod[k];
+  }
+  const total = list.reduce((a, b) => a + b.wt, 0);
+  let r = Math.random() * total;
+  for (const it of list) { r -= it.wt; if (r <= 0) return it.w; }
+  return WEATHERS[0];
+}
+function setWeather(w, announce) {
+  climate.weather = w;
+  climate.weatherT = WEATHER_MIN + Math.random() * (WEATHER_MAX - WEATHER_MIN);
+  if (announce) { flashSkyChip(); weatherSfx(w); }
+}
+function setSeason(i, announce) {
+  climate.seasonIdx = i;
+  climate.seasonT = SEASON_DURATION;
+  if (announce) flashSkyChip();
+}
+let chipT = 0;
+function flashSkyChip() {
+  const el = $('skyChip');
+  if (!el) return;
+  const S = SEASONS[climate.seasonIdx], W = climate.weather;
+  el.textContent = `${S.icon} ${S.name} · ${W.icon} ${W.name}`;
+  el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+}
+function refreshSkyChip() {
+  const el = $('skyChip');
+  if (el) el.textContent = `${SEASONS[climate.seasonIdx].icon} ${SEASONS[climate.seasonIdx].name} · ${climate.weather.icon} ${climate.weather.name}`;
+}
+function updateClimateTimers(dt) {
+  if (state !== STATE.RUNNING) return;
+  climate.seasonT -= dt;
+  climate.weatherT -= dt;
+  if (climate.seasonT <= 0) {
+    setSeason((climate.seasonIdx + 1) % 4, true);
+    setWeather(pickWeather(SEASONS[climate.seasonIdx].name), true);
+  } else if (climate.weatherT <= 0) {
+    let w = climate.weather, guard = 0;
+    while (w === climate.weather && guard++ < 8) w = pickWeather(SEASONS[climate.seasonIdx].name);
+    setWeather(w, true);
+  }
+  flashSkyChip0();
+}
+function flashSkyChip0() { /* 文本由 refreshSkyChip 维护 */ }
+
+/* =========================================================
+ * 四、投影：把「世界坐标 + 相机偏移」投射到屏幕
+ * 这是伪 3D 的核心公式：近大远小，收束到地平线。
+ * ========================================================= */
+let camY = CAM_HEIGHT;
+
+/* 全局几何缓冲：每帧只做一次弯道累积与投影，
+ * 路面、标线、护栏、路边物件、AI 车全部读这一份表。
+ * ——这样任何一个元素都不可能和路面「对不齐」，
+ *   也彻底消除了以前 drawRoad / roadGeomAt 两处算法各算一遍的漂移。 */
+const GEO = {
+  n: 0,            // 有效段数
+  cx: new Float32Array(DRAW_DIST + 2),      // 该段路面中心的屏幕 x
+  cxN: new Float32Array(DRAW_DIST + 2),     // 该段「近端边缘」的中心 x（= 下一段的 cx）
+  half: new Float32Array(DRAW_DIST + 2),    // 该段路面半宽的屏幕像素
+  halfN: new Float32Array(DRAW_DIST + 2),
+  y: new Float32Array(DRAW_DIST + 2),       // 该段远端屏幕 y
+  yN: new Float32Array(DRAW_DIST + 2),      // 该段近端屏幕 y
+  scale: new Float32Array(DRAW_DIST + 2),   // 投影缩放（1/距离）
+  segTag: new Int32Array(DRAW_DIST + 2),    // 该段的路段序号（用于条纹/物件）
+  fog: new Float32Array(DRAW_DIST + 2),     // 该段雾浓度 0..1
+};
+
+/* 相机：位于 z 处、高度 camY，朝向 +z。
+ * 伪 3D 里「弯道」不旋转相机，而是横向平移路面（OutRun 做法），
+ * 这样地平线永远是水平的，视觉上最稳。 */
+/* CAM_Z_OFF：相机相对「当前段起点」的偏移（单位=段数）。
+ * 它决定最近的一段路面落在屏幕的什么高度：值越大，脚下这段离相机越远、
+ * 在屏幕上越靠上。取 2.3 时，最近一段路的可见上边缘正好压在屏幕下沿附近，
+ * 路面从屏幕底部一直铺到地平线（取 0.5 会让整条路被推到屏幕下方而看不见）。 */
+const CAM_Z_OFF = 2.3;
+/* 半宽系数：roadHalf = scale * ROAD_W * KS。
+ * 【道路加宽】从 0.110 提到 0.150：玩家处路面半宽由 175px 增到 239px、
+ * 全宽 350px → 478px（占屏 34% → 47%），路面明显更宽阔，
+ * 三条车道并排才排得开（原来两条车道时 2.56 个车身就把路塞满了）。 */
+const KS = 0.150;
+const YS = 0.300;           // 纵向系数：路面高度 → 屏幕 y
+
+/* 投影单段的屏幕几何（k = 该边界「距相机的段数」）。
+ * 分母必须恒为正 —— 否则 scale 翻负，整条路会镜像翻到屏幕外。
+ *
+ * 【关键修复：跑起来后道路左右抖动】
+ * 原公式是 scale(n, bp) = camDepth / (n + CAM_Z_OFF - bp)，
+ * 其中 n 是整数段序号，bp 是相机在当前段内的进度（0..1）。
+ * 这个 -bp 是**重复计算**了相机的移动：相机在段内前进 bp，
+ * 会让「前方的边界」离相机更近一点，于是这里想把距离减去 bp。
+ * 但 bp 归零跨过段边界时 n 同时 +1，两个动作叠加，分母发生一次跳变 ——
+ * scale 随 bp 变成「锯齿波」。实测（5000 单位/秒、满速）紧贴镜头那条边界
+ * （n=1）的路面半宽在每个段周期内从 122.6px 摆到 174.0px（摆动 51px），
+ * 一个段周期只要 2.6 帧就走完，于是肉眼看到整条路在左右高频抖动、
+ * 路面忽宽忽窄 —— 而且速度越快抖得越凶。
+ *
+ * 正确的是：相机的移动已经体现在「哪一段对准镜头」上了
+ * （baseIdx 随 z 递增、每帧都在重新取段），
+ * 边界的距离就应该直接是 (n + CAM_Z_OFF) 段，与 bp 无关。
+ * 所以这里把 bp 从分母中彻底去掉。
+ *
+ * 连续性验算：相邻两段共享的那条边界
+ *   段 n 的远端： n+1
+ *   段 n+1 的近端： n+1     ← 相同，路面严丝合缝、且跨段不跳变。
+ * 平滑性：k 随 z 以固定斜率增长，scale 单调平滑变化，锯齿波彻底消失。 */
+function projSeg(k, fovK) {
+  const denom = Math.max(0.55, k + CAM_Z_OFF);
+  const scale = (camDepth / denom) * fovK;
+  return scale;
+}
+
+/* 边界 k 处的地面高度（k 可以是小数）。
+ *
+ * 【大雨天「高低台阶」的根因】
+ * 原来这里用的是「相邻两段线性插值」：段内是直线、到段边界处**折角**。
+ * 线性插值保证了高度连续（不会跳变），但**一阶导数不连续** ——
+ * 每个段边界都留一个「折角」。实测曲率在整点处是中点处的 1.22~1.53 倍，
+ * 也就是说每个段边界都有可见的转折。
+ * 满速时每秒跨过 22.7 个段边界，也就是每秒 22 次折角扑面而来；
+ * 平时路面是哑光灰、看不太出来，但**大雨时路面有水膜高光**，
+ * 折角处的明暗变化被放大，就成了一道道「高低台阶」。
+ *
+ * 修复：改用 Catmull-Rom 样条插值（取前后各一个段作为控制点）。
+ * 它同时保证高度**和**斜率连续（C1 连续），段边界不再有折角，
+ * 坡道是真正光滑的曲线。这是标准的平滑插值做法，
+ * 代价只是每段多读两个数组元素，可忽略不计。 */
+function hillAt(k) {
+  const baseIdx = Math.floor(PS.z / SEG_LEN);
+  const i0 = Math.floor(k);
+  const f = k - i0;
+  const H = i => segments[((baseIdx + i0 + i) % SEG_COUNT + SEG_COUNT) % SEG_COUNT].y;
+  const p0 = H(-1), p1 = H(0), p2 = H(1), p3 = H(2);
+  /* Catmull-Rom（标准形式）：
+   *   0.5 * ( 2p1 + (-p0+p2)f + (2p0-5p1+4p2-p3)f² + (-p0+3p1-3p2+p3)f³ ) */
+  const f2 = f * f, f3 = f2 * f;
+  return 0.5 * (2 * p1
+    + (-p0 + p2) * f
+    + (2 * p0 - 5 * p1 + 4 * p2 - p3) * f2
+    + (-p0 + 3 * p1 - 3 * p2 + p3) * f3);
+}
+
+function buildGeometry() {
+  const bp = (PS.z % SEG_LEN) / SEG_LEN;         // 段内进度 0..1
+  const baseIdx = Math.floor(PS.z / SEG_LEN);
+  const fovK = camDepth / CAM_DEPTH;             // 视场变化对投影的缩放
+
+  let x = 0, dx = 0;
+  let count = 0;
+  for (let n = 0; n < DRAW_DIST; n++) {
+    const segIdx = (baseIdx + n) % SEG_COUNT;
+    const seg = segments[segIdx];
+
+    /* 累计弯道偏移（标准 OutRun）：
+     *   dx = 航向角累积，x = 横向位置累积
+     * curve 是零均值噪声，所以 x 天然左右回摆、不会单向跑飞。
+     * 段 n 的近端在 x（当前位置），远端在 x + dx（再往前走一段）。
+     *
+     * 【关键修复：路面左右抖动（彻底版）】
+     * 之前两轮都只修掉了一半，这里说明清楚：
+     *   第一轮：curve 取「整数段」的值（segs[b+k]），是 z 的阶梯函数 ——
+     *           跨段时整批取值前移一格，x 跳变。
+     *   第二轮：把 curve 在段内按 bp 线性插值。段内确实连续了，
+     *           但 **x 的累加起点仍然是当前段 baseIdx**：
+     *           每一帧都从 0 重新累加，而 baseIdx 会随 z 递增，
+     *           于是「同一个世界位置」在跨段前后被算成不同的 x。
+     *           实测每跨一次段边界，路面横坐标仍会跳 0.09~0.27px，
+     *           且方向左右交替 —— 满速每秒 22.7 次，就是肉眼看到的抖动。
+     *
+     * 彻底的修法：把 curve 定义成**绝对世界坐标的函数**，并在
+     * 「相机所在的绝对世界位置」处采样，使同一个世界位置永远得到同一个值：
+     *
+     *   curveWorld(k) = lerp( segment[b0+⌊k⌋].curve, segment[b0+⌊k⌋+1].curve, frac(k) )
+     *   b0 = 相机所在段的绝对序号（不随帧回绕清零）
+     *
+     * 注意关键点：插值参数必须用**边界相对世界位置的整数部分**来计算，
+     * 而不是用全局的 bp。因为 bp 是「相机在段内的相位」，
+     * 同一个路面边界在不同帧里 bp 不同，会导致取值漂移 ——
+     * 这正是上一轮修不干净的原因。
+     * 现在每个边界的插入点由 k 自身决定，与 bp 无关，
+     * 于是 curveWorld 是绝对坐标的纯函数，跨段/换帧都不会变。
+     *
+     * 实现上 zAbs = (PS.z / SEG_LEN) 是「相机的绝对段坐标（含小数）」，
+     * 而 n 是「相对相机的边界序号」，两者相加就得到该边界的绝对段坐标，
+     * 再对它取 floor/frac 做插值即可 —— BP 完全不参与。 */
+    /* 该边界（第 n 条横线）的**绝对段坐标**（含小数）。
+     * PS.z / SEG_LEN 就是相机所在的绝对段坐标；加上 n 得到边界的。
+     * 注意这里不用 bp：bp 只是「相机在段内的相位」，
+     * 它已经隐含在 PS.z 里了，再单独用它去算插值就会重复计入。 */
+    const aPos = (PS.z + n * SEG_LEN) / SEG_LEN;
+    const ai = Math.floor(aPos), af = aPos - ai;
+    const cA = segments[((ai % SEG_COUNT) + SEG_COUNT) % SEG_COUNT].curve;
+    const cB = segments[(((ai + 1) % SEG_COUNT) + SEG_COUNT) % SEG_COUNT].curve;
+    const curveNow = cA + (cB - cA) * af;
+    dx += curveNow * 0.5;
+    x += dx;
+    const xN = x;            // 近端横向位置
+    const xF = x + dx;       // 远端横向位置
+
+    GEO.segTag[n] = segIdx;
+
+    /* ---- 屏幕 y 的方向约定 ----
+     *   y 越小 = 越靠地平线 = 越远
+     *   y 越大 = 越靠屏幕下沿 = 越近
+     *
+     * 段 n 覆盖路面上的「边界 n」到「边界 n+1」：
+     *   边界 k 表示「距相机 (k + CAM_Z_OFF) 段」的那条横线
+     *   scale(k) = camDepth / (k + CAM_Z_OFF)           与距离成反比
+     *   y(k) = HORIZON_Y + scale(k) * (CAM_HEIGHT - yOf(k)) * YS
+     *
+     * 注意距离里**不**再含段内进度 bp：相机的位移已经体现在
+     * 「baseIdx 随 z 递增」上，边界距离直接取 (n + CAM_Z_OFF) 段即可。
+     * 早前多减了一个 bp，会让 scale 随 bp 呈锯齿波 —— 那就是道路左右抖动的根源
+     * （详见 projSeg 的注释）。
+     *
+     * 关键：同一处「"边界 k"」在相邻两段里必须算出同一个 y。
+     * 早期版本让近端用 seg[n].y、远端也用 seg[n].y（各自的高度），
+     * 于是共享边界因为高度不同而出现几百像素的错位 —— 那就是画面上一道道
+     * 生硬的横台阶（雪地、草地上最明显）。
+     * 现在统一用「该边界处的地面高度」，共享边界必然严丝合缝。
+     *
+     * 高度 yOf(k)：边界 k 落在段 [baseIdx + k] 与 [baseIdx + k + 1] 之间，
+     * 用相邻两段高度线性过渡，坡道才是平的而不是一段段跳。 */
+    /* ---- 近端：边界 n ---- */
+    const scaleN = projSeg(n, fovK);
+    const halfN = scaleN * ROAD_W * KS;
+    const yN = HORIZON_Y + scaleN * (CAM_HEIGHT - hillAt(n)) * YS;
+    const cxN = VIEW_W / 2 + xN * scaleN * 10 - PS.playerX * halfN;
+    GEO.cxN[n] = cxN;
+    GEO.halfN[n] = halfN;
+    GEO.yN[n] = yN;
+
+    /* ---- 远端：边界 n+1（也就是下一段的近端，两边必须完全相等）---- */
+    const scaleF = projSeg(n + 1, fovK);
+    const halfF = scaleF * ROAD_W * KS;
+    const yF = HORIZON_Y + scaleF * (CAM_HEIGHT - hillAt(n + 1)) * YS;
+    const cxF = VIEW_W / 2 + xF * scaleF * 10 - PS.playerX * halfF;
+
+    GEO.cx[n] = cxF;
+    GEO.half[n] = halfF;
+    GEO.y[n] = yF;
+    GEO.scale[n] = scaleF;
+    /* 雾：近处几乎为 0，到可视尽头升到 ~1.25×fogK（由绘制端夹取） */
+    GEO.fog[n] = Math.min(1, Math.pow(n / DRAW_DIST, 1.35) * 1.25 * climate.fogK);
+    count = n + 1;
+  }
+  GEO.n = count;
+}
+
+/* 保留旧接口：某些地方（测试钩子）仍可能引用 */
+function project(worldY, worldZ, camX, camZ, camDepthIn) {
+  const dz = worldZ - camZ;
+  if (dz <= 0.01) return null;
+  const scale = camDepthIn / dz;
+  return { x: VIEW_W / 2, y: HORIZON_Y - scale * (worldY - camY), w: scale * ROAD_W * 2, scale, dz };
+}
+
+/* =========================================================
+ * 五、主渲染
+ * ========================================================= */
+const W = () => VIEW_W, H = () => VIEW_H;
+
+function render() {
+  const S = SEASONS[climate.seasonIdx];
+  const Wx = climate.weather;
+  const dim = climate.dim + climate.dark;
+  const flash = climate.flash;
+
+  /* 【撞车震屏】整帧画面做一个短促的随机抖动，让撞击有手感。
+   * 注意：这是「相机被撞歪」的效果，和之前修掉的路面抖动（投影公式锯齿波）
+   * 完全是两回事 —— 它只在撞车后约 0.4 秒内出现，并快速衰减到 0，
+   * 正常行驶时 shake=0，画面绝对稳定。 */
+  const shaking = shake > 0.001;
+  if (shaking) {
+    shake = Math.max(0, shake - 0.055);
+    const k = shake * shake * 11;               // 二次衰减，尾巴收得干脆
+    ctx.save();
+    ctx.translate((Math.random() - 0.5) * 2 * k, (Math.random() - 0.5) * 2 * k);
+  } else if (shake !== 0) {
+    shake = 0;
+  }
+
+  /* ---- 1. 天空 ---- */
+  const sky = ctx.createLinearGradient(0, 0, 0, HORIZON_Y);
+  sky.addColorStop(0, shade(S.sky[0], -dim * 0.5 + flash * 0.9));
+  sky.addColorStop(1, shade(S.sky[1], -dim * 0.45 + flash * 0.9));
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, VIEW_W, HORIZON_Y + 1);
+  /* 太阳 / 月亮光晕 */
+  if (dim < 0.55) {
+    const sunY = HORIZON_Y * 0.42;
+    const g = ctx.createRadialGradient(VIEW_W * 0.72, sunY, 0, VIEW_W * 0.72, sunY, 150);
+    g.addColorStop(0, `rgba(255,246,220,${0.95 - dim * 1.4})`);
+    g.addColorStop(1, 'rgba(255,246,220,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(VIEW_W * 0.72 - 160, sunY - 160, 320, 320);
+  }
+
+  /* 云 */
+  drawClouds(dim);
+
+  /* 远景山峦（跟着弯道横向缓移，增强伪 3D 纵深感） */
+  drawHills(S, dim);
+
+  /* ---- 2. 地面底色 ----------
+   * 真正的草地由 drawRoad 按路面梯形铺，这里只负责把地平线以下的
+   * 区域填成地面色（避免任何未覆盖像素露出背景蓝）。
+   * 顶部起点用「地面雾色」而不是暗化草地色：地平线正下方紧接着就是
+   * 远处雾，若这里偏暗就会在交界处形成一条深色横带。 */
+  const gnd = ctx.createLinearGradient(0, HORIZON_Y, 0, VIEW_H);
+  gnd.addColorStop(0, `rgb(${groundFogRGB(S)})`);
+  gnd.addColorStop(0.16, shade(S.ground[1], -dim * 0.4 - 0.06));
+  gnd.addColorStop(0.45, shade(S.ground[0], -dim * 0.3));
+  gnd.addColorStop(1, shade(S.ground[1], -dim * 0.25));
+  ctx.fillStyle = gnd;
+  ctx.fillRect(0, HORIZON_Y, VIEW_W, VIEW_H - HORIZON_Y);
+
+  /* ---- 3. 先在一次遍历里算出全部段的投影（GEO 表）---- */
+  buildGeometry();
+
+  /* ---- 4. 公路（核心）---- */
+  drawRoad(S, dim, flash, PS.speed / MAX_SPEED);
+
+  /* ---- 5. 车辆（远到近排序后画）---- */
+  drawCars();
+
+  /* ---- 6. 天气覆盖层 ---- */
+  drawWeather(dim);
+
+  /* ---- 6. 冲出路面时的画面提示 ---- */
+  if (Math.abs(PS.playerX) > 1) {
+    const a = Math.min(0.34, (Math.abs(PS.playerX) - 1) * 0.5);
+    ctx.fillStyle = `rgba(120,20,20,${a})`;
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+  }
+
+  /* 速度感：高速时四周压暗 + 轻微速度线 */
+  const spd = PS.speed / MAX_SPEED;
+  if (spd > 0.55) {
+    const vig = ctx.createRadialGradient(VIEW_W/2, VIEW_H/2, VIEW_H*0.28, VIEW_W/2, VIEW_H/2, VIEW_H*0.78);
+    vig.addColorStop(0, 'rgba(0,0,0,0)');
+    vig.addColorStop(1, `rgba(0,0,0,${(spd-0.55)*0.55})`);
+    ctx.fillStyle = vig;
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+  }
+
+  /* 收尾：关掉震屏的变换（整帧一起抖，包含路面与所有车辆）。
+   * 用函数开头算好的 shaking 标志配对 restore，保证 save/restore 一定成对。 */
+  if (shaking) ctx.restore();
+}
+
+/* 颜色明暗调整 */
+/* 颜色明暗调整：同时接受 '#rrggbb' 和 'rgb(r,g,b)'。
+ * 这一点很关键——shade() 常被套用两次（先算条纹色、再叠雾），
+ * 若只认 hex，第二次传入 'rgb(...)' 会解析成 NaN → 整块画成黑色。 */
+function parseColor(c) {
+  if (typeof c !== 'string') return [0, 0, 0];
+  if (c[0] === '#') {
+    let h = c.slice(1);
+    if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+    const n = parseInt(h, 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  const m = c.match(/-?\d+(\.\d+)?/g);
+  if (!m || m.length < 3) return [0, 0, 0];
+  return [+m[0], +m[1], +m[2]];
+}
+function shade(col, amt) {
+  const [r0, g0, b0] = parseColor(col);
+  let r = r0, g = g0, b = b0;
+  if (amt >= 0) { r += (255-r)*amt; g += (255-g)*amt; b += (255-b)*amt; }
+  else { r *= (1+amt); g *= (1+amt); b *= (1+amt); }
+  return `rgb(${Math.max(0,Math.min(255,r|0))},${Math.max(0,Math.min(255,g|0))},${Math.max(0,Math.min(255,b|0))})`;
+}
+
+/* ---- 云 ---- */
+const CLOUDS = [];
+for (let i = 0; i < 14; i++) {
+  CLOUDS.push({ x: Math.random(), y: 0.08 + Math.random() * 0.42, s: 0.5 + Math.random() * 1.1, drift: Math.random() * 6.28 });
+}
+function drawClouds(dim) {
+  const k = Math.min(1, climate.dim * 1.7 + climate.rain * 0.5 + climate.snow * 0.5);
+  if (k < 0.05) return;
+  const a = 0.16 + k * 0.66;
+  const col = k > 0.6 ? `rgba(120,128,140,${a})` : `rgba(255,255,255,${a})`;
+  ctx.fillStyle = col;
+  for (const c of CLOUDS) {
+    const cx = ((c.x + Math.sin(climate.windTime * 0.05 + c.drift) * 0.06) % 1) * VIEW_W;
+    const cy = c.y * HORIZON_Y;
+    const r = 52 * c.s;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, r * 1.9, r * 0.62, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx - r * 0.9, cy + r * 0.2, r * 1.1, r * 0.5, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx + r * 0.95, cy + r * 0.18, r * 1.2, r * 0.48, 0, 0, Math.PI * 2);
+    ctx.fill();
   }
 }
 
-/* ---------- 输入 ---------- */
-let steerInput = 0;          // -1 左  1 右
-const keys = {};
-window.addEventListener('keydown', e => {
-  if (['ArrowLeft', 'ArrowRight'].includes(e.key)) e.preventDefault();
-  keys[e.key] = true;
-  if (e.key === 'Enter' || e.key === ' ') {
-    if (state === STATE.START) startRace();
-    else if (state === STATE.FINISH) restart();
+/* ---- 远山 ---- */
+function drawHills(S, dim) {
+  const shift = -(PS.playerX + curveAccum * 0.00006) * 60;
+  const base = HORIZON_Y + 2;
+  ctx.fillStyle = shade(S.ground[0], -dim * 0.45 - 0.28);
+  ctx.beginPath();
+  ctx.moveTo(-200, base);
+  for (let x = -200; x <= VIEW_W + 200; x += 40) {
+    const wx = (x + shift) * 0.012 + curveAccum * 0.00004;
+    const h = 58 + Math.sin(wx) * 26 + Math.sin(wx * 2.3 + 1.2) * 16 + Math.sin(wx * 4.7) * 8;
+    ctx.lineTo(x, base - h);
   }
+  ctx.lineTo(VIEW_W + 200, base);
+  ctx.closePath();
+  ctx.fill();
+
+  /* 第二层更远的山（更淡） */
+  ctx.fillStyle = shade(S.ground[0], -dim * 0.3 - 0.14);
+  ctx.beginPath();
+  ctx.moveTo(-200, base);
+  for (let x = -200; x <= VIEW_W + 200; x += 40) {
+    const wx = (x + shift * 1.6) * 0.008 + curveAccum * 0.00002;
+    const h = 92 + Math.sin(wx + 2.4) * 34 + Math.sin(wx * 3.1) * 18;
+    ctx.lineTo(x, base - h);
+  }
+  ctx.lineTo(VIEW_W + 200, base);
+  ctx.closePath();
+  ctx.fill();
+}
+
+/* 段级早退阈值（像素）：段高小于它就不画。
+ * 草地那一遍和路面那一遍必须用同一个值，否则两遍之间会留下缝隙 ——
+ * 半透明的积雪/水膜填在缝上就会变成一道道横向台阶（雪天最明显）。 */
+const SKIP_BAND_H = 1.0;
+/* 雾浓度上限：雾太浓的远处段整体跳过（画了也看不见）。
+ * 必须由两遍循环共用，理由同上 —— 只在一遍里截断就会产生缝隙。 */
+const FOG_CUTOFF = 0.94;
+
+/* 唯一的「这一段要不要跳过」判定。
+ * 草地循环和路面循环都调用它，两条路径的早退条件在代码上就是同一份，
+ * 从根上杜绝「一遍画、另一遍不画」造成的横向缝隙/台阶。 */
+function skipBand(n) {
+  const y1 = GEO.y[n], y2 = GEO.yN[n];
+  if (y2 < HORIZON_Y - 30) return true;                    // 完全在地平线以上
+  if (y1 > VIEW_H + 60 && y2 > VIEW_H + 60) return true;   // 完全在屏幕下方
+  if (y2 - y1 <= SKIP_BAND_H) return true;                 // 段太薄，画了也看不见
+  if (GEO.fog[n] >= FOG_CUTOFF) return true;               // 雾太浓
+  return false;
+}
+
+/* ---- 公路 ----
+ * 伪 3D 投影（OutRun / Pole Position 做法）：
+ *   scale    = camDepth / 距相机的段数     越远越小
+ *   roadHalf = scale * ROAD_W * KS         越近越宽
+ *   screenY  = 地平线 + scale * 高度 * YS   越近越靠屏幕下沿
+ * 每帧先由 buildGeometry() 把所有段的投影算进 GEO 表，
+ * 本函数只负责「按表画」。这样路面、标线、护栏、路边物件、
+ * AI 车读的是同一份数据，绝不会出现对不齐或接缝。
+ */
+let curveAccum = 0;      // 弯道累积偏移（供远山视差使用）
+
+/* 季节路面色：四季各自的路面基调 + 标线颜色 */
+function roadPalette(S) {
+  return {
+    asphalt: S.road,
+    /* 路缘石（红白 / 雪白交替） */
+    rumble: S.rumble,
+    /* 单向道标线：中央白虚线 + 两侧白边线。
+     * 这里**没有**黄色线：黄色在交通规则里专属于「分隔对向车流」，
+     * 单向道不需要也不该有（原来画的是中央双黄实线，已移除）。 */
+    lane: '#f2f2f2',
+    /* 路肩石（车道外侧的浅色带） */
+    shoulder: '#c9ccd2',
+  };
+}
+
+function drawRoad(S, dim, flash, speedRatio) {
+  const P = roadPalette(S);
+  const N = GEO.n;
+  if (N < 2) return;
+
+  /* 远处雾色：与天空同色，路才能「融进」地平线而不是被切断 */
+  const fogCol = fogRGB(S);
+
+  /* ===== 1. 草地底色 =====
+   * 先整屏铺一层「地面直出」的底色（不含雾），
+   * 逐段的草地带和雾都在后面按段叠上去。
+   * 以前这里用的是雾色，会把整片草地冲成灰白 —— 这是画面发灰的主因。 */
+  const gBase = shade(S.ground[1], -dim * 0.30);
+  ctx.fillStyle = gBase;
+  ctx.fillRect(0, HORIZON_Y - 1, VIEW_W, VIEW_H - HORIZON_Y + 1);
+
+  /* ===== 2. 第一遍：草地（远 → 近）=====
+   * 草地必须在「所有路面」之前画完。早期版本把草地夹在逐段绘制里，
+   * 于是近处的草会把已经画好的远处路面盖掉，路面就变成一段段的绿缝。
+   * 两个细节决定观感：
+   *   1. 只画紧贴路缘的一条窄带（OUTER 倍路宽），不一路铺到屏幕边缘，
+   *      否则相邻段的 y 区间一重叠就会盖住已画好的路面；
+   *   2. 交替色的对比度压得很低，只留一点点「草地纹理」，
+   *      并把明暗做成随距离渐变，避免出现一条条生硬的横带。 */
+  const OUTER = 3.2;                       // 草地窄带画到路宽的 3.2 倍
+  /* 草地分两条带画：内带（1.03~1.9 倍路宽，紧贴路缘，色略深一点）
+   * 和外带（1.9~3.2 倍）。两条带用不同的明度，路边就有了「路肩草 → 田野」
+   * 的层次，而不是一整块从路缘直铺到屏幕边缘的纯色。
+   * 远处再叠一条更暗的横向色带，模拟远处的田埂/田垄。 */
+  for (let i = N - 1; i >= 0; i--) {
+    const n = i;
+    const cx = GEO.cx[n], cxN = GEO.cxN[n];
+    const half = GEO.half[n], halfN = GEO.halfN[n];
+    const y1 = GEO.y[n], y2 = GEO.yN[n];
+    const fog = GEO.fog[n];
+    const segIdx = GEO.segTag[n];
+
+    /* 【飞雪天气出现台阶的修复】
+     * 草地这一遍和下面「路面/标线/积雪」那一遍，早退条件必须**完全一致**，
+     * 否则两遍之间会出现一条「路面（和半透明积雪）画了、草地却没画」的缝：
+     * 缝隙处露出的是天空/底色，地平线附近就成了一道道横向台阶（雪天最明显）。
+     * 之前踩过两次坑：
+     *   1) 段高阈值不一致（这里 1.6、那里 1.0）—— 差出 7 段的缝；
+     *   2) 这里多了一条 fog >= 0.94 的截断，而路面那遍没有 ——
+     *      在正常雾浓度下差出 72 段的缝。
+     * 现在两遍统一用同一组条件（SKIP_BAND_H + FOG_CUTOFF），
+     * 由下面的同一个 helper 判定，从根上不可能再对不上。 */
+    if (skipBand(n)) continue;
+
+    /* 【去掉草地上的横条纹】原来草地上也按 segIdx 奇偶交替明暗
+     * （差 0.022），和路面条纹是同一个毛病：满速下 11.4 Hz 闪烁，
+     * 草地上会出现一条条横向条纹（在雪地上最明显）。
+     * 现在草地用单一底色，层次改由「内带 / 外带两条不同明度」来表现 ——
+     * 那是**纵向**的分层（路肩草 → 田野），不会有横向闪烁。 */
+    const gcol = S.ground[0];
+    /* 内层草地：略深，紧贴路缘（1.03~1.9） */
+    ctx.fillStyle = shade(gcol, -dim * 0.35 - fog + 0.02);
+    const lOI = cx - half * 1.03, lOIN = cxN - halfN * 1.03;
+    const lOM = cx - half * 1.90, lOMN = cxN - halfN * 1.90;
+    const rOI = cx + half * 1.03, rOIN = cxN + halfN * 1.03;
+    const rOM = cx + half * 1.90, rOMN = cxN + halfN * 1.90;
+    ctx.beginPath();
+    ctx.moveTo(lOI, y1); ctx.lineTo(lOM, y1); ctx.lineTo(lOMN, y2); ctx.lineTo(lOIN, y2);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(rOI, y1); ctx.lineTo(rOM, y1); ctx.lineTo(rOMN, y2); ctx.lineTo(rOIN, y2);
+    ctx.closePath(); ctx.fill();
+    /* 外层草地：略亮，铺到 OUTER（模拟远处的田地） */
+    ctx.fillStyle = shade(gcol, -dim * 0.35 - fog + 0.10);
+    const lOO = cx - half * OUTER, lOON = cxN - halfN * OUTER;
+    const rOO = cx + half * OUTER, rOON = cxN + halfN * OUTER;
+    ctx.beginPath();
+    ctx.moveTo(lOM, y1); ctx.lineTo(lOO, y1); ctx.lineTo(lOON, y2); ctx.lineTo(lOMN, y2);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(rOM, y1); ctx.lineTo(rOO, y1); ctx.lineTo(rOON, y2); ctx.lineTo(rOMN, y2);
+    ctx.closePath(); ctx.fill();
+
+    /* ---- 左侧：沿公路的一条河 ----
+     * 紧贴草地外缘（3.2 倍处）起，横跨 RIV_IN~RIV_OUT（3.30~7.30 = 4.0 倍路宽），
+     * 而路面全宽是 2.0 倍路宽 —— 所以河**比路面宽一倍**。
+     * 分三层画，从下往上：
+     *   1) 河岸（深色泥土带，比水面各宽一点，做出岸线）
+     *   2) 水面（深青蓝，压暗后与草地形成明显对比）
+     *   3) 天光高光条（贴近岸的一侧，是「这是水」的关键线索）
+     * 因为是**逐段**画，它会跟着路的弯道一起摆，看起来就是沿着公路流的河。
+     * 岸线/水面/高光的相对位置都按河道宽度取比例，改 RIV_OUT 时三层会一起适配。 */
+    {
+      const span = RIV_OUT - RIV_IN;                       // 河道总宽（倍路宽）
+      const lBI = cx - half * RIV_IN, lBIN = cxN - halfN * RIV_IN;
+      const lBO = cx - half * RIV_OUT, lBON = cxN - halfN * RIV_OUT;
+      /* 河岸（泥土） */
+      ctx.fillStyle = shade('#8a7a5c', -dim * 0.4 - fog - 0.14);
+      ctx.beginPath();
+      ctx.moveTo(lBI, y1); ctx.lineTo(lBO, y1); ctx.lineTo(lBON, y2); ctx.lineTo(lBIN, y2);
+      ctx.closePath(); ctx.fill();
+      /* 水面：两侧各留 3% 作为岸线 */
+      const W_IN = RIV_IN + span * 0.03, W_OUT = RIV_OUT - span * 0.03;
+      const lWI = cx - half * W_IN, lWIN = cxN - halfN * W_IN;
+      const lWO = cx - half * W_OUT, lWON = cxN - halfN * W_OUT;
+      const winter = S.dark > 0.08;          // 冬天结冰
+      ctx.fillStyle = winter
+        ? shade('#cfe0ee', -dim * 0.35 - fog - 0.06)
+        : shade('#2f6b86', -dim * 0.35 - fog - 0.10);
+      ctx.beginPath();
+      ctx.moveTo(lWI, y1); ctx.lineTo(lWO, y1); ctx.lineTo(lWON, y2); ctx.lineTo(lWIN, y2);
+      ctx.closePath(); ctx.fill();
+      /* 天光高光：靠岸的一条窄带，随距离淡出，避免远处变成一条死白线 */
+      if (half > 1.6) {
+        const H_IN = RIV_IN + span * 0.07, H_OUT = RIV_IN + span * 0.16;
+        const lHI = cx - half * H_IN, lHIN = cxN - halfN * H_IN;
+        const lHO = cx - half * H_OUT, lHON = cxN - halfN * H_OUT;
+        ctx.fillStyle = winter
+          ? `rgba(255,255,255,${0.42 * (1 - fog)})`
+          : `rgba(190,224,244,${0.30 * (1 - fog)})`;
+        ctx.beginPath();
+        ctx.moveTo(lHI, y1); ctx.lineTo(lHO, y1); ctx.lineTo(lHON, y2); ctx.lineTo(lHIN, y2);
+        ctx.closePath(); ctx.fill();
+      }
+    }
+  }
+
+  /* ===== 3. 第二遍：路面 / 标线 / 护栏 / 路边物件（远 → 近）=====
+   * 性能要点：DRAW_DIST 有 380 段，若每段都画全套细节就是 380×6 次填充，
+   * 实测单帧 20ms+（掉到 27fps）。远处段在屏幕上不足 1px 高，
+   * 画了也看不见，所以用「段高 < 1px 就跳过」做早退。 */
+  for (let i = N - 1; i >= 0; i--) {
+    const n = i;
+    const cx = GEO.cx[n], cxN = GEO.cxN[n];
+    const half = GEO.half[n], halfN = GEO.halfN[n];
+    const y1 = GEO.y[n], y2 = GEO.yN[n];
+    const fog = GEO.fog[n];
+    const segIdx = GEO.segTag[n];
+    const seg = segments[segIdx];
+
+    /* 与草地那一遍共用同一个判定函数，保证两遍要么都画、要么都跳过，
+     * 中间绝不会留下缝（雪天/雨天的半透明覆盖一旦有缝就是横向台阶） */
+    if (skipBand(n)) continue;
+
+    const dk = (col, extra) => shade(col, -dim * 0.35 - fog - (extra || 0));
+
+    /* --- 3a. 路缘红白条（在路面外侧，带立体侧壁）---
+     * 【降低条纹频率】原来严格按 segIdx 奇偶交替（每 220 单位一段），
+     * 满速时交替频率 = 22.7/2 ≈ 11.4 Hz，眼睛看到的是「频闪」而不是路缘石。
+     * 现在改成每 3 段交替一次（条纹长 660 世界单位 ≈ 4 Hz），
+     * 更接近真实赛道的红白路缘石节奏，也不会闪得刺眼。 */
+    const rbCol = (Math.floor(segIdx / 3) % 2 === 0) ? P.rumble[0] : P.rumble[1];
+    const rbOut = 1.16, rbIn = 1.02;
+    /* 左路缘 */
+    drawQuad(cx - half * rbOut, y1, cx - half * rbIn, y1,
+             cxN - halfN * rbIn, y2, cxN - halfN * rbOut, y2, dk(rbCol));
+    /* 右路缘 */
+    drawQuad(cx + half * rbIn, y1, cx + half * rbOut, y1,
+             cxN + halfN * rbOut, y2, cxN + halfN * rbIn, y2, dk(rbCol));
+
+    /* --- 3b. 沥青路面 ---
+     * 【去掉「马路线」】原来这里按 segIdx 奇偶交替铺两种灰
+     * （strip ? asphalt : 暗 0.045），本意是做出路面纹理，
+     * 但满速时每秒跨过 22.7 个路段，也就是这个交替图案以
+     * **11.4 Hz** 闪烁 —— 看上去就是一条条横向「斑马线」扑面而来，
+     * 而不是纹理。现在整条路只用一个纯色，质感改为靠
+     * 车辙 / 颗粒 / 标线来表现（这些是纵向的，不会闪成横条）。 */
+    const rcol = P.asphalt;
+    drawQuad(cx - half, y1, cx + half, y1,
+             cxN + halfN, y2, cxN - halfN, y2, dk(rcol));
+
+    /* --- 3c. 路面颗粒 + 车辙 ---
+     * 近处才画（省性能又出质感）。
+     * 真实高速的路面不是一块均匀的灰：车轮长期碾压会磨出两条
+     * 「车辙」（比周围更暗更亮的两道纵向带），中间和两侧反而更干净。
+     * 加上车辙后，路面横向就有了信息，转向时能明显感觉到路在动。 */
+    if (n < 90 && half > 16) {
+      /* 车辙：三条车道各自在车道中心磨出一对车辙。
+       * 车道中心就是 LANES（-0.66 / 0 / +0.66），
+       * 所以车辙正好压在每条车道的中间，和标线对得上。 */
+      const wA = 0.016 + dim * 0.010;
+      for (const ln of LANES) {
+        for (const off of [-0.10, 0.10]) {
+          const lx = cx + half * (ln + off), lxN = cxN + halfN * (ln + off);
+          const tw = half * 0.070, twN = halfN * 0.070;
+          ctx.fillStyle = `rgba(20,22,26,${wA * 2.2 * (1 - fog)})`;
+          drawPath(lx - tw, y1, lx + tw, y1, lxN + twN, y2, lxN - twN, y2);
+        }
+      }
+      /* 颗粒噪点：一条浅色横带，随段随机 */
+      const gr = rnd(segIdx * 3.7);
+      ctx.fillStyle = `rgba(255,255,255,${0.018 + gr * 0.022})`;
+      const gw = half * (0.5 + gr * 0.4);
+      const gx = cx - gw * 0.5 - half * 0.3 + gr * half * 0.6;
+      ctx.fillRect(gx, y1, gw, Math.max(1, (y2 - y1) * 0.62));
+    }
+
+    /* --- 3d. 车道线（单向车道）---
+     * 这是一条【单行道】：所有车都朝同一个方向跑，没有对向车流，
+     * 所以路面中央不再画「双黄实线」（那是分隔对向车流的）。
+     * 现在只保留同向车道标线：
+     *   · 两条白色虚线（把单向的三条车道分开，位置在 ±LANE_C/2）
+     *   · 两侧白色边缘实线（勾出路面边界，高速必有的「边线」）
+     * 中央线必须是白色：黄色在交通规则里专属于「对向分隔」，
+     * 留着黄色会让路面看起来还是双向的。 */
+    const lw = Math.max(0.6, half * 0.028);
+    const lwN = Math.max(0.6, halfN * 0.028);
+    /* 白色虚线：三车道之间有两道分隔线。
+     * 车道中心在 -LANE_C / 0 / +LANE_C，所以分隔线在 ±LANE_C/2（= ±0.33）。
+     * 每 3 段亮 2 段，形成标准虚线段。 */
+    const dashOn = (Math.floor(segIdx / 3) % 2) === 0;
+    if (dashOn) {
+      const sep = LANE_C * 0.5;
+      for (const s of [-sep, sep]) {
+        const lx = half * s, lxN = halfN * s;
+        drawQuad(cx + lx - lw, y1, cx + lx + lw, y1,
+                 cxN + lxN + lwN, y2, cxN + lxN - lwN, y2, dk(P.lane));
+      }
+    }
+    /* 两侧白色边缘实线（贴着路缘内侧） */
+    const ex = half * 0.955, exN = halfN * 0.955;
+    drawQuad(cx - ex - lw, y1, cx - ex + lw, y1, cxN - exN + lwN, y2, cxN - exN - lwN, y2, dk(P.lane));
+    drawQuad(cx + ex - lw, y1, cx + ex + lw, y1, cxN + exN + lwN, y2, cxN + exN - lwN, y2, dk(P.lane));
+
+    /* --- 3e. 湿滑路面：反光带 + 积水 ---
+     * 【大雨天的高低台阶】原来积水镜面是 `if (strip && ...)` ——
+     * 每隔一段才画一次亮条，于是大雨时路面出现一条条交替的亮暗横带，
+     * 满速下以 11.4 Hz 闪烁，看起来就是路面在「一级一级地跳台阶」。
+     * 现在改成整条路连续的水膜反光 + 只按雾浓淡衰减，
+     * 不再有任何按段奇偶的开关，大雨天路面是均匀的湿亮。 */
+    if (climate.wetness > 0.03) {
+      const wA = climate.wetness;
+      /* 整体水膜反光：连续铺满，不按段交替 */
+      ctx.fillStyle = `rgba(178,208,240,${wA * 0.13 * (1 - fog)})`;
+      drawPath(cx - half, y1, cx + half, y1, cxN + halfN, y2, cxN - halfN, y2);
+    }
+
+    /* --- 3f. 积雪：雪天路面积雪 + 路肩堆雪 --- */
+    if (climate.snow > 0.04) {
+      const sA = Math.min(1, climate.snow);
+      /* 路面两侧被雪覆盖（中间车轮压出的两条黑带留白） */
+      ctx.fillStyle = `rgba(238,246,255,${sA * 0.55 * (1 - fog)})`;
+      drawPath(cx - half, y1, cx - half * 0.70, y1, cxN - halfN * 0.70, y2, cxN - halfN, y2);
+      drawPath(cx + half * 0.70, y1, cx + half, y1, cxN + halfN, y2, cxN + halfN * 0.70, y2);
+      /* 路肩堆雪（比路面更白更厚） */
+      ctx.fillStyle = `rgba(255,255,255,${sA * 0.72 * (1 - fog)})`;
+      drawPath(cx - half * 1.30, y1, cx - half * 1.0, y1, cxN - halfN * 1.0, y2, cxN - halfN * 1.30, y2);
+      drawPath(cx + half * 1.0, y1, cx + half * 1.30, y1, cxN + halfN * 1.30, y2, cxN + halfN * 1.0, y2);
+    }
+
+    /* --- 3g. 护栏：只在近中距离画，远处靠雾淡出 --- */
+    drawGuardrail(cx, half, y1, cxN, halfN, y2, segIdx, n, dim, S, fog);
+
+    /* --- 3h. 距离雾 ---
+     * 早期写法是「每段整屏铺一条雾带」，但远处几十个段只占几像素且彼此重叠，
+     * 雾会叠加几十次 → 整片画面被冲成灰白；
+     * 改成整屏横带后又会因为相邻段的 y 区间不严格相等而留下硬台阶。
+     * 最终方案：这里完全不铺雾，雾统一由第 4 步的「全局距离雾渐变」负责，
+     * 它按屏幕 y（也就是按距离）连续变化，天生没有台阶。 */
+
+    /* --- 3i. 路边物件 --- */
+    drawScenery(seg, cx, half, y1, cxN, halfN, y2, n, dim, S, fog, segIdx);
+  }
+
+  /* ===== 4. 全局距离雾（连续渐变，无台阶）=====
+   * 雾浓度只跟「屏幕 y」有关 —— 在伪 3D 里 y 就是距离的单调函数，
+   * 所以按 y 做一条连续渐变，等价于「越远越雾」，而且天然不会有台阶。
+   * 用 smoothstep 让雾在近处接近 0、越靠近地平线越快升到满。
+   *
+   * 关键修正：渐变的起点必须在「地平线以上一段」开始，而不是从 HORIZON_Y 起。
+   * 早期在 HORIZON_Y-3 处补了一条 3px 的不透明雾色横条，本意是让路和天同色，
+   * 实际在绿色草地与蓝色天空之间画出了一道生硬的灰蓝色硬边（实测
+   * rgb(60,112,57) 直接跳到 rgb(132,169,194)，只有 2 行过渡）。
+   * 现在把雾层向上延伸到 HORIZON_Y-40，让它在天空里就已经铺满，
+   * 于是「天空 → 雾 → 地面」是一条连续曲线，地平线自然消融。 */
+  const k = Math.min(1, climate.fogK);
+  const fogTop = HORIZON_Y - 40;                 // 从地平线以上就开始铺雾
+  const fogBot = HORIZON_Y + 240;                // 到这个高度雾基本消失
+  const gFog = groundFogRGB(S);                  // 地面雾色（偏草绿，不发灰）
+  const fg = ctx.createLinearGradient(0, fogTop, 0, fogBot);
+  const denom = fogBot - fogTop;
+  /* 以「地平线所在比例」为基准设置控制点，保证地平线处雾浓度接近满值 */
+  const hn = (HORIZON_Y - fogTop) / denom;       // 地平线在渐变里的位置（≈0.143）
+  /* 地平线以上用天空雾色，以下逐渐换成偏草绿的地面雾色，
+   * 这样远处的草是「雾中的草」而不是「灰蓝色的雾」。 */
+  fg.addColorStop(0.00, `rgba(${fogCol},${Math.min(1, 0.55 * k)})`);
+  fg.addColorStop(hn * 0.5, `rgba(${fogCol},${Math.min(1, 0.82 * k)})`);
+  fg.addColorStop(hn, `rgba(${fogCol},${Math.min(1, 0.96 * k)})`);
+  fg.addColorStop(Math.min(0.999, hn + 0.04), `rgba(${gFog},${0.85 * k})`);
+  fg.addColorStop(Math.min(0.999, hn + 0.10), `rgba(${gFog},${0.62 * k})`);
+  fg.addColorStop(Math.min(0.999, hn + 0.24), `rgba(${gFog},${0.34 * k})`);
+  fg.addColorStop(Math.min(0.999, hn + 0.42), `rgba(${gFog},${0.14 * k})`);
+  fg.addColorStop(1.00, `rgba(${gFog},0)`);
+  ctx.fillStyle = fg;
+  ctx.fillRect(0, fogTop, VIEW_W, fogBot - fogTop);
+
+  /* ===== 5. 速度线 =====
+   * 高速时在画面四周画一组「向外发散」的短促划线：
+   * 全部用直线、只在屏幕边缘附近出现，中央留空不遮挡路面。
+   * （早期版本用圆弧+大半径，结果在屏幕上画出一圈圈大弧，非常出戏。） */
+  if (speedRatio > 0.45) {
+    const k2 = (speedRatio - 0.45) / 0.55;
+    const a = k2 * 0.26;
+    const cxp = VIEW_W / 2, cyp = HORIZON_Y + 70;
+    ctx.strokeStyle = `rgba(255,255,255,${a})`;
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    for (let i = 0; i < 30; i++) {
+      /* 均匀角度，跳过画面中央区域（|x| 太小的不画） */
+      const ang = (i / 30) * Math.PI * 2 + 0.13;
+      const dx = Math.cos(ang), dy = Math.sin(ang) * 0.55;
+      const r0 = 300 + (i % 5) * 26;
+      const r1 = r0 + 70 + k2 * 110;
+      const x0 = cxp + dx * r0, y0 = cyp + dy * r0;
+      const x1 = cxp + dx * r1, y1s = cyp + dy * r1;
+      if (x0 < -60 || x0 > VIEW_W + 60 || y0 < -60 || y0 > VIEW_H + 60) continue;
+      ctx.moveTo(x0, y0);
+      ctx.lineTo(x1, y1s);
+    }
+    ctx.stroke();
+  }
+}
+
+/* ---- 护栏：路两侧的立体护栏（立柱 + 横梁）---- */
+function drawGuardrail(cx, half, y1, cxN, halfN, y2, segIdx, n, dim, S, fog) {
+  if (n > DRAW_DIST * 0.30) return;            // 远处不画，靠雾淡出
+  const fade = 1 - n / (DRAW_DIST * 0.30);
+  const a = fade * fade * (1 - fog);
+  if (a < 0.05) return;
+
+  const post = (segIdx % 4) === 0;             // 每 4 段一根立柱
+  const railCol = shade(S.rumble[1], -dim * 0.45 - fog - 0.28);
+  const postCol = shade('#8d939c', -dim * 0.5 - fog);
+
+  for (const side of [-1, 1]) {
+    /* 横梁：双层，中间留缝，看起来像真护栏 */
+    const o1 = 1.46, o2 = 1.40;
+    const xa = cx + side * half * o1, xb = cxN + side * halfN * o1;
+    const xc = cx + side * half * o2, xd = cxN + side * halfN * o2;
+    const hTop = Math.max(3, half * 0.16);
+    ctx.globalAlpha = a;
+    ctx.fillStyle = railCol;
+    /* 上梁 */
+    ctx.beginPath();
+    ctx.moveTo(xa, y1 - hTop); ctx.lineTo(xb, y2 - hTop);
+    ctx.lineTo(xd, y2 - hTop * 0.45); ctx.lineTo(xc, y1 - hTop * 0.45);
+    ctx.closePath(); ctx.fill();
+    /* 下梁 */
+    ctx.beginPath();
+    ctx.moveTo(xc, y1 - hTop * 0.30); ctx.lineTo(xd, y2 - hTop * 0.30);
+    ctx.lineTo(xd, y2); ctx.lineTo(xc, y1);
+    ctx.closePath(); ctx.fill();
+
+    /* 立柱：每 4 段一根，竖直短线 */
+    if (post && half > 8) {
+      ctx.fillStyle = postCol;
+      const px = (xa + xb) / 2, py = (y1 + y2) / 2;
+      const ph = Math.max(4, half * 0.30);
+      ctx.fillRect(px - Math.max(0.7, half * 0.030), py - ph, Math.max(1.4, half * 0.060), ph + 2);
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+/* 雾色 / 天空过渡色：取季节天际色的暗化版本，
+ * 保证「远方的路」和「天空」是同一个色系，衔接才自然。 */
+function fogRGB(S) {
+  const c = shade(S.sky[1], -climate.dim * 0.3);
+  const m = c.match(/\d+/g);
+  return `${m[0]},${m[1]},${m[2]}`;
+}
+/* 地面雾色：把天空雾色往「草地色」拉近一点。
+ * 只用一个天空色的雾去罩草地，会让地平线附近整片草变成灰蓝色调
+ * （实测草地 rgb(60,112,57) 被冲成 rgb(128,167,188)），看起来像一层脏雾。
+ * 按 y 在地面雾色和天空雾色之间过渡：地平线处偏天空、往下逐渐偏草地。 */
+function mixRGB(a, b, t) {
+  const A = parseColor(a), B = parseColor(b);
+  return [
+    Math.round(A[0] + (B[0] - A[0]) * t),
+    Math.round(A[1] + (B[1] - A[1]) * t),
+    Math.round(A[2] + (B[2] - A[2]) * t),
+  ];
+}
+function toRGBStr(c) { return `${c[0]},${c[1]},${c[2]}`; }
+/* 地面雾色：天空雾色与当地地面色 6:4 混合，保留一点蓝调但不发灰 */
+function groundFogRGB(S) {
+  const sky = shade(S.sky[1], -climate.dim * 0.3);
+  const gnd = shade(S.ground[0], -climate.dim * 0.3);
+  return toRGBStr(mixRGB(sky, gnd, 0.42));
+}
+function drawPath(x1,y1,x2,y2,x3,y3,x4,y4) {
+  ctx.beginPath();
+  ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.lineTo(x3,y3); ctx.lineTo(x4,y4);
+  ctx.closePath(); ctx.fill();
+}
+function drawQuad(x1,y1,x2,y2,x3,y3,x4,y4,col) {
+  ctx.fillStyle = col; drawPath(x1,y1,x2,y2,x3,y3,x4,y4);
+}
+
+/* ---- 路边树 / 花 / 路牌 / 距离柱 / 路灯 ----
+ * 位置全部由「该段的几何」推出：
+ *   x = 路面中心 + 路面半宽 × (offset / ROAD_W)
+ * 因为用的是 GEO 表里同一份 cx / half，所以永远贴着路边，不会飘。 */
+function drawScenery(seg, cx, roadHalf, y1, cxN, roadHalfN, y2, n, dim, S, fogA, segIdx) {
+  /* 物件画到 0.50 倍可视距离（约 190 段），再远就交给雾。
+   * 这里做过实测对比（headless Chrome，1280×800，满速行驶）：
+   *   0.70 倍 → 52 fps（14.7 ms/帧）
+   *   0.50 倍 → 60 fps（12.1 ms/帧）
+   * 远处那点物件在屏幕只有 1~2px，肉眼几乎看不出差别，
+   * 却要多花 2.5 ms/帧 —— 对儿童游戏来说稳定 60fps 更值，取 0.50。
+   *
+   * 性能红线：这个函数每帧会被调用 ~190 次，每次可能画好几个物件，
+   * 而每个物件要 2~5 次 fill + 若干次 shade()（shade 每次都要解析颜色字符串）。
+   * 所以这里用两道闸门卡住开销：
+   *   1. 距离越远、尺寸越小的物件越早跳过（sc 阈值随 n 提高）；
+   *   2. 远景只保留「大件」（远处林线 + 房子 + 龙门架），
+   *      细碎的灌木 / 石头 / 花 / 电线杆一律不画 —— 它们在远处只有 1~2px，
+   *      肉眼根本分辨不出，却要付同样的绘制成本。 */
+  const noScenery = n > DRAW_DIST * 0.50;
+  const noPosts = n > DRAW_DIST * 0.34;
+  if (seg.sprites && !noScenery) {
+    const a = Math.min(1, Math.pow(1 - n / DRAW_DIST, 1.2) * 1.5);
+    if (a < 0.04) { /* 太远，跳过物件 */ }
+    else {
+      /* 远处抬高尺寸门槛：n 越大，只有越大的物件才值得画。
+       * 【等间距设施例外】大树和电线杆是「每 20/21 米一个」的规律性设施，
+       * 它们的价值在于**排成一列形成纵深感**：只画近处几个，
+       * 「每隔 20 米」这条规律就完全看不出来了。
+       * 所以这两类不参与 minSc 剔除，只受距离上限（noScenery）约束 ——
+       * 它们个头本来就大（大树 sc 高、杆子细长显眼），画出来是值得的。 */
+      const minSc = 0.7 + (n / (DRAW_DIST * 0.50)) * 2.4;
+      for (const sp of seg.sprites) {
+      const regular = (sp.big === true) || (sp.type === 'pole') || (sp.type === 'regionBoard');
+      const far = sp.far || sp.type === 'house' || sp.type === 'gantry' || sp.type === 'pond';
+      /* 段内位置 t：等间距设施（大树/电线杆）会带自己的 t（0..1），
+       * 其余旧物件没带 t，默认放在路段中点 0.5。
+       * 这一项是「每 20/21 米严格等距」能成立的关键 ——
+       * 否则所有物件只能落在段中点，间距会被量化成 220 单位的整数倍。 */
+      const t = (sp.t !== undefined) ? sp.t : 0.5;
+      const x = cx + (cxN - cx) * t + (roadHalf + (roadHalfN - roadHalf) * t) * (sp.offset / ROAD_W);
+      const y = y1 + (y2 - y1) * t;
+      const sc = (roadHalf / ROAD_W) * sp.scale * 100;
+      /* 小物件在远处直接跳过：没有信息量，却要付完整绘制成本。
+       * 等间距设施（大树/电线杆）例外：它们要连成一串才有意义。 */
+      if (!regular) {
+        /* 房屋与鱼塘是很宽的横向物件，远处也要保留（否则田野会显得空） */
+        const wide = (sp.type === 'house' || sp.type === 'pond');
+        if (sc < 0.7 && sp.type !== 'gantry' && !wide) continue;
+        if (sc < minSc && !far) continue;
+      } else if (sc < 0.16) {
+        continue;   // 太小（不到 0.16px）才跳过，保证等间距设施能连成一线
+      }
+
+      if (sp.type === 'tree') {
+        /* 【大树】每 20 米一棵的路边行道树，画得比原来的树更高更饱满：
+         * 更长的树干 + 三层树冠，远看是一棵「大树」而不是灌木。
+         * 这样「两侧每隔 20 米一棵大树」才一眼看得出来。 */
+        const bigT = sp.big === true;
+        const th = sc * (bigT ? 2.9 : 2.1);
+        const tw = sc * (bigT ? 0.20 : 0.16);
+        /* 远景林线的树用更暗的色，自动产生空气透视的层次 */
+        const shadeExtra = sp.far ? 0.16 : 0;
+        const fogExtra = fogA + (sp.far ? 0.10 : 0);
+        /* 树干 */
+        ctx.fillStyle = shade('#6b4a2e', -dim * 0.4 - fogExtra - shadeExtra);
+        ctx.fillRect(x - tw/2, y - (bigT ? th * 0.50 : th * 0.42),
+                     tw, (bigT ? th * 0.50 : th * 0.42));
+        if (bigT) {
+          /* 大树：三层叠起来的树冠（下宽上窄），看起来有体积。
+           * 【颜色加深】在季节本色基础上再压暗 CANOPY_DARK：
+           * 原来的树绿偏亮（如 #6cc46a），大面积铺开后整排树显得发白、
+           * 和路面/草地拉不开层次。压暗后是沉稳的深绿，
+           * 「两侧一列大树」的轮廓更清楚。
+           * 三层依次再暗一点（greens），保留体积与受光层次。 */
+          const CANOPY_DARK = 0.30;
+          const greens = [0.0, 0.10, 0.20];
+          for (let li = 0; li < 3; li++) {
+            const w = sc * (0.86 - li * 0.20);
+            const yBase = y - th * (0.48 + li * 0.18);
+            const yTop = y - th * (0.80 + li * 0.20);
+            ctx.fillStyle = shade(S.tree[sp.kind],
+              -dim * 0.4 - fogExtra - shadeExtra - greens[li] - CANOPY_DARK);
+            ctx.beginPath();
+            ctx.moveTo(x, yTop);
+            ctx.lineTo(x + w, yBase);
+            ctx.lineTo(x - w, yBase);
+            ctx.closePath();
+            ctx.fill();
+          }
+        } else {
+          /* 普通树：保持原来的两层造型 */
+          ctx.fillStyle = shade(S.tree[sp.kind], -dim * 0.4 - fogExtra - shadeExtra);
+          ctx.beginPath();
+          ctx.moveTo(x, y - th);
+          ctx.lineTo(x + sc * 0.55, y - th * 0.36);
+          ctx.lineTo(x - sc * 0.55, y - th * 0.36);
+          ctx.closePath();
+          ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(x, y - th * 0.72);
+          ctx.lineTo(x + sc * 0.68, y - th * 0.1);
+          ctx.lineTo(x - sc * 0.68, y - th * 0.1);
+          ctx.closePath();
+          ctx.fill();
+        }
+      } else if (sp.type === 'bush') {
+        /* 灌木：两三个重叠的圆，矮胖，贴着路缘 */
+        const bw = sc * 0.72, bh = sc * 0.52;
+        ctx.fillStyle = shade(S.tree[sp.kind], -dim * 0.4 - fogA - 0.08);
+        ctx.beginPath();
+        ctx.ellipse(x, y - bh * 0.42, bw * 0.62, bh * 0.55, 0, 0, Math.PI * 2);
+        ctx.ellipse(x - bw * 0.42, y - bh * 0.26, bw * 0.42, bh * 0.40, 0, 0, Math.PI * 2);
+        ctx.ellipse(x + bw * 0.40, y - bh * 0.30, bw * 0.40, bh * 0.42, 0, 0, Math.PI * 2);
+        ctx.fill();
+        /* 顶部高光，让灌木有点体积 */
+        ctx.fillStyle = shade(S.tree[sp.kind], -dim * 0.25 + 0.12 - fogA);
+        ctx.beginPath();
+        ctx.ellipse(x - bw * 0.12, y - bh * 0.62, bw * 0.34, bh * 0.22, 0, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (sp.type === 'rock') {
+        /* 石头：多边形 + 受光面 */
+        const rw = sc * 0.46, rh = sc * 0.34;
+        ctx.fillStyle = shade('#7d848e', -dim * 0.4 - fogA);
+        ctx.beginPath();
+        ctx.moveTo(x - rw, y);
+        ctx.lineTo(x - rw * 0.72, y - rh * 0.86);
+        ctx.lineTo(x - rw * 0.10, y - rh);
+        ctx.lineTo(x + rw * 0.62, y - rh * 0.72);
+        ctx.lineTo(x + rw, y);
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = shade('#9aa2ad', -dim * 0.3 - fogA);
+        ctx.beginPath();
+        ctx.moveTo(x - rw * 0.72, y - rh * 0.86);
+        ctx.lineTo(x - rw * 0.10, y - rh);
+        ctx.lineTo(x + rw * 0.20, y - rh * 0.52);
+        ctx.closePath(); ctx.fill();
+      } else if (sp.type === 'house') {
+        /* 远处农舍：墙体 + 双坡屋顶 + 窗户，白墙褐顶 */
+        const hw = sc * 1.30, hh = sc * 0.95;
+        const wall = shade('#e8e2d6', -dim * 0.35 - fogA - 0.10);
+        const roofC = shade(sp.kind === 1 ? '#8d4a3a' : '#6e5648', -dim * 0.35 - fogA - 0.10);
+        ctx.fillStyle = wall;
+        ctx.fillRect(x - hw * 0.5, y - hh, hw, hh);
+        ctx.fillStyle = roofC;
+        ctx.beginPath();
+        ctx.moveTo(x - hw * 0.60, y - hh);
+        ctx.lineTo(x, y - hh * 1.52);
+        ctx.lineTo(x + hw * 0.60, y - hh);
+        ctx.closePath(); ctx.fill();
+        if (hw > 5) {
+          ctx.fillStyle = shade('#4a5a6a', -dim * 0.3 - fogA);
+          ctx.fillRect(x - hw * 0.26, y - hh * 0.62, hw * 0.20, hh * 0.24);
+          ctx.fillRect(x + hw * 0.06, y - hh * 0.62, hw * 0.20, hh * 0.24);
+        }
+      } else if (sp.type === 'pond') {
+        /* 鱼塘：田野间的一片椭圆形水面。
+         * 三层，从下往上：
+         *   1) 塘岸（泥土色外圈，比水面略大一圈，做出岸线）
+         *   2) 水面（椭圆形，偏青蓝，压暗后和草地拉开对比）
+         *   3) 一条天光高光（水面反射，是「这是水」的关键线索）
+         * 【形状】三层都用 ctx.ellipse 画真正的椭圆。
+         * 原来的比例是 1.9 : 0.58（约 3.3:1），扁得像一条水沟；
+         * 现在改成 1.9 : 0.92（约 2:1），并把它整体上移一点
+         * （水面是平的，塘面应该接近地面高度而不是贴在地平线上），
+         * 看上去就是一口俯视视角下的椭圆池塘。
+         * 冬天的塘面会结冰发白（用 S.dark 判断季节冷暖）。 */
+        const pw2 = sc * 1.9, ph2 = sc * 0.92;
+        const winter = S.dark > 0.08;                 // 冬天 → 塘面结冰
+        const cyP = y - ph2 * 0.30;                   // 椭圆中心：略高于地面线
+        /* 塘岸 */
+        ctx.fillStyle = shade('#7c6a4e', -dim * 0.4 - fogA - 0.18);
+        ctx.beginPath();
+        ctx.ellipse(x, cyP, pw2 * 0.56, ph2 * 0.62, 0, 0, Math.PI * 2);
+        ctx.fill();
+        /* 水面（椭圆） */
+        ctx.fillStyle = winter
+          ? shade('#cfe0ee', -dim * 0.35 - fogA - 0.10)
+          : shade(sp.kind === 1 ? '#3f7f96' : '#356f88', -dim * 0.35 - fogA - 0.14);
+        ctx.beginPath();
+        ctx.ellipse(x, cyP, pw2 * 0.48, ph2 * 0.50, 0, 0, Math.PI * 2);
+        ctx.fill();
+        /* 天光高光：只在够大时画，避免远处变成一团白点 */
+        if (pw2 > 4) {
+          ctx.fillStyle = winter
+            ? `rgba(255,255,255,${0.55 * (1 - fogA)})`
+            : `rgba(206,232,246,${0.45 * (1 - fogA)})`;
+          ctx.beginPath();
+          ctx.ellipse(x - pw2 * 0.12, cyP - ph2 * 0.06, pw2 * 0.26, ph2 * 0.18, -0.16, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else if (sp.type === 'pole') {
+        /* 电线杆（右侧，每 21 米）：细高杆 + 两根横担。
+         * 沿路排开时，一列杆子会在透视里收束成一条引导线，
+         * 是速度感最强的路边元素之一。
+         * 尺寸比原来略大（杆高 2.6→3.0、杆宽 0.085→0.11），
+         * 这样在 200 米外仍能看出是一根杆，整列才连得起来。 */
+        const ph = sc * 3.0, pw = Math.max(0.8, sc * 0.11);
+        ctx.fillStyle = shade('#6f6455', -dim * 0.4 - fogA);
+        ctx.fillRect(x - pw / 2, y - ph, pw, ph);
+        const armW = sc * 0.70;
+        for (const ay of [0.78, 0.90]) {
+          ctx.fillRect(x - armW / 2, y - ph * ay, armW, Math.max(0.7, pw * 0.80));
+        }
+        /* 绝缘子小点 */
+        if (pw > 1.2) {
+          ctx.fillStyle = shade('#cfd6de', -dim * 0.3 - fogA);
+          ctx.fillRect(x - armW * 0.46, y - ph * 0.92, pw * 0.7, pw * 0.7);
+          ctx.fillRect(x + armW * 0.36, y - ph * 0.92, pw * 0.7, pw * 0.7);
+        }
+      } else if (sp.type === 'regionBoard') {
+        /* 地区指示牌（只在左侧，每 26.4 米一块）：
+         *   双立柱 + 绿色牌面（国道指示牌的经典配色）+ 白字地名 + 白描边。
+         * 牌子上的省份来自 sp.region（由绝对世界坐标 k 对 34 取模得到）。
+         *
+         * 【尺寸是怎么定的】牌子每 26.4 米一块，所以「最近那块」永远很近，
+         * n=1~16 会轮流从眼前经过。取牌宽 = sc*22 实测：
+         *   n=1  牌宽 166px、字号 48px（清晰可读）
+         *   n=4  牌宽  87px、字号 25px
+         *   n=8  牌宽  53px、字号 15px
+         *   n=16 牌宽  30px、字号 8.6px（仍可读）
+         * 再远就退化成一块醒目的绿牌 —— 那也足够表达「路边有指示牌」。
+         * （这个游戏 1 段 = 2.2 米、可视 836 米，透视压缩很强；
+         *   牌子做得比这更大反而会比例失真，像贴在镜头上的贴纸。） */
+        const bw = sc * 22, bhh = bw * 0.46;   // 牌面宽 / 高
+        const bh = bhh * 1.15;                 // 立柱高（略高于牌面一半）
+        const bTop = y - bh - bhh * 0.5;       // 牌面顶部
+        /* 双立柱 */
+        ctx.fillStyle = shade('#9aa1ab', -dim * 0.4 - fogA);
+        const postW = Math.max(0.9, bw * 0.045);
+        ctx.fillRect(x - bw * 0.34 - postW / 2, y - bh, postW, bh);
+        ctx.fillRect(x + bw * 0.34 - postW / 2, y - bh, postW, bh);
+        /* 牌面：深绿底 + 白描边 */
+        ctx.fillStyle = shade('#1c6b3a', -dim * 0.35 - fogA);
+        ctx.fillRect(x - bw / 2, bTop, bw, bhh);
+        if (bw > 6) {
+          ctx.strokeStyle = `rgba(240,248,244,${0.92 * (1 - fogA)})`;
+          ctx.lineWidth = Math.max(0.7, bw * 0.022);
+          ctx.strokeRect(x - bw / 2, bTop, bw, bhh);
+        }
+        /* 文字：够大才画，否则糊成噪点。字号随 sc 缩放，透视一致。
+         * 用系统字体，不依赖任何外部资源。 */
+        if (bw > 13) {
+          const fs = Math.min(bhh * 0.68, bw / (sp.region.length + 0.5));
+          ctx.fillStyle = `rgba(255,255,255,${0.95 * (1 - fogA)})`;
+          ctx.font = `bold ${fs.toFixed(1)}px "PingFang SC","Microsoft YaHei",sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(sp.region, x, bTop + bhh * 0.54);
+          ctx.textAlign = 'start';
+          ctx.textBaseline = 'alphabetic';
+        }
+      } else if (sp.type === 'gantry') {
+        /* 龙门架：跨路的门形框 + 指示牌，给长途一个里程碑参照物 */
+        const gh = sc * 3.6;
+        const postW = Math.max(1.0, sc * 0.13);
+        const xL = cx - roadHalf * 1.5, xR = cx + roadHalf * 1.5;
+        ctx.fillStyle = shade('#9aa1ab', -dim * 0.4 - fogA);
+        ctx.fillRect(xL - postW / 2, y - gh, postW, gh);
+        ctx.fillRect(xR - postW / 2, y - gh, postW, gh);
+        ctx.fillRect(xL, y - gh, xR - xL, Math.max(1.2, gh * 0.075));
+        /* 挂在横梁上的绿色指示牌 */
+        const bw2 = (xR - xL) * 0.42, bh2 = gh * 0.24;
+        if (bw2 > 6) {
+          ctx.fillStyle = shade('#1f7a45', -dim * 0.3 - fogA);
+          ctx.fillRect(cx - bw2 / 2, y - gh + gh * 0.09, bw2, bh2);
+          ctx.fillStyle = shade('#eaf4ff', -dim * 0.3 - fogA);
+          ctx.fillRect(cx - bw2 * 0.38, y - gh + gh * 0.16, bw2 * 0.30, Math.max(1, bh2 * 0.16));
+          ctx.fillRect(cx + bw2 * 0.08, y - gh + gh * 0.16, bw2 * 0.30, Math.max(1, bh2 * 0.16));
+        }
+      } else if (sp.type === 'flower') {
+        if (!S.flower) continue;
+        const fr = Math.max(0.5, sc * 0.16);
+        ctx.fillStyle = ['#ff8ab0','#ffd35c','#ffffff'][sp.kind] || '#ff8ab0';
+        ctx.globalAlpha = a * (1 - fogA);
+        ctx.beginPath(); ctx.arc(x, y - fr, fr, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+      } else if (sp.type === 'sign') {
+        const sw = Math.max(3, sc * 0.9);
+        ctx.fillStyle = shade('#8a8f9a', -dim * 0.4 - fogA);
+        ctx.fillRect(x - sw * 0.06, y - sw * 1.35, sw * 0.12, sw * 1.35);
+        ctx.fillStyle = shade('#ffd35c', -dim * 0.35 - fogA);
+        ctx.fillRect(x - sw * 0.5, y - sw * 2.1, sw, sw * 0.78);
+        ctx.fillStyle = shade('#111111', -dim * 0.2);
+        ctx.beginPath();
+        const ax = x, ay = y - sw * 1.72;
+        if (sp.kind === 0) { ctx.moveTo(ax - sw*0.28, ay + sw*0.12); ctx.lineTo(ax + sw*0.26, ay - sw*0.14); ctx.lineTo(ax + sw*0.26, ay + sw*0.20); }
+        else { ctx.moveTo(ax + sw*0.28, ay + sw*0.12); ctx.lineTo(ax - sw*0.26, ay - sw*0.14); ctx.lineTo(ax - sw*0.26, ay + sw*0.20); }
+        ctx.closePath(); ctx.fill();
+      }
+      }
+    }
+  }
+
+  /* ---- 路边距离柱 + 路灯 ----
+   * 每 2 段一根距离柱（红白黑三色），每 8 段一根路灯杆。
+   * 它们和护栏一起构成速度参照物：高速时这些柱子向后飞掠，
+   * 是伪 3D 里最强的速度感来源。 */
+  if (noPosts) return;
+  const t = 0.5;
+  const baseY = y1 + (y2 - y1) * t;
+  const halfM = roadHalf + (roadHalfN - roadHalf) * t;
+  const cxM = cx + (cxN - cx) * t;
+  const fade = 1 - n / (DRAW_DIST * 0.34);
+  const a = fade * fade * (1 - fogA);
+  if (a < 0.05) return;
+  const sc = (halfM / ROAD_W) * 100;
+  if (sc < 1.2) return;
+
+  ctx.globalAlpha = a;
+  for (const side of [-1, 1]) {
+    /* 距离柱：贴在护栏外侧 */
+    if (segIdx % 2 === 0) {
+      const x = cxM + side * halfM * 1.62;
+      const ph = sc * 0.62;                       // 柱高
+      const pw = Math.max(0.8, sc * 0.11);        // 柱宽
+      /* 白色柱身 */
+      ctx.fillStyle = shade('#f4f6f8', -dim * 0.35 - fogA);
+      ctx.fillRect(x - pw / 2, baseY - ph, pw, ph);
+      /* 顶部红色反光带 */
+      ctx.fillStyle = shade('#e04b4b', -dim * 0.35 - fogA);
+      ctx.fillRect(x - pw / 2, baseY - ph, pw, ph * 0.30);
+      /* 底部黑色基座 */
+      ctx.fillStyle = shade('#2a2e36', -dim * 0.3 - fogA);
+      ctx.fillRect(x - pw / 2, baseY - ph * 0.14, pw, ph * 0.14);
+    }
+    /* 路灯：每 8 段一根，带悬臂和灯头 */
+    if (segIdx % 8 === 0 && sc > 3) {
+      const x = cxM + side * halfM * 2.25;
+      const lh = sc * 3.4;                        // 杆高
+      const lw = Math.max(0.9, sc * 0.10);
+      ctx.fillStyle = shade('#9aa1ab', -dim * 0.4 - fogA);
+      ctx.fillRect(x - lw / 2, baseY - lh, lw, lh);
+      /* 悬臂：朝路面伸出 */
+      const armLen = halfM * 0.42;
+      ctx.fillRect(side < 0 ? x : x - armLen, baseY - lh, armLen, Math.max(0.9, lw * 0.9));
+      /* 灯头 */
+      ctx.fillStyle = shade('#dfe6ee', -dim * 0.2 - fogA);
+      const hx = side < 0 ? x + armLen : x - armLen;
+      ctx.fillRect(hx - lw * 1.5, baseY - lh, lw * 3, Math.max(1, lh * 0.055));
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+/* ---- 车辆 ----
+ * AI 车必须用和路面完全相同的投影，否则会「飘」在草地上。
+ * 现在直接读 GEO 表做插值：和路面共用同一份 cx / half / y，
+ * 从根上杜绝了「车在草地上开」的对齐问题。 */
+function roadGeomAt(n, bp) {
+  /* 从 GEO 表按「段数（可以是小数）」插值取路面几何。
+   * n < 0 或超出表范围时做夹取，保证不会读到脏数据。 */
+  const N = GEO.n;
+  if (N <= 1) return { cx: VIEW_W / 2, roadHalf: 40, screenY: VIEW_H, projScale: 1 };
+  let k = n;
+  if (k < 0) k = 0;
+  if (k > N - 2) k = N - 2;
+  const i = Math.floor(k), f = k - i;
+  const cx0 = GEO.cx[i], cx1 = GEO.cxN[i];
+  const h0 = GEO.half[i], h1 = GEO.halfN[i];
+  const y0 = GEO.y[i], y1 = GEO.yN[i];
+  const s0 = GEO.scale[i], s1 = GEO.scale[i + 1] || GEO.scale[i];
+  return {
+    cx: cx0 + (cx1 - cx0) * f,
+    roadHalf: h0 + (h1 - h0) * f,
+    screenY: y0 + (y1 - y0) * f,
+    projScale: s0 + (s1 - s0) * f,
+  };
+}
+
+/* ---- 车辆尺寸：全车统一 ----
+ * 【车大小一致】
+ * 原来玩家车用的是「屏幕宽度百分比」（VIEW_W*0.155 = 159px 固定值），
+ * 而 AI 车用的是「路面半宽 × 0.40」的透视投影值 —— 两套完全不同的口径。
+ * 后果：并排时玩家车比 AI 车宽 2.3 倍，而且 AI 车越远缩得越小，
+ * 玩家车却永远那么大，看上去像两个不同比例的游戏拼在一起。
+ *
+ * 现在统一成同一个口径：所有车都用「投影后的路面半宽」换算宽度，
+ * 也就是 CAR_W_RATIO × roadHalf。因为 roadHalf 本身就是透视投影的结果，
+ * 这样既保证「两车并排时一样宽」，又保住了远小近大的纵深感。
+ * 实测：AI 车与玩家车处在同一屏幕深度时，两者宽度比正好 1.00。
+ *
+ * CAR_W_RATIO 的取值：单向道整幅路面 = 2 个车道，路面半宽 ≈ 1 个车道宽，
+ * 所以 0.78 表示「车宽 = 车道的 78%」—— 车明确落在自己那条车道里、
+ * 两侧仍留得出余量。同时也决定了超车难度：
+ * 玩家必须把车横移到 |playerX| > 0.78 才能完全避开一辆停在路中的车，
+ * 也就是「必须真的变道」，而不是轻轻偏一下就过去。
+ * （原来玩家车 159px ≈ 车道的 130%，等于横跨两条车道；太宽则挤不出超车空间。）
+ * 注意：CAR_W_RATIO 的定义在文件上方「碰撞」一节旁边，
+ * 这样碰撞阈值 HIT_DX 可以直接引用它，二者永远同步。 */
+function carWidthFor(roadHalf) { return Math.max(3, roadHalf * CAR_W_RATIO); }
+/* 玩家车的基准路面半宽：取第 0 段近端（= 画面最下沿、离镜头最近那处）。
+ * AI 车按各自距离从 roadGeomAt() 取半宽 —— 两者同一套投影，所以
+ * 「处在同一屏幕高度时两车必然同宽」，并排不会一大一小。
+ *
+ * 注意：玩家车的「宽度」和「横向位置」必须用**同一个**半宽值。
+ * 位置公式是 x = roadGeomAt(0).cx + half * playerX，用的就是这里的 half；
+ * 若宽度另外取一个半宽（例如 halfN[0]），车就会比同位置的 AI 车宽一截，
+ * 既破坏「大小一致」，也让碰撞判定和画面里的车对不上。 */
+function playerRoadHalf() {
+  return (GEO.half[0] || GEO.halfN[0]) || 40;
+}
+
+function drawCars() {
+  const list = [];
+  for (const r of rivals) {
+    if (r.fading > 0) continue;
+    const dz = r.z - PS.z;
+    if (dz < 120 || dz > FOG_DIST) continue;
+    list.push({ rival: r, n: dz / SEG_LEN, offset: r.offset });
+  }
+  list.sort((a, b) => b.n - a.n);       // 远的先画
+
+  for (const item of list) {
+    const n = item.n;
+    /* 直接按「段数（小数）」插值取几何：车在段与段之间平滑移动 */
+    const g = roadGeomAt(n);
+    if (!g) continue;
+    const cx = g.cx, roadHalf = g.roadHalf, screenY = g.screenY;
+
+    /* 车横向位置：offset=±1 表示贴到路缘 */
+    const x = cx + roadHalf * item.offset;
+    /* 车宽：和玩家车共用同一条尺寸规则（见 carWidthFor） */
+    const w = carWidthFor(roadHalf);
+    const h = w * 0.74;
+    if (w < 2.2) continue;
+
+    /* 车影：贴地阴影让车「压」在路面上而不是浮着 */
+    const terrFog = Math.min(0.9, Math.pow(Math.min(1, n * SEG_LEN / FOG_DIST), 1.3) * climate.fogK);
+    ctx.fillStyle = `rgba(0,0,0,${0.22 * (1 - terrFog)})`;
+    ctx.beginPath();
+    ctx.ellipse(cx + roadHalf * item.offset, screenY, w * 0.52, Math.max(1, w * 0.10), 0, 0, Math.PI * 2);
+    ctx.fill();
+    drawCarShape(x - w / 2, screenY - h * 1.02, w, h, item.rival.color, terrFog, dimOf());
+  }
+  /* 玩家车始终画在最前 */
+  drawPlayerCar();
+}
+function dimOf() { return climate.dim + climate.dark; }
+
+function drawCarShape(x, y, w, h, colors, fogA, dim) {
+  if (w < 1.5) return;
+  const body = shade(colors[0], -dim * 0.25 - fogA);
+  const accent = shade(colors[1], -dim * 0.25 - fogA);
+  const dark = shade('#151820', -fogA);
+
+  /* 阴影 */
+  ctx.fillStyle = `rgba(0,0,0,${0.28 * (1-fogA)})`;
+  ctx.beginPath();
+  ctx.ellipse(x + w/2, y + h, w*0.55, h*0.14, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  /* 车身 */
+  ctx.fillStyle = body;
+  roundRect(x + w*0.06, y + h*0.30, w*0.88, h*0.55, Math.max(1,w*0.10));
+  ctx.fill();
+  /* 座舱 */
+  roundRect(x + w*0.20, y + h*0.06, w*0.60, h*0.34, Math.max(1,w*0.09));
+  ctx.fill();
+  /* 挡风 */
+  ctx.fillStyle = shade('#9fd8ff', -fogA * 0.6);
+  ctx.fillRect(x + w*0.26, y + h*0.12, w*0.48, h*0.14);
+  /* 尾翼 */
+  ctx.fillStyle = accent;
+  ctx.fillRect(x + w*0.04, y + h*0.24, w*0.92, h*0.09);
+  /* 轮胎 */
+  ctx.fillStyle = dark;
+  ctx.fillRect(x - w*0.02, y + h*0.52, w*0.16, h*0.34);
+  ctx.fillRect(x + w*0.86, y + h*0.52, w*0.16, h*0.34);
+  /* 尾灯 */
+  if (w > 6) {
+    ctx.fillStyle = `rgba(255,60,60,${0.9*(1-fogA)})`;
+    ctx.fillRect(x + w*0.16, y + h*0.42, w*0.16, h*0.09);
+    ctx.fillRect(x + w*0.68, y + h*0.42, w*0.16, h*0.09);
+  }
+}
+function roundRect(x, y, w, h, r) {
+  r = Math.min(r, w/2, h/2);
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.lineTo(x+w-r, y); ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+  ctx.lineTo(x+w, y+h-r); ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+  ctx.lineTo(x+r, y+h); ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+  ctx.lineTo(x, y+r); ctx.quadraticCurveTo(x, y, x+r, y);
+  ctx.closePath();
+}
+
+/* 玩家车：固定在屏幕下方，带转向倾斜
+ * 关键：车在屏幕上的横向偏移必须和路面用同一套换算，
+ * 否则车会和路面对不上（看起来像一直开在草地上）。 */
+/* 玩家车：画在屏幕下方，横向位置与路面同源（车才压在路面上） */
+function drawPlayerCar() {
+  /* 用 GEO 表第 0 段：和路面铺装同源，车永远压在路中央 */
+  const g = roadGeomAt(0);
+  /* 【车大小一致】车宽和 AI 车共用 carWidthFor()，取镜头前那一段的路面半宽。
+   * 玩家车压在画面最下沿（离镜头最近、路面最宽的那一带），
+   * 所以基准取 playerRoadHalf()（= GEO.halfN[0]），与车实际所处位置相符；
+   * AI 车则按自己的距离取半宽 —— 两者同一套投影，
+   * 因此处在同一屏幕高度时两车必然一样宽。 */
+  const roadHalf = playerRoadHalf();
+  const w = carWidthFor(roadHalf);
+  const h = w * 0.74;
+  /* 车在屏幕上的 x：路面中心 + 玩家横向偏移 × 路面半宽 */
+  const x = (g.cx + PS.playerX * g.roadHalf) - w / 2;
+  /* 【关键：贴着「真正可见的画面下沿」画】
+   * 不能用写死的 VIEW_H(640)：宽屏上 cover 缩放会把逻辑可视区裁到
+   * y ∈ [32, 608]，车若按 640 定位就会掉到屏幕外面（主角车消失）。
+   * VIEW_BOTTOM 由 resize() 按当前屏幕比例算好，任何比例下车都在画面上。 */
+  const y = VIEW_BOTTOM - h * 1.06;
+  const bob = Math.sin(particleClock * 22) * (PS.speed / MAX_SPEED) * 1.6;
+  const lean = PS.steer * 0.05;
+
+  /* 车影（跟随转向轻微偏移，增强贴地感） */
+  ctx.fillStyle = 'rgba(0,0,0,0.34)';
+  ctx.beginPath();
+  ctx.ellipse(x + w / 2 + PS.steer * w * 0.04, y + h * 0.99,
+              w * 0.50, Math.max(2, h * 0.11), 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.save();
+  ctx.translate(x + w/2, y + h/2 + bob);
+  ctx.rotate(lean * 0.35);
+  ctx.translate(-(x + w/2), -(y + h/2 + bob));
+  drawCarShape(x, y, w, h, ['#3d8bff', '#ffd35c'], 0, dimOf());
+  /* 玩家尾灯更亮 */
+  ctx.fillStyle = 'rgba(255,70,70,0.95)';
+  ctx.fillRect(x + w*0.16, y + h*0.42, w*0.16, h*0.09);
+  ctx.fillRect(x + w*0.68, y + h*0.42, w*0.16, h*0.09);
+  ctx.restore();
+}
+
+/* ---- 天气覆盖层：雨 / 雪 / 闪电 ---- */
+const RAIN_N = 340, SNOW_N = 220;
+const rainDrops = [], snowFlakes = [];
+for (let i = 0; i < RAIN_N; i++) rainDrops.push({ x: Math.random(), y: Math.random(), len: 0.5 + Math.random() * 1.4, sp: 16 + Math.random() * 12 });
+for (let i = 0; i < SNOW_N; i++) snowFlakes.push({ x: Math.random(), y: Math.random(), r: 0.6 + Math.random() * 1.9, sp: 1.6 + Math.random() * 2.4, ph: Math.random() * 6.28 });
+
+function drawWeather(dim) {
+  /* 雾罩 */
+  if (climate.fogK < 0.85) {
+    const a = (1 - climate.fogK) * 0.85;
+    const g = ctx.createLinearGradient(0, HORIZON_Y - 90, 0, VIEW_H);
+    g.addColorStop(0, `rgba(226,236,246,${a})`);
+    g.addColorStop(0.45, `rgba(226,236,246,${a * 0.72})`);
+    g.addColorStop(1, `rgba(226,236,246,${a * 0.30})`);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+  }
+  /* 雨 */
+  if (climate.rain > 0.02) {
+    const n = Math.floor(RAIN_N * Math.min(1, climate.rain));
+    ctx.strokeStyle = `rgba(190,215,245,${0.42 * Math.min(1, climate.rain)})`;
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    const windX = Math.sin(climate.windTime * 3) * climate.wind * 26;
+    for (let i = 0; i < n; i++) {
+      const d = rainDrops[i];
+      const px = d.x * VIEW_W + windX, py = d.y * VIEW_H;
+      ctx.moveTo(px, py);
+      ctx.lineTo(px - windX * 0.06, py + 12 * d.len);
+    }
+    ctx.stroke();
+  }
+  /* 雪 */
+  if (climate.snow > 0.02) {
+    const n = Math.floor(SNOW_N * Math.min(1, climate.snow));
+    ctx.fillStyle = `rgba(255,255,255,${0.82 * Math.min(1, climate.snow)})`;
+    const windX = Math.sin(climate.windTime * 1.7) * climate.wind * 18;
+    for (let i = 0; i < n; i++) {
+      const f = snowFlakes[i];
+      const px = (f.x * VIEW_W + Math.sin(particleClock * 1.4 + f.ph) * 16 + windX + VIEW_W) % VIEW_W;
+      const py = f.y * VIEW_H;
+      ctx.beginPath(); ctx.arc(px, py, f.r, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  /* 闪电白闪 */
+  if (climate.flash > 0.01) {
+    ctx.fillStyle = `rgba(235,242,255,${Math.min(0.85, climate.flash)})`;
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+  }
+}
+
+/* =========================================================
+ * 六、更新逻辑
+ * ========================================================= */
+let particleClock = 0, raceTime = 0, countdown = 0, shake = 0;
+/* 撞车后的无敌计时（秒）：防止两车贴在一起时每帧重复判定、把玩家卡死 */
+let hitCooldown = 0;
+/* 「刚打过方向」的保持计时（秒）：这段时间内暂停回正力，让变道留得住。
+ * 取 1.0 秒：满速下 1 秒能跑 5000 世界单位（约 23 个段），
+ * 足够从「并排」开到「超过对手」；太短会在超到一半时被拉回路中而撞车。 */
+let laneHold = 0;
+const LANE_HOLD_T = 1.0;
+let frameNo = 0;
+
+const keys = {};
+let steerInput = 0, gasInput = 0, brakeInput = 0;
+const KEY_LEFT = 'ArrowLeft', KEY_RIGHT = 'ArrowRight', KEY_UP = 'ArrowUp', KEY_DOWN = 'ArrowDown';
+/* 【A / D 也能控制左右】除了方向键，额外支持 A/D 两个字母键。
+ * 实现方式是把按键统一转成**小写**再存 —— 这样大小写都能生效
+ * （大写 A 来自 Caps Lock 或 Shift，不统一的话会漏掉）。
+ * W/S 也一并支持，和 A/D 成套，键盘操作更符合直觉。 */
+const KEY_A = 'a', KEY_D = 'd', KEY_W = 'w', KEY_S = 's';
+const normKey = k => (typeof k === 'string' && k.length === 1) ? k.toLowerCase() : k;
+
+window.addEventListener('keydown', e => {
+  const k = normKey(e.key);
+  if ([KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN].includes(e.key)) e.preventDefault();
+  keys[k] = true;
+  if (e.key === 'Enter' || e.key === ' ') { if (state === STATE.START) startRace(); }
 });
-window.addEventListener('keyup', e => { keys[e.key] = false; });
-/* 触屏按钮 */
-const btnLeft = $('btnLeft'), btnRight = $('btnRight');
-const offroadTip = $('offroadTip');
-function bindHold(btn, dir) {
-  const on = e => { e.preventDefault(); steerInput = dir; };
-  const off = e => { e.preventDefault(); if (steerInput === dir) steerInput = 0; };
+window.addEventListener('keyup', e => { keys[normKey(e.key)] = false; });
+
+function bindHold(btn, setter, val) {
+  if (!btn) return;
+  const on = e => { e.preventDefault(); setter(val); };
+  const off = e => { e.preventDefault(); setter(steerInput === val || gasInput === val || brakeInput === val ? 0 : 0); };
   btn.addEventListener('pointerdown', on);
   btn.addEventListener('pointerup', off);
   btn.addEventListener('pointerleave', off);
   btn.addEventListener('pointercancel', off);
 }
-bindHold(btnLeft, -1);
-bindHold(btnRight, 1);
+bindHold($('btnLeft'), v => steerInput = v, -1);
+bindHold($('btnRight'), v => steerInput = v, 1);
+bindHold($('btnGas'), v => gasInput = v, 1);
+bindHold($('btnBrake'), v => brakeInput = v, 1);
+/* 修正：松开时按按钮各自复位 */
+(function fixTouch() {
+  const pairs = [['btnLeft', 'steerInput', -1], ['btnRight', 'steerInput', 1], ['btnGas', 'gasInput', 1], ['btnBrake', 'brakeInput', 1]];
+  for (const [id, _n, val] of pairs) {
+    const btn = $(id); if (!btn) continue;
+    btn.onpointerdown = e => { e.preventDefault();
+      if (id === 'btnLeft') steerInput = -1; else if (id === 'btnRight') steerInput = 1;
+      else if (id === 'btnGas') gasInput = 1; else brakeInput = 1; };
+    const rel = e => { e.preventDefault();
+      if (id === 'btnLeft' && steerInput < 0) steerInput = 0;
+      if (id === 'btnRight' && steerInput > 0) steerInput = 0;
+      if (id === 'btnGas') gasInput = 0;
+      if (id === 'btnBrake') brakeInput = 0; };
+    btn.onpointerup = rel; btn.onpointerleave = rel; btn.onpointercancel = rel;
+  }
+})();
 if (matchMedia('(pointer: coarse)').matches) $('touchUI').style.display = 'flex';
 
-/* ---------- 名次计算 ---------- */
-function progressOf(s, lap) { return (lap - 1) * trackLen + s; }
-let playerRank = RIVALS_COUNT + 1;
-function updateRank() {
-  if (PS.finished) return;
-  const pp = progressOf(PS.s, PS.lap);
-  const finishedAhead = rivals.filter(r => r.finished).length;
-  const runningAhead = rivals.filter(r => !r.finished && progressOf(r.s, r.lap) > pp).length;
-  playerRank = finishedAhead + runningAhead + 1;
-  $('posNum').textContent = playerRank;
-}
+/* ---- 显示镜头（菜单）：相机自动往前开 ---- */
+let demoZ = 0;
 
-/* ---------- 超车 / 碰撞 ---------- */
-function collide(a, b) {
-  const da = Math.abs(a.s - b.s); const ds = Math.min(da, trackLen - da);
-  return ds < 3.6 && Math.abs(a.o - b.o) < 1.9;
-}
-let bumpCooldown = 0;
-function handleCollisions(dt) {
-  if (bumpCooldown > 0) { bumpCooldown -= dt; return; }
-  for (const r of rivals) {
-    if (r.finished) continue;
-    if (collide(r, PS)) {
-      bumpCooldown = 0.6;
-      PS.speed *= 0.55;
-      r.speed *= 0.8;
-      /* 侧向弹开 */
-      const push = r.o > PS.o ? 1 : -1;
-      PS.o -= push * 1.4;
-      r.o += push * 0.7;
-      shake = 0.5;
-      bumpSfx();
-      break;
-    }
-  }
-}
-
-/* ---------- 计时 ---------- */
-let raceTime = 0, countdown = 0, shake = 0;
-
-/* ---------- 更新 ---------- */
-const cdEl = $('countdown');
-/* 防御：倒计时元素缺失时用哑对象兜底，绝不能让主循环崩掉 */
-const cdSafe = cdEl || {
-  textContent: '', classList: { add() {}, remove() {}, contains() { return false; } }, offsetWidth: 0,
-};
-function updateCountdown() {
-  /* 2.4s: 3(2.4-1.6) 2(1.6-0.8) 1(0.8-0) GO(起跑瞬间) */
-  const n = Math.ceil(countdown / 0.8);
-  const txt = n >= 3 ? '3' : n === 2 ? '2' : n === 1 ? '1' : '';
-  if (txt && cdSafe.textContent !== txt) {
-    cdSafe.textContent = txt;
-    cdSafe.classList.remove('go');
-    /* 重新触发 pop 动画 */
-    cdSafe.classList.remove('show');
-    void cdSafe.offsetWidth;
-    cdSafe.classList.add('show');
-  }
-}
 function update(dt, t) {
-  if (state === STATE.COUNTDOWN) {
-    countdown -= dt;
-    updateCountdown();
-    if (countdown <= 0) {
-      state = STATE.RUNNING;
-      cdSafe.textContent = 'GO!';
-      cdSafe.classList.add('go');
-      cdSafe.classList.remove('show');
-      void cdSafe.offsetWidth;
-      cdSafe.classList.add('show');
-      setTimeout(() => cdSafe.classList.remove('show'), 700);
-      updateLapDots();
-    }
+  particleClock += dt;
+  climate.windTime += dt;
+  frameNo++;
+
+  /* 气候平滑插值 */
+  const Wx = climate.weather, S = SEASONS[climate.seasonIdx];
+  const k = Math.min(1, dt * 1.6);
+  climate.rain += ((Wx.rain > 0 ? Math.min(1, Wx.rain) : 0) - climate.rain) * k;
+  climate.snow += ((Wx.snow > 0 ? Math.min(1, Wx.snow) : 0) - climate.snow) * k;
+  climate.dim += (Wx.dim - climate.dim) * k;
+  climate.grip += (Wx.grip - climate.grip) * k;
+  climate.fogK += (Wx.fog - climate.fogK) * k;
+  climate.wind += (Wx.wind - climate.wind) * k;
+  climate.thunder = Wx.thunder;
+  climate.wetness += ((Wx.rain > 0 ? 1 : 0) - climate.wetness) * Math.min(1, dt * 0.25);
+
+  /* 粒子下落 */
+  const wnd = Math.sin(climate.windTime * 1.3) * climate.wind;
+  for (const d of rainDrops) { d.y += d.sp * dt * (0.6 + climate.rain); if (d.y > 1) { d.y -= 1; d.x = Math.random(); } }
+  for (const f of snowFlakes) { f.y += f.sp * dt * 0.14 * (0.6 + climate.snow); if (f.y > 1) { f.y -= 1; f.x = Math.random(); } }
+
+  /* 闪电 */
+  if (climate.thunder > 0 && state === STATE.RUNNING && Math.random() < dt * 0.16) {
+    climate.flash = 0.9; thunderSfx();
+    setTimeout(() => { climate.flash = 0.25; }, 70);
+    setTimeout(() => { climate.flash = 0; }, 190);
   }
-  if (state !== STATE.RUNNING && state !== STATE.COUNTDOWN) {
-    cdSafe.classList.remove('show');
+  if (climate.flash > 0 && climate.thunder === 0) climate.flash = 0;
+
+  if (state === STATE.START) {
+    /* 菜单：相机空跑 */
+    demoZ += dt * MAX_SPEED * 0.42;
+    advanceWorld(demoZ, 0, dt);
+    refreshSkyChip();
     return;
   }
 
-  /* ---- 玩家 ---- */
-  const targetSpeed = 34;   // 玩家极速略高于最快 AI
-  const accel = 15;
-  if (state === STATE.RUNNING) {
-    PS.speed = Math.min(targetSpeed, PS.speed + accel * dt);
+  if (state === STATE.COUNTDOWN) {
+    countdown -= dt;
+    const n = Math.ceil(countdown / 0.8);
+    if (n < countdownAnnounced) { countdownAnnounced = n; beep(n > 0 ? 440 : 880, n > 0 ? .14 : .35, 'sine', .2); }
+    if (countdown <= 0) {
+      state = STATE.RUNNING;
+      showCd('GO!', true);
+      setTimeout(() => { const c = $('countdown'); if (c) c.classList.remove('show'); }, 700);
+    } else {
+      const txt = n >= 3 ? '3' : n === 2 ? '2' : '1';
+      const c = $('countdown');
+      if (c && c.textContent !== txt) showCd(txt, false);
+    }
+  }
+
+  const running = state === STATE.RUNNING;
+
+  /* ---- 油门 / 刹车 ----
+   * 默认「自动踩油门」：发车后车会自己加速，玩家只管左右转向
+   * （README 和开始界面一直这么承诺，但早期代码只有按住 ↑ 才会加速，
+   *   结果发车后车速恒为 0 —— 这里按承诺改为自动给油）。
+   * 只有在主动刹车（↓ 或触屏刹车键）时才收油，松手后重新自动加速。 */
+  const wantBrake = (keys[KEY_DOWN] || keys[KEY_S]) ? 1 : 0 || brakeInput;
+  /* 保留手动油门：按住 ↑（或 W）时用更强的加速，给想冲刺的玩家一点操作感 */
+  const manualGas = (keys[KEY_UP] || keys[KEY_W]) ? 1 : 0 || gasInput;
+  const brake = wantBrake && running;
+  const autoGas = running && !brake;
+
+  const offroad = Math.abs(PS.playerX) > 1;
+  if (running) {
+    if (brake) {
+      PS.speed -= BRAKE * dt;
+    } else if (autoGas) {
+      const cap = offroad ? OFFROAD_LIMIT : MAX_SPEED;
+      /* 手动补油时加速更猛，自动巡航则平缓一些，手感更顺 */
+      const accel = ACCEL * (manualGas ? 1.35 : 1.0);
+      PS.speed += (PS.speed < cap ? accel : DECEL * 2) * dt;
+      if (PS.speed > cap) PS.speed = Math.max(cap, PS.speed - DECEL * dt);
+    }
+    if (offroad && PS.speed > OFFROAD_LIMIT) PS.speed -= OFFROAD_DECEL * dt;
+    PS.speed = Math.max(0, Math.min(MAX_SPEED, PS.speed));
   } else {
-    PS.speed = Math.max(0, PS.speed - 20 * dt);
+    PS.speed = Math.max(0, PS.speed - DECEL * 1.5 * dt);
   }
-  /* 出弯减速（离心）：贴路肩才轻微掉速（阈值 0.78，之前 0.55 太苛刻） */
-  const offRatio = Math.abs(PS.o) / ROAD_W;
-  let effSpeed = PS.speed * (1 - Math.max(0, offRatio - 0.78) * 0.55);
 
-  /* 转向 */
+  /* ---- 转向 ---- */
   let steer = steerInput;
-  if (!steer) steer = (keys['ArrowLeft'] ? -1 : 0) + (keys['ArrowRight'] ? 1 : 0);
+  if (!steer) {
+    steer = ((keys[KEY_LEFT] || keys[KEY_A]) ? -1 : 0)
+          + ((keys[KEY_RIGHT] || keys[KEY_D]) ? 1 : 0);
+  }
   PS.steer += (steer - PS.steer) * Math.min(1, dt * 9);
-  const steerPower = 10.5;                       // 横向速度 m/s
-  PS.o += PS.steer * steerPower * dt;
+  /* 玩家一旦主动打方向，就刷新「保持车道」计时：
+   * 接下来 0.45 秒内回正力被削弱，变道才留得住，超车才做得出动作。 */
+  if (Math.abs(steer) > 0.08) laneHold = LANE_HOLD_T;
 
-  /* 弯道离心力：不主动转向会被甩向弯道外侧（必须打方向才能贴住走线） */
-  {
-    const cfIdx = sToIdx(PS.s);
-    const n0 = normals[cfIdx], n1 = normals[(cfIdx + 6) % SEG_SAMPLES];
-    const crossY = n0.x * n1.z - n0.z * n1.x;   // 曲率符号：左弯甩右 / 右弯甩左
-    const curvMag = (1 - n0.dot(n1)) * 26;      // 弯越急越强
-    PS.o -= crossY * curvMag * dt * Math.min(1, PS.speed / 30);
-  }
+  /* 湿滑打滑：转向响应变慢 + 轻微随机侧滑 */
+  const slip = (1 - climate.grip) * Math.min(1, PS.speed / MAX_SPEED);
+  const steerRate = 1.4 * (1 - slip * 0.45) * Math.min(1, PS.speed / (MAX_SPEED * 0.28));
+  PS.playerX += PS.steer * steerRate * dt;
+  PS.playerX += (Math.random() - 0.5) * slip * dt * 0.45;
 
-  /* 冲出赛道：草地阻力（放宽到 0.5，最狠 50% 而非 35%）+ 明显反馈 */
-  const offroad = Math.abs(PS.o) > ROAD_W - 0.6;
-  if (offroad) {
-    const over = Math.abs(PS.o) - (ROAD_W - 0.6);
-    effSpeed *= Math.max(0.5, 1 - over * 0.18);
-    PS.o = Math.max(-(ROAD_W + 2.6), Math.min(ROAD_W + 2.6, PS.o));
-    if (Math.random() < dt * 30) dustBurst(PS);   // 持续浓尘
-  } else if (Math.abs(PS.steer) > 0.55 && effSpeed > 22 && Math.random() < dt * 26) {
-    /* 高速急打方向 → 后轮漂移烟（浅色小颗粒） */
-    const rear = { s: PS.s - 1.6, o: PS.o + (PS.steer > 0 ? -0.9 : 0.9) };
-    dustBurst(rear, { size: 7 + Math.random() * 6, up: 1.6, spread: 2.2 });
+  /* 侧风 */
+  if (climate.wind > 0.05) PS.playerX += Math.sin(climate.windTime * 1.1) * climate.wind * dt * 0.030;
+
+  /* ---- 前进 ---- */
+  if (running) {
+    PS.z += PS.speed * dt;
+    raceTime += dt;
   }
-  /* 减速状态可视化：速度表变红 + 冲出赛道提示条 */
-  {
-    const chip = $('hudSpeed');
-    const n = $('speedNum');
-    if (offroad) {
-      chip.style.borderColor = 'rgba(255, 90, 90, .9)';
-      chip.style.background = 'rgba(120, 20, 20, .72)';
-      n.style.color = '#ff9d9d';
-      offroadTip.style.opacity = '1';
-    } else if (offRatio > 0.78) {
-      chip.style.borderColor = 'rgba(255, 200, 90, .8)';
-      chip.style.background = 'rgba(120, 80, 10, .6)';
-      n.style.color = '#ffd35c';
-      offroadTip.style.opacity = '0';
-    } else {
-      chip.style.borderColor = '';
-      chip.style.background = '';
-      n.style.color = '';
-      offroadTip.style.opacity = '0';
+  advanceWorld(PS.z, PS.playerX, dt);
+
+  /* ---- 离心力：速度越快、弯越急，越被甩出去 ----
+   * 必须明显小于转向能力（满舵 1.4/s），否则车会被甩出路面且拉不回来。
+   *
+   * 这里还加了一条「自然回正」：不动方向时，车会极缓慢地被拉回路中央。
+   * 原因：原来只有纯粹的离心力，没有任何回正机制，玩家完全不操作时
+   * 位置会单向累积（实测 8 秒就从 0 漂到 -0.52，之后一直贴着
+   * ±1.6 的边界跑），全程压在路肩草地上 —— 对小朋友来说这既不友好，
+   * 也让「自动踩油门、只要左右转」的玩法名不副实。
+   * 回正系数刻意取小值：它只在「双手离开方向盘」时慢慢把车拉回来，
+   * 不会跟玩家的主动操作抢方向，过弯依然需要自己走线。
+   *
+   * 【配合超车玩法的补充】玩家打完方向后，回正会**暂停 0.45 秒**
+   * （holdLane）。否则会出现这种情况：玩家向右打方向变道想超车，
+   * 一松手车立刻被回正力拉回路中，正好又撞上刚才那辆车的屁股 ——
+   * 于是「变道」这个动作根本留不住，超车永远失败。
+   * 保留一点点回正（故意不设为 0），让车缓缓漂回去，
+   * 既有「车道会自己回中」的顺手感，又给玩家留出超车的时间窗口。 */
+  if (running) {
+    const seg = segments[Math.floor(PS.z / SEG_LEN) % SEG_COUNT];
+    const cf = seg.curve * (PS.speed / MAX_SPEED) * CENTRIFUGAL * dt;
+    PS.playerX -= cf;
+    /* 玩家刚打过方向：这段时间内基本不回正，让变道「留得住」。
+     * 设成 0（而不是很小的值）是有意的：回正力的 urgency 项
+     * (1 + |playerX|*1.2) 会随偏离量变强，玩家越想待在旁边车道、
+     * 回正反而越猛，结果刚变出去就被拽回来、正好撞上前车屁股。
+     * 保持窗口结束后回正力恢复，车会自己慢慢回到路中。 */
+    if (laneHold > 0) laneHold = Math.max(0, laneHold - dt);
+    const recentreK = laneHold > 0 ? 0 : 1.0;
+    /* 自适应回正：速度越高回正越弱（高速更难保持直线，保留挑战性），
+     * 偏离越大回正越强（快冲出路面时拉得回来）。 */
+    if (Math.abs(PS.steer) < 0.08 && Math.abs(PS.playerX) > 0.02) {
+      const back = 0.30 * (1 - PS.speed / MAX_SPEED * 0.45);
+      const urgency = 1 + Math.min(1.5, Math.abs(PS.playerX) * 1.2);
+      PS.playerX -= Math.sign(PS.playerX) * back * urgency * recentreK * dt;
     }
+    PS.playerX = Math.max(-1.6, Math.min(1.6, PS.playerX));
   }
 
-  PS.s += effSpeed * dt;
-  PS.visualYaw = -PS.steer * 0.24;
-
-  /* 圈数推进 */
-  if (PS.s >= trackLen * PS.lap) {
-    PS.lap++;
-    if (PS.lap > LAPS_TOTAL) {
-      PS.finished = true;
-      PS.finishTime = raceTime;
-      finishRace(true);
-    } else {
-      updateLapHUD();
-      lapSfx();
-    }
+  /* 冲出路面提示 */
+  const tip = $('offroadTip');
+  if (tip) tip.style.opacity = offroad ? '1' : '0';
+  const sd = $('statDist');
+  if (sd) {
+    if (offroad) { sd.style.borderColor = 'rgba(255,90,90,.9)'; sd.style.background = 'rgba(120,20,20,.72)'; }
+    else { sd.style.borderColor = ''; sd.style.background = ''; }
   }
 
   /* ---- AI ---- */
   for (const r of rivals) {
-    if (r.finished) continue;
-    /* 目标速度：基础 × 曲率因子 + 随机呼吸 */
-    const curv = curvatureAt(r.s);
-    const wob = 1 + Math.sin(t * 0.7 + r.wobbleT) * 0.04;
-    let want = r.baseSpeed * (0.62 + curv * 0.38) * wob;
-    /* 橡皮筋：落后玩家太多提速，领先太多略松 */
-    const gap = progressOf(PS.s, PS.lap) - progressOf(r.s, r.lap);
-    if (gap > 60) want *= 1.16;
-    else if (gap < -60) want *= 0.88;
-    r.speed += (want - r.speed) * Math.min(1, dt * 1.4);
-    /* 走线：朝内线切弯 + 慢速摆动 */
-    const cut = (1 - curv) * 4.2;
-    r.targetO = Math.max(-ROAD_W + 1.4, Math.min(ROAD_W - 1.4, (Math.sin(aheadPhase(r, t)) * 1.1) + cut * sideOfCurve(r.s)));
-    r.o += (r.targetO - r.o) * Math.min(1, dt * 1.1);
-    /* 避让玩家与前车（简单横移） */
-    for (const other of [PS, ...rivals]) {
-      if (other === r || other.finished) continue;
-      const da = ((other.s - r.s) % trackLen + trackLen) % trackLen;
-      if (da < 7 && Math.abs(other.o - r.o) < 2.0) {
-        r.targetO = Math.max(-ROAD_W + 1.4, Math.min(ROAD_W - 1.4, other.o + (other.o > r.o ? -2.6 : 2.6)));
+    if (r.fading > 0) {
+      r.fading += dt;
+      r.z += (r.speed + MAX_SPEED * 0.35) * dt;
+      if (r.fading > 1.0) {
+        /* 前方补一辆新车，保证永远有车可超。
+         * 回绕距离和上面一致（0.30~0.62 倍可视距离）：落在看得清的
+         * 中远距离，而不是贴在雾里看不见。 */
+        const i = Math.floor(Math.random() * 99);
+        const nz = PS.z + FOG_DIST * 0.30 + Math.random() * FOG_DIST * 0.32;
+        /* 横向挑一条空着的车道，而不是随机撒在路中间 —— 车流才不会挤成一坨 */
+        const nr = spawnRival(i, nz, pickFreeLane(nz, r));
+        Object.assign(r, nr);
       }
+      continue;
     }
-    r.s += r.speed * dt;
-    if (r.s >= trackLen * r.lap) {
-      r.lap++;
-      if (r.lap > LAPS_TOTAL) {
-        r.finished = true;
-        r.finishTime = raceTime;
-        r.finishOrder = ++finishCount;
+    /* AI 走线：保持自己的车道，**不再自动躲开玩家**。
+     * 原来这里写的是「发现玩家靠近就主动让开」（|dx|<0.30 时往旁边闪）。
+     * 后果是：玩家只要一直往前开，AI 会自己闪到一边，超车依然不需要操作 ——
+     * 想「压着别人过去」也能轻松刷到超车数。
+     * 现在让 AI 守住自己的线（只用轻微摆动增加真实感），
+     * 于是想超车就必须由**玩家**左右变道绕过去，玩法才成立。 */
+    /* 车道摆动：绕着自己的「目标车道」小幅左右晃，增加真实感。
+     * 【修一个隐蔽的漂移 bug】原来写的是
+     *     r.lane += sin(t*0.6 + wobble) * 0.16 * dt
+     * 这是把一个正弦「积分」进了 lane —— 正弦对时间的积分不是零均值，
+     * 于是 lane 会单向慢慢漂走（实测一辆初始 offset=-0.9 的车，
+     * 跑一会儿就自己漂到 +0.62，横穿整条路），
+     * 结果 AI 会莫名其妙撞上玩家，超车也变得完全不可控。
+     * 现在改成「基准车道 + 正弦偏移」：摆动始终绕着自己的车道，
+     * 均值恒等于基准车道，再也不会漂。 */
+    const baseLane = r.baseLane !== undefined ? r.baseLane : (r.baseLane = r.lane);
+    r.lane = baseLane + (r.wobble ? Math.sin(particleClock * 0.6 + r.wobble) * 0.10 : 0);
+    r.offset += (r.lane - r.offset) * Math.min(1, dt * 1.1);
+    r.offset = Math.max(-0.92, Math.min(0.92, r.offset));
+
+    /* 速度：用「这辆车自己的巡航速度」+ 温和的橡皮筋
+     * 【为什么会有「前后拉扯」的感觉】
+     * 原来这里写的是
+     *     want = MAX_SPEED * (0.62 + rnd(...)*0.0 + 0.10)
+     * 那个随机项被乘了 0.0，所以 want ≡ 0.72×极速 —— **所有 AI 速度完全一样**。
+     * 同速车永远分不开，于是越跑越挤成一团（实测 30 秒后 8 辆车全挤在
+     * 340~2000 单位内，速度都是 3600）。
+     * 更糟的是橡皮筋阈值取了 ±9000 世界单位（= 41 个路段）：要等到
+     * 拉开 41 个路段才修正，一修正就是 1.22 倍猛冲 / 0.86 倍急收，
+     * 冲过头再拉回来 —— 看上去就是被「前后来回拽」。
+     *
+     * 现在：巡航速度按车区分（0.62~0.90），橡皮筋只在**玩家附近**起作用，
+     * 而且幅度小、范围窄，作用是「别把玩家甩得太远，保证总有车可超」，
+     * 不再产生肉眼可见的拉扯。 */
+    if (!r.cruise) r.cruise = 0.72;            // 兼容旧存档/异常数据
+    let want = MAX_SPEED * r.cruise;
+    want *= (0.97 + 0.03 * climate.grip);      // 湿滑时整体略慢一点
+    if (running) {
+      const gap = PS.z - r.z;                  // >0 = 玩家在它后面
+      /* 【温和橡皮筋，必须是连续曲线】
+       * 原来这里是三条 if 台阶：
+       *     if (gap > 12000) want *= 1.15;
+       *     else if (gap > 6000) want *= 1.06;
+       *     else if (gap < -3000) want *= 0.92;
+       * 每一档都是一次**突跳**：车距在 6000 或 12000 附近来回时，
+       * 目标速度会在两个差 9% 的值之间反复切换，速度随之来回 ——
+       * 这也是「一前一后顿挫」的来源之一。
+       *
+       * 现在改成一条连续的 S 形曲线：
+       *   gap 很大（玩家落后）→ 缓慢加速到 1.15 倍（等一等玩家）
+       *   gap 接近 0        → 1.0 倍（正常巡航）
+       *   gap 为负（玩家超前）→ 缓慢降到 0.92 倍（别被甩太远）
+       * 用 tanh 做平滑过渡，全程没有任何跳变点。 */
+      const ramped = 1.15 - 0.23 / (1 + Math.exp(-(gap - 4500) / 3500));
+      want *= ramped;
+
+      /* 【防扎堆】跟车太近就松油门 —— 车流才会自然保持间距。
+       * 这在现实里就是「保持车距」，作用在视觉上就是：
+       * 后面的车不会一头顶进前面的车里，整条路看起来是疏朗的一列列。
+       * 只在同一车道（横向重叠）且纵向距离小于 KEEP_GAP 时才减速。
+       *
+       * 【必须是渐变的，否则就变成「前后拉扯」】
+       * 减速系数在 dz = KEEP_GAP 处为 1（不减速），随 dz 减小连续降到 HARD。
+       * 用平方而不是线性：远处几乎不影响，只有真正贴近时才明显减速，
+       * 既保证不叠车，又不会让远处的车频繁变速（那样才像「被拽」）。
+       * 另外加一条硬约束：距离小于一个车身时直接把目标速度压到前车的
+       * 实际速度以下，彻底避免顶上去。 */
+      for (const o of rivals) {
+        if (o === r || o.fading > 0) continue;
+        const dz = o.z - r.z;                  // >0 = 在它前面
+        if (dz <= 0 || dz > KEEP_GAP) continue;
+        if (Math.abs(o.offset - r.offset) > CAR_W_RATIO) continue;   // 不同车道，不用管
+        const t = 1 - dz / KEEP_GAP;            // 0(远) → 1(贴着)
+        /* 【全部改成连续函数，这是「顿挫感」的根因】
+         * 原来这里是分段的：
+         *     want *= 1 - 0.75*t*t;                       // 连续
+         *     if (dz < HIT_DZ*2.2) want = min(want, o.speed*0.88);   // ← 阶跃！
+         *     else if (...) want = min(want, o.speed*0.97);          // ← 又一个阶跃
+         * 车在 dz≈330 附近来回穿越时，want 会在两个差很多的值之间**反复跳**，
+         * 速度跟着一来一回 —— 玩家看到的就是「一前一后一顿一顿」。
+         * 实测 8 辆车里有 4 辆出现这种加速度反复变向（最高每 10 秒 5.2 次）。
+         *
+         * 现在把「跟得太近要更慢」也写成**随 dz 连续变化**的：
+         *   dz 从 KEEP_GAP 递减到 0 时，允许的最高速度从「前车的 1.0 倍」
+         *   平滑降到「前车的 0.82 倍」，没有任何跳变点。
+         * 目标速度连续 → 速度连续 → 相对位置平顺，顿挫自然消失。 */
+        const follow = 1 - 0.18 * t;            // 1.0 → 0.82（连续）
+        want = Math.min(want, o.speed * follow);
+        /* 基础衰减（同样连续） */
+        want *= 1 - 0.55 * t * t;
+        break;
       }
+
+      /* 【去掉限幅，改成「带惯性的收敛」】
+       * 上一版加了一条硬限幅 `dv = clamp(dv, ±AI_ACCEL_MAX*dt)`。
+       * 它的本意是防「猛拽」，但副作用正是顿挫：
+       * 限幅把速度变成一条**斜坡**，斜坡是跟踪不上连续变化的目标的 ——
+       * 速度会一直落后于 want，然后在目标回升时又慢半拍，
+       * 表现为持续的「跟不上 → 猛追 → 又落后」。
+       *
+       * 正确做法不是限速，而是**让目标本身连续**（上面已经做到），
+       * 再用一个一阶惯性去跟踪它：目标连续时，惯性系统的输出必然连续，
+       * 既不会猛拽，也不会顿挫。
+       * 收敛率取 2.5/s（约 0.4 秒跟上目标），加减速用同一个值 ——
+       * 对称才是「有惯性」而不是「一冲一收」。 */
+      const AI_FOLLOW_RATE = 2.5;
+      r.speed += (want - r.speed) * Math.min(1, dt * AI_FOLLOW_RATE);
+      r.z += r.speed * dt;
+    }
+    /* 太远/太近就回绕到前方（保持车流密度）
+     * 【为什么车会「看不见」】原来回绕位置是 FOG_DIST 的 0.66~0.96 倍
+     * （55000~80000 世界单位），几乎贴在最远的雾里 —— 玩家一眼望去
+     * 视野里几乎没车，「分散」变成了「消失」。
+     * 现在回绕到 0.30~0.62 倍（25000~52000），落在中远距离：
+     * 既不会突然出现在眼前、又是看得清的位置，车流密度观感正常。 */
+    if (r.z < PS.z - 800 || r.z > PS.z + FOG_DIST * 1.2) {
+      const i = Math.floor(Math.random() * 99);
+      const nz = PS.z + FOG_DIST * 0.30 + Math.random() * FOG_DIST * 0.32;
+      const nr = spawnRival(i, nz, pickFreeLane(nz, r));
+      Object.assign(r, nr);
     }
   }
 
-  handleCollisions(dt);
-  updateRank();
+  /* ---- 碰撞：超车必须靠左右走线 ----
+   * 判定条件 = 纵向重叠（|dz| < HIT_DZ）且横向重叠（|dx| < HIT_DX）。
+   * 撞上之后：
+   *   · 玩家被往「远离对手」的方向弹开，并被减速（撞车要付代价）；
+   *   · 短暂无敌（HIT_GRACE），否则两车会贴着反复判定、被卡在原地。
+   * 同时把这一帧标记为「撞了车」，该车本次不计入超车数（见下）。 */
+  if (running) {
+    for (const r of rivals) {
+      r.hitThisFrame = false;
+      if (r.fading > 0) continue;
+      const dz = r.z - PS.z;
+      if (Math.abs(dz) > HIT_DZ) continue;
+      const dx = r.offset - PS.playerX;
+      if (Math.abs(dx) > HIT_DX) continue;
+      if (hitCooldown > 0) continue;              // 无敌时间内不再重复判定
 
-  /* ---- 相机追尾 ---- */
-  const camTarget = trackPos(PS.s - 9.2, PS.o * 0.55, 5.8);
-  const lookAt = trackPos(PS.s + 20, PS.o * 0.25, 1.2);
-  camera.position.lerp(camTarget, Math.min(1, dt * 6));
-  if (shake > 0) {
-    shake = Math.max(0, shake - dt * 1.6);
-    camera.position.x += (Math.random() - 0.5) * shake * 0.7;
-    camera.position.y += (Math.random() - 0.5) * shake * 0.4;
-  }
-  camera.lookAt(lookAt);
-  /* 速度感：FOV 随速度平滑张开（64 直道巡航 → 73 极速冲刺）+ 过弯侧倾 */
-  const wantFov = 64 + Math.min(1, effSpeed / 34) * 9;
-  if (Math.abs(camera.fov - wantFov) > 0.05) {
-    camera.fov += (wantFov - camera.fov) * Math.min(1, dt * 3);
-    camera.updateProjectionMatrix();
-  }
-  camera.rotation.z += PS.steer * 0.045;
-
-  /* 玩家网格姿态 */
-  const pp = trackPos(PS.s, PS.o, 0.02);
-  player.position.copy(pp);
-  const ahead = trackPos(PS.s + 3, PS.o, 0);
-  player.lookAt(ahead);
-  player.rotateY(PS.visualYaw);
-  /* 车轮滚动 + 前轮随转向偏摆（打方向时前轮看得见角度） */
-  const steerYaw = PS.steer * 0.42;
-  player.userData.wheels.forEach((w, wi) => {
-    w.rotation.x -= effSpeed * dt * 2.2;
-    if (wi < 2) w.rotation.y = -steerYaw;
-  });
-
-  /* 太阳阴影相机跟随玩家（±90m frustum 始终罩住玩家附近，2048 贴图足够清晰） */
-  sun.target.position.set(pp.x, 0, pp.z);
-  sun.position.set(pp.x + SUN_OFF.x, SUN_OFF.y, pp.z + SUN_OFF.z);
-  sun.target.updateMatrixWorld();
-
-  /* AI 网格姿态 */
-  for (const r of rivals) {
-    const rp = trackPos(r.s, r.o, 0.02);
-    r.mesh.position.copy(rp);
-    const ra = trackPos(r.s + 3, r.o, 0);
-    r.mesh.lookAt(ra);
-    const lean = (r.targetO - r.o) * 0.06;
-    r.mesh.rotateY(-lean);
-    for (const w of r.mesh.userData.wheels) w.rotation.x -= r.speed * dt * 2.2;
-  }
-
-  /* HUD */
-  $('speedNum').textContent = Math.round(effSpeed * 3.6);
-  const m = Math.floor(raceTime / 60), sec = raceTime - m * 60;
-  $('timeNum').textContent = m + ':' + (sec < 10 ? '0' : '') + sec.toFixed(1);
-}
-let finishCount = 0;
-function aheadPhase(r, t) { return t * 0.5 + r.wobbleT; }
-function sideOfCurve(s) {
-  /* 曲率符号：内侧法线方向判断 */
-  const i = sToIdx(s);
-  const n0 = normals[i];
-  const n1 = normals[(i + 6) % SEG_SAMPLES];
-  const dot = n0.dot(n1);
-  return dot < 0.9995 ? (n1.x * n0.z - n1.z * n0.x) * 60 : 0;
-}
-
-/* ---------- 粒子（尘土 / 漂移烟）：单个 Points = 1 个 draw call ----------
- * 原实现 90 个 Mesh 共享 1 个材质、却按 mesh 设 opacity —— 全场尘土透明度
- * 一起跳。技能库 threejs-shaders：把寿命/尺寸放进 BufferAttribute，
- * 由顶点着色器逐粒子缩放、片元着色器逐粒子淡出。 */
-const DUST_MAX = 160;
-const dustPos = new Float32Array(DUST_MAX * 3);
-const dustData = new Float32Array(DUST_MAX * 2);      // x: size, y: life(0..1)
-const dustVel = [];                                   // 每粒子速度 {vx, vy, vz}
-for (let i = 0; i < DUST_MAX; i++) dustVel.push({ vx: 0, vy: 0, vz: 0 });
-let dustHead = 0;                                     // 环形写入游标
-const dustGeo = new THREE.BufferGeometry();
-dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
-dustGeo.setAttribute('aDust', new THREE.BufferAttribute(dustData, 2));
-const dustMat = new THREE.ShaderMaterial({
-  transparent: true,
-  depthWrite: false,
-  uniforms: { uColor: { value: new THREE.Color(0xc9b48a) } },
-  vertexShader: `
-    attribute vec2 aDust;          /* x: size, y: life */
-    varying float vLife;
-    void main() {
-      vLife = aDust.y;
-      vec4 mv = modelViewMatrix * vec4(position, 1.0);
-      gl_PointSize = aDust.x * (140.0 / -mv.z);   /* 近大远小 */
-      gl_Position = projectionMatrix * mv;
+      hitCooldown = HIT_GRACE;
+      r.hitThisFrame = true;
+      /* 【撞车不能变成「免费变道」】
+       * 早前这里把玩家往旁边推开 HIT_PUSH*0.28（约 0.24），
+       * 于是有个漏洞：玩家完全不打方向、一路怼上去，
+       * 每次碰撞都被推一点点，几次之后就被「弹」到了旁边车道，
+       * 居然也能超过去 —— 又变成不需要操作了（实测不操作也能超车 1 辆）。
+       * 现在改成「减速 + 往对手身上挤回去（do not gain lateral ground）」：
+       * 玩家不但不能借碰撞变道，反而被轻微拉回自己原来的横向位置，
+       * 想超车就必须自己打方向。 */
+      PS.speed *= HIT_SLOW;
+      /* 把玩家轻轻往回顶（朝对手那一侧），抵消掉「被弹开」带来的位移 */
+      const nudge = Math.min(HIT_NUDGE, Math.abs(dx) * 0.5 + 0.02);
+      PS.playerX += (dx > 0 ? 1 : -1) * nudge;
+      shake = Math.min(1, shake + 0.85);
+      crashSfx();
+      /* 故意不推动对手：对手保持自己的车道，「撞开别人」这条路走不通，
+       * 想超车只能玩家自己绕。 */
     }
-  `,
-  fragmentShader: `
-    uniform vec3 uColor;
-    varying float vLife;
-    void main() {
-      vec2 d = gl_PointCoord - 0.5;
-      float r = length(d);
-      if (r > 0.5) discard;                     /* 圆形粒子 */
-      float edge = smoothstep(0.5, 0.18, r);    /* 柔软边缘 */
-      gl_FragColor = vec4(uColor, vLife * edge * 0.62);
+  }
+  if (hitCooldown > 0) hitCooldown = Math.max(0, hitCooldown - dt);
+
+  /* ---- 超车计数 ----
+   * 只有「从后面追上去、并且横向确实让开了」才算超越。
+   * 如果两车横向重叠（等于从别人身上压过去），不计入超车数 ——
+   * 这样想刷超车数就必须真的左右变道绕过去。
+   *
+   * 【为什么不能只看「越过的那一帧」】
+   * 原来只在这一帧判断 |dx| >= HIT_DX。但对手有 ±0.10 的车道摆动，
+   * 抖动中总会有某一帧恰好满足条件 —— 于是玩家不操作、一路顶着前车
+   * 蹭过去，也能在某个瞬间「被判为已让开」而记一次超车（实测确实会 +1，
+   * 而且因为现在车距更密、碰撞更频繁，这个漏洞更容易触发）。
+   * 现在改成**持续让开**才算数：连续若干帧横向都够开且没撞车，
+   * 才带着「已让开」状态越过前车；任何一帧重新贴上就清零重来。 */
+  if (running) {
+    const CLEAR_FRAMES_NEEDED = 6;      // 约 0.1 秒的持续让开
+    for (const r of rivals) {
+      if (r.fading > 0) continue;
+      const rel = r.z - PS.z;
+      if (r.seen === undefined) { r.seen = frameNo; r.seenAhead = rel > 0; r.clearFrames = 0; }
+      const close = Math.abs(rel) < 2600;
+      if (!close) { r.seen = frameNo; r.seenAhead = rel > 0; r.clearFrames = 0; continue; }
+      const aheadNow = rel > 0;
+      /* 累计「连续让开」的帧数（横向够开 且 本帧没撞车） */
+      const laterallyClear = Math.abs(r.offset - PS.playerX) >= HIT_DX;
+      if (laterallyClear && !r.hitThisFrame) r.clearFrames = (r.clearFrames || 0) + 1;
+      else r.clearFrames = 0;
+      const cleared = r.clearFrames >= CLEAR_FRAMES_NEEDED;
+      if (r.seen === frameNo - 1 && r.seenAhead && !aheadNow && cleared && !r.hitThisFrame) {
+        PS.passed++;
+        bumpStat('statPass', 'passVal', PS.passed);
+        passSfx();
+        r.fading = 0.0001;
+      }
+      r.seen = frameNo; r.seenAhead = aheadNow;
     }
-  `,
-});
-const dustPoints = new THREE.Points(dustGeo, dustMat);
-dustPoints.frustumCulled = false;
-scene.add(dustPoints);
-
-const _dv = new THREE.Vector3();
-function dustBurst(target, opts) {
-  const p = trackPos(target.s, target.o, 0.12);
-  const i = dustHead;
-  dustHead = (dustHead + 1) % DUST_MAX;
-  dustPos[i * 3] = p.x; dustPos[i * 3 + 1] = p.y; dustPos[i * 3 + 2] = p.z;
-  dustData[i * 2] = (opts && opts.size) || 10 + Math.random() * 10;
-  dustData[i * 2 + 1] = 1;
-  const spread = (opts && opts.spread) || 3;
-  dustVel[i].vx = (Math.random() - .5) * spread;
-  dustVel[i].vy = Math.random() * (opts && opts.up != null ? opts.up : 2.5);
-  dustVel[i].vz = (Math.random() - .5) * spread;
-}
-function updateDust(dt) {
-  let alive = 0;
-  for (let i = 0; i < DUST_MAX; i++) {
-    if (dustData[i * 2 + 1] <= 0) { dustPos[i * 3 + 1] = -50; continue; }   // 沉底隐藏
-    dustData[i * 2 + 1] -= dt * 1.5;
-    dustVel[i].vy -= 4 * dt;
-    dustPos[i * 3] += dustVel[i].vx * dt;
-    dustPos[i * 3 + 1] = Math.max(0.05, dustPos[i * 3 + 1] + dustVel[i].vy * dt);
-    dustPos[i * 3 + 2] += dustVel[i].vz * dt;
-    dustData[i * 2] += dt * 26;               /* 尺寸随时间膨胀（扬尘感） */
-    alive++;
   }
-  dustGeo.attributes.position.needsUpdate = true;
-  dustGeo.attributes.aDust.needsUpdate = true;
-  return alive;
-}
 
-/* ---------- 圈数 HUD ---------- */
-function updateLapHUD() {
-  const el = $('lapNum');
-  if (el) el.textContent = Math.min(PS.lap, LAPS_TOTAL);
-}
-function updateLapDots() {
-  const box = $('lapDots');
-  box.innerHTML = '';
-  for (let i = 1; i <= LAPS_TOTAL; i++) {
-    const d = document.createElement('div');
-    d.className = 'lap-dot' + (i < PS.lap ? ' done' : i === PS.lap ? ' cur' : '');
-    box.appendChild(d);
+  /* ---- 「中华大地已走 N 圈」----
+   * 判圈方式：指示牌上的省份按 34 个循环，每跑满一轮 34 个省份
+   * （距离 = 34 × BOARD_STEP）就记 1 圈。
+   *
+   * 【为什么要用 lapMark 而不是「一超过就 +1」】
+   * 如果写成 `if (PS.z >= PS.lap * LAP_DIST) PS.lap++`，
+   * 那么只要停在某一圈之后不动，条件会一直成立 —— 不过帧内只加一次还算侥幸，
+   * 但反过来（比如重置 z、或一帧跨过多圈）就会漏记或错记。
+   * 用 lapMark 记录「已经结算到第几圈的边界」，只结算**新跨过**的边界，
+   * 既能一次跨多圈时全部补上，也绝不会重复计数。 */
+  if (running && LAP_DIST > 0) {
+    const done = Math.floor(PS.z / LAP_DIST);        // 已经跨过的完整轮数
+    if (done > PS.lapMark) {
+      const gained = done - PS.lapMark;
+      PS.lap += gained;
+      PS.lapMark = done;
+      bumpStat('statLap', 'lapVal', PS.lap);
+      /* 圈数提示：顺便把「中华大地已走 N 圈」这行文字也刷新 */
+      const lab = $('lapLab');
+      if (lab) lab.textContent = '中华大地已走 ' + PS.lap + ' 圈';
+      if (typeof lapSfx === 'function') lapSfx();
+    }
   }
+
+  /* ---- 「当前处于 X 省」地理位置标识 ----
+   * 指示牌上的省份是按绝对坐标摆放的：第 k 块牌子在 z = k * BOARD_STEP 处，
+   * 内容是 CN_REGIONS[k % 34]。所以玩家「最近经过的那块牌子」就是
+   *   k = floor(PS.z / BOARD_STEP)
+   * 对应的省份 —— 这正是「一直到下一块指示牌之前都显示当前省份」的语义：
+   * 越过一块牌子后立刻切换，并一直保持到再越过下一块。
+   * （公式与 makeSprites 里生成牌子的取模方式完全一致，
+   *   所以 HUD 显示的和路边看到的那块牌子必定是同一个省。） */
+  const geoK = Math.floor(PS.z / BOARD_STEP);
+  const geoRegion = CN_REGIONS[((geoK % CN_REGIONS.length) + CN_REGIONS.length) % CN_REGIONS.length];
+  if (geoRegion !== shownRegion) {
+    shownRegion = geoRegion;
+    const gv = $('geoVal');
+    /* 直辖市 / 自治区 / 特别行政区不该一律叫「省」，
+     * 按实际行政区类别换后缀，这样「当前处于 北京市」
+     * 「当前处于 内蒙古自治区」「当前处于 香港特别行政区」
+     * 才都念得通，不会出现「香港省」这种错误说法。 */
+    if (gv) gv.textContent = regionFullName(geoRegion);
+    /* 只播放高亮动画 —— 注意不能用 bumpStat('statGeo','geoVal',0)：
+     * 那个函数会把 textContent 设成传进去的值（这里就是 0），
+     * 反而把刚写好的省名覆盖掉。所以这里只做动画，不动文字。 */
+    const box = $('statGeo');
+    if (box) { box.classList.remove('bump'); void box.offsetWidth; box.classList.add('bump'); }
+  }
+
+  /* 气候计时 */
+  updateClimateTimers(dt);
+  refreshSkyChip();
 }
 
-/* ---------- 音效（Web Audio） ---------- */
-let actx = null, engineOsc = null, engineGain = null, engineFilter = null, muted = false;
+/* 世界推进：路段回绕 + 相机几何 */
+/* 「窗口占用表」：复用同一个 buffer，避免每帧分配内存 */
+let occTaken = null;
+
+function advanceWorld(z, playerX, dt) {
+  const baseIdx = Math.floor(z / SEG_LEN);
+  /* 路段回绕：把已经跑过的路段搬到最前面重新生成。
+   *
+   * 【跑 1~2km 后路面出现「高低台阶」的根因】
+   * 原来这里是把「越界的段」重新赋成 baseIdx + i（i 是它在数组里的槽位）：
+   *     seg.index = baseIdx + i;
+   * 这在直觉上像是「让 420 个槽位正好铺满 [baseIdx, baseIdx+420)」，
+   * 但实际做不到：因为一次循环里前面刚被改过的段不会被复查，
+   * 而 baseIdx 每前进 1，就需要有 1 个段被回收成「最远的那个新 index」。
+   * 用槽位号去指定新 index，会和「本就该在这个位置的段」撞车 ——
+   * 产生**重复 index**，同时另一些 index **没人占**（空洞）。
+   * 实测：行驶 0.7km 后就有 3 个 index 缺失，且随时间持续累积；
+   * 缺失的 index 意味着 buildGeometry 读到的是**上一个周期遗留的旧高度**，
+   * 于是该段的路面 y 突然错位 —— 画面上就是一道「高低台阶」。
+   * 这也解释了为什么是「跑一会儿才出现」：累积需要时间。
+   *
+   * 修法：不再用槽位号，而是精确分配 ——
+   * 先把「已经过时的段」收集起来（index < baseIdx 的），
+   * 再把「窗口内缺失的 index」找出来，一一配对填回去。
+   * 这样每个 index 在窗口内**恰好有一个**段持有它，既无重复也无空洞，
+   * 从根上杜绝「读到旧高度」。 */
+  for (let i = 0; i < SEG_COUNT; i++) {
+    const seg = segments[i];
+    if (seg.index >= baseIdx && seg.index < baseIdx + SEG_COUNT) continue;
+    /* 该段已过时，需要分配到窗口内某个空缺的 index。
+     * 用一个占用表做「精确分配」：先把窗口内已被占用的 index 标记出来，
+     * 再从 baseIdx 起取第一个空缺填给它。
+     * 占用表是个定长 Uint8Array，每帧最多两次 O(420) 遍历，
+     * 开销可忽略（原来那种两两比较是 O(n³)，绝不能放进每帧路径）。 */
+    if (!occTaken) occTaken = new Uint8Array(SEG_COUNT);
+    occTaken.fill(0);
+    for (let j = 0; j < SEG_COUNT; j++) {
+      const d = segments[j].index - baseIdx;
+      if (d >= 0 && d < SEG_COUNT) occTaken[d] = 1;
+    }
+    let slot = -1;
+    for (let k = 0; k < SEG_COUNT; k++) if (!occTaken[k]) { slot = k; break; }
+    if (slot < 0) continue;                   // 理论上不会发生（窗口已满）
+    const assigned = baseIdx + slot;
+    seg.index = assigned;
+    const s = assigned * SEG_LEN;
+    seg.curve = curveAt(s);
+    seg.y = hillHeightAt(s);
+    seg.sprites = makeSprites(assigned, seg.curve);
+  }
+  /* 相机高度按坡度起伏 */
+  const segAt = segments[baseIdx % SEG_COUNT];
+  camY = CAM_HEIGHT;
+}
+
+/* ---- HUD ---- */
+let shownDist = 0;
+function bumpStat(statId, valId, value) {
+  const v = $(valId); if (v) v.textContent = value;
+  const box = $(statId);
+  if (box) { box.classList.remove('bump'); void box.offsetWidth; box.classList.add('bump'); }
+}
+function updateHUD() {
+  const km = PS.z / 100000;      // 世界单位 → km（视觉换算）
+  if (shownDist < km) shownDist = Math.min(km, shownDist + (km - shownDist) * 0.3 + 0.0004);
+  else shownDist = km;
+  $('distVal').textContent = shownDist < 10 ? shownDist.toFixed(2) : shownDist.toFixed(1);
+  /* 世界速度 → 表显 km/h：直接用换算率反推，和上面 MAX_KMH 同一个来源 */
+  $('speedVal').textContent = Math.round(PS.speed / PX_PER_KMH);
+}
+
+/* ---- 倒计时显示 ---- */
+const cdSafe = $('countdown');
+let countdownAnnounced = 4;
+function showCd(txt, isGo) {
+  if (!cdSafe) return;
+  cdSafe.textContent = txt;
+  cdSafe.classList.toggle('go', !!isGo);
+  cdSafe.classList.remove('show');
+  void cdSafe.offsetWidth;
+  cdSafe.classList.add('show');
+}
+
+/* ---- 音效 ---- */
+let actx = null, engineOsc = null, engineGain = null, engineFilter = null;
 function initAudio() {
   if (actx) { actx.resume && actx.resume(); return; }
   try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
   engineOsc = actx.createOscillator();
   engineFilter = actx.createBiquadFilter();
-  engineFilter.type = 'lowpass';
-  engineFilter.frequency.value = 220;        // 砍掉锯齿波的高频毛刺，只留低沉轰鸣
-  engineFilter.Q.value = 0.7;
+  engineFilter.type = 'lowpass'; engineFilter.frequency.value = 220; engineFilter.Q.value = 0.7;
   engineGain = actx.createGain();
-  engineOsc.type = 'sawtooth';
-  engineOsc.frequency.value = 70;
-  engineGain.gain.value = 0.0;
+  engineOsc.type = 'sawtooth'; engineOsc.frequency.value = 70; engineGain.gain.value = 0.0;
   engineOsc.connect(engineFilter).connect(engineGain).connect(actx.destination);
   engineOsc.start();
 }
-function setEngine(speedRatio) {
+function setEngine(ratio) {
   if (!engineOsc) return;
-  /* 柔和版：音量约为原来的 1/3，频率范围收窄（60→105Hz），怠速极轻 */
-  engineOsc.frequency.value = 60 + speedRatio * 45;
-  engineGain.gain.value = muted ? 0 : (0.006 + speedRatio * 0.018);
+  engineOsc.frequency.value = 58 + ratio * 62;
+  engineGain.gain.value = 0.006 + ratio * 0.020;
 }
 function beep(freq, dur, type, vol, delay, sweepTo) {
-  if (!actx || muted) return;
+  if (!actx) return;
   const t0 = actx.currentTime + (delay || 0);
   const o = actx.createOscillator(), g = actx.createGain();
   o.type = type || 'sine';
@@ -1165,162 +2836,140 @@ function beep(freq, dur, type, vol, delay, sweepTo) {
   o.connect(g).connect(actx.destination);
   o.start(t0); o.stop(t0 + dur + 0.02);
 }
-const bumpSfx = () => { beep(120, .18, 'square', .22); beep(80, .25, 'sawtooth', .16, .05); };
-const lapSfx = () => { beep(660, .12, 'sine', .2); beep(880, .16, 'sine', .2, .12); };
-const startBeeps = () => { beep(440, .2, 'sine', .22, 0); beep(440, .2, 'sine', .22, .8); beep(440, .2, 'sine', .22, 1.6); beep(880, .5, 'sine', .28, 2.4); };
+const passSfx = () => beep(880, .09, 'sine', .13, 0, 1320);
+/* 撞车音：低频下坠的“咚”，和超车的清脆高音形成对比 */
+const crashSfx = () => { beep(180, .22, 'square', .16, 0, 70); beep(90, .3, 'sawtooth', .10, .02, 50); };
+/* 走完一轮「中华大地」：三音上行的小号角，和超车的单音区分开 */
+const lapSfx = () => {
+  beep(523, .14, 'sine', .15, 0, 523);
+  beep(659, .14, 'sine', .15, .12, 659);
+  beep(988, .30, 'sine', .16, .24, 988);
+};
+function thunderSfx() { beep(58, 1.5, 'sawtooth', .12, .02, 34); }
+function weatherSfx(w) {
+  if (w.key === 'rain' || w.key === 'storm') beep(1400, .5, 'triangle', .07, .05, 500);
+  else if (w.key === 'snow') beep(1200, .25, 'triangle', .06, 0, 600);
+}
+const startBeeps = () => { beep(440, .2, 'sine', .22, 0); beep(880, .5, 'sine', .28, .8); };
 
-/* ---------- 开始 / 结束 ---------- */
+/* ---- 开始 / 重置 ---- */
 function startRace() {
   initAudio();
-  $('start').style.display = 'none';
+  const s = $('start'); if (s) s.style.display = 'none';
   resetRace();
   state = STATE.COUNTDOWN;
   countdown = 2.4;
+  countdownAnnounced = 4;
   startBeeps();
-  updateLapDots();
 }
 function resetRace() {
-  raceTime = 0; shake = 0; bumpCooldown = 0; finishCount = 0;
-  PS.s = 0; PS.o = 0; PS.speed = 0; PS.steer = 0; PS.lap = 1;
-  PS.passed = 0; PS.finished = false;
-  rivals.forEach(r => { scene.remove(r.mesh); });
-  spawnRivals();
-  lastPassCheck = new Set(rivals.map((r, i) => i)); // 起跑时 5 辆 AI 全在玩家前方
-  $('passNum').textContent = '0';
-  $('posNum').textContent = RIVALS_COUNT + 1;
-  updateLapHUD();
-  camera.position.copy(trackPos(-12, 0, 5));
-}
-function restart() {
-  $('result').classList.remove('show');
-  resetRace();
-  state = STATE.COUNTDOWN;
-  countdown = 2.4;
-  startBeeps();
-  updateLapDots();
-}
-let lastPassCheck = new Set();
-function finishRace(byPlayer) {
-  state = STATE.FINISH;
-  setEngine(0);
-  $('result').classList.add('show');
-  const total = RIVALS_COUNT + 1;
-  let title, desc;
-  if (playerRank === 1) { title = '🏆 冠军！'; }
-  else if (playerRank === 2) { title = '🥈 亚军！'; }
-  else if (playerRank === 3) { title = '🥉 季军！'; }
-  else { title = '🏁 完赛'; }
-  const m = Math.floor(raceTime / 60), sec = raceTime - m * 60;
-  desc = `总名次 <b>${playerRank}</b> / ${total}　完赛用时 <b>${m}:${(sec < 10 ? '0' : '') + sec.toFixed(1)}</b><br>` +
-         `超越了 <b>${PS.passed}</b> 辆对手车，再跑一次刷新成绩！`;
-  $('resultTitle').textContent = title;
-  $('resultDesc').innerHTML = desc;
-  beep(523, .2, 'sine', .2); beep(659, .2, 'sine', .2, .18); beep(784, .3, 'sine', .22, .36);
+  raceTime = 0; shake = 0; frameNo = 0; particleClock = 0; hitCooldown = 0; laneHold = 0;
+  PS.z = 0; PS.playerX = 0; PS.speed = 0; PS.steer = 0; PS.passed = 0;
+  PS.lap = 0; PS.lapMark = 0;                 // 圈数一起归零
+  shownDist = 0;
+  resetSegments();
+  buildScenery();
+  resetRivals();
+  climate.seasonIdx = 0; climate.seasonT = SEASON_DURATION;
+  climate.rain = 0; climate.snow = 0; climate.dim = 0; climate.grip = 1; climate.fogK = 1;
+  climate.wind = 0; climate.wetness = 0; climate.flash = 0; climate.dark = 0;
+  setWeather(WEATHERS[0], false);
+  climate.weatherT = 18;
+  const dv = $('distVal'); if (dv) dv.textContent = '0.00';
+  const pv = $('passVal'); if (pv) pv.textContent = '0';
+  const lv = $('lapVal'); if (lv) lv.textContent = '0';
+  const ll = $('lapLab'); if (ll) ll.textContent = '中华大地已走 0 圈';
+  /* 地理位置也复位到第一个省，并清空 shownRegion 让它下一帧强制刷新 */
+  shownRegion = null;
+  const gv0 = $('geoVal'); if (gv0) gv0.textContent = regionFullName(CN_REGIONS[0]);
+  refreshSkyChip();
 }
 
-/* 途中超车计数：集合记录"仍跑在玩家前面"的对手 */
-function trackPassing() {
-  const pp = progressOf(PS.s, PS.lap);
-  for (let i = 0; i < rivals.length; i++) {
-    const r = rivals[i];
-    const rivalAhead = progressOf(r.s, r.lap) > pp;
-    const wasAhead = lastPassCheck.has(i);
-    if (!rivalAhead && wasAhead) {          // 玩家超过它
-      lastPassCheck.delete(i);
-      PS.passed++;
-      $('passNum').textContent = PS.passed;
-    } else if (rivalAhead && !wasAhead) {   // 它反超回来
-      lastPassCheck.add(i);
-      PS.passed--;
-      $('passNum').textContent = Math.max(0, PS.passed);
-    }
-  }
-}
-
-/* ---------- 主循环 ---------- */
+/* ---- 主循环 ---- */
 let lastT = 0;
-/* 展示镜头：菜单 / 结算时沿赛道低空巡航（比静止起跑门生动得多） */
-let showCamS = 0;
-function updateShowcaseCam(dt) {
-  showCamS = (showCamS + dt * 14) % trackLen;              // 14 m/s 巡航
-  const p = trackPos(showCamS, 7.5, 7);                   // 路边高处
-  const look = trackPos(showCamS + 34, 0, 1.5);           // 望向前方赛道
-  camera.position.lerp(p, Math.min(1, dt * 2.2));
-  camera.lookAt(look);
-  if (Math.abs(camera.fov - 64) > 0.05) {                 // 菜单里恢复正常 FOV
-    camera.fov += (64 - camera.fov) * Math.min(1, dt * 3);
-    camera.updateProjectionMatrix();
-  }
-  /* 展示镜头也让太阳跟随，避免阴影范围跑出 frustum */
-  sun.target.position.set(look.x, 0, look.z);
-  sun.position.set(look.x + SUN_OFF.x, SUN_OFF.y, look.z + SUN_OFF.z);
-  sun.target.updateMatrixWorld();
-}
 function frame(nowMs) {
   const now = nowMs / 1000;
   const dt = Math.min(0.05, lastT === 0 ? 0.016 : now - lastT);
   lastT = now;
-  if (state === STATE.RUNNING) {
-    raceTime += dt;
-    trackPassing();
-  }
-  if (state === STATE.START || state === STATE.FINISH) updateShowcaseCam(dt);
   update(dt, now);
-  updateDust(dt);
-  setEngine(state === STATE.RUNNING ? Math.min(1, PS.speed / 34) : 0.12);
-  renderer.render(scene, camera);
+  updateHUD();
+  setEngine(state === STATE.RUNNING ? PS.speed / MAX_SPEED : 0.1);
+  render();
   requestAnimationFrame(frame);
 }
-requestAnimationFrame(frame);
 
-/* ---------- 窗口自适应 ---------- */
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
+/* ---- 尺寸自适应 ---- */
+function resize() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = window.innerWidth, h = window.innerHeight;
+  canvas.width = Math.floor(w * dpr);
+  canvas.height = Math.floor(h * dpr);
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  /* 覆盖式等比缩放（cover）：填满窗口、不变形。
+   * 用 cover 而不是 stretch，否则画面会被纵向压扁（车和路都被压短）。
+   * 多出来的部分靠逻辑坐标的负偏移居中裁掉。 */
+  const scale = Math.max(canvas.width / VIEW_W, canvas.height / VIEW_H);
+  const offX = (canvas.width - VIEW_W * scale) / 2;
+  const offY = (canvas.height - VIEW_H * scale) / 2;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.setTransform(scale, 0, 0, scale, offX, offY);
+  ctx.imageSmoothingEnabled = true;
+  /* 【玩家车不能被裁掉】
+   * cover 缩放会在宽屏（16:9 如 1920×1080／2560×1440）上纵向裁切：
+   * 逻辑可视区只剩 y ∈ [32, 608]，而玩家车画在 y≈580~635 ——
+   * 车的下半截正好落在可视区之外，看起来就是「主角赛车不见了」。
+   * 这里把「可视区下边界」换算成逻辑坐标存起来，
+   * 画玩家车时用它取代写死的 VIEW_H，于是任何屏幕比例下车都贴着
+   * 真正的画面下沿，永远不会被裁掉。 */
+  VIEW_BOTTOM = (canvas.height - offY) / scale;
+}
+let VIEW_BOTTOM = VIEW_H;          // 逻辑坐标下的「实际可见画面下沿」
+window.addEventListener('resize', resize);
+resize();
 
 $('btnStart').addEventListener('click', startRace);
-$('btnRestart').addEventListener('click', restart);
 
-/* ---------- 测试钩子（无头验证用） ---------- */
+/* ---- 测试钩子 ---- */
 window.__race = {
   STATE, getState: () => state,
-  get player() { return { s: PS.s, o: PS.o, speed: PS.speed, lap: PS.lap, finished: PS.finished, rank: playerRank }; },
-  get rivals() { return rivals.map(r => ({ s: r.s, o: r.o, speed: r.speed, lap: r.lap, finished: r.finished })); },
-  get countdown() { return countdown; },
-  get drawCalls() { return renderer.info.render.calls; },
-  start: startRace, tick: (ms) => { /* 手动泵帧（无 rAF 环境用） */
-    let t = performance.now();
-    const step = 16.7;
-    for (let e = 0; e < ms; e += step) { frame(t + e); }
-    lastT = 0;
+  get player() { return { z: PS.z, x: PS.playerX, speed: PS.speed }; },
+  get rivals() { return rivals.map(r => ({ z: r.z, offset: r.offset, speed: r.speed, fading: r.fading })); },
+  get distance() { return PS.z; },
+  get passed() { return PS.passed; },
+  env: () => ({
+    season: SEASONS[climate.seasonIdx].name,
+    weather: climate.weather.name,
+    seasonT: +climate.seasonT.toFixed(1), weatherT: +climate.weatherT.toFixed(1),
+    grip: +climate.grip.toFixed(3), rain: +climate.rain.toFixed(2), snow: +climate.snow.toFixed(2),
+    fogK: +climate.fogK.toFixed(2), wind: +climate.wind.toFixed(2),
+    z: +PS.z.toFixed(1), passed: PS.passed, rivals: rivals.length,
+    speed: +PS.speed.toFixed(0),
+  }),
+  weatherSamples: () => WEATHERS.map(w => w.key),
+  forceWeather: k => { const w = WEATHERS.find(x => x.key === k); if (w) setWeather(w, true); return !!w; },
+  forceSeason: k => { const i = ['spring','summer','autumn','winter'].indexOf(k); if (i >= 0) setSeason(i, true); return i; },
+  forceLightning: () => { climate.flash = 0.9; return true; },
+  start: startRace,
+  tick: (ms) => { let t = performance.now(); for (let e = 0; e < ms; e += 16.7) frame(t + e); lastT = 0; },
+  steer: d => { steerInput = d; },
+  perf: (n) => { const t0 = performance.now(); let t = performance.now();
+    for (let i = 0; i < (n || 60); i++) frame(t + i * 16.7);
+    lastT = 0; return { msPerFrame: +((performance.now() - t0) / (n || 60)).toFixed(2) }; },
+  pixelAt: (fx, fy) => {
+    const d = ctx.getImageData(Math.floor(VIEW_W * fx), Math.floor(VIEW_H * fy), 1, 1).data;
+    return [d[0], d[1], d[2]];
   },
-  steer: dir => { steerInput = dir; },
-  fireKey: key => {
-    window.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
-    window.dispatchEvent(new KeyboardEvent('keyup', { key, bubbles: true }));
-  },
-  /* ---- 渲染诊断（CDP 用）：位置 + 屏幕投影 + 读回像素 ---- */
-  playerPos: () => player.getWorldPosition(new THREE.Vector3()).toArray(),
-  camPos: () => camera.position.toArray(),
-  camDir: () => new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion).toArray(),
-  playerOnScreen: () => {
-    const sp = player.getWorldPosition(new THREE.Vector3());
-    const ndc = sp.project(camera);
-    return { ndc: [ndc.x, ndc.y, ndc.z], on: Math.abs(ndc.x) < 1 && Math.abs(ndc.y) < 1 && ndc.z < 1 };
-  },
-  readCenter: () => {   // 读屏幕中心 60x60 区域平均色（追尾视角下车体应在画面中心）
-    const gl = renderer.getContext();
-    const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight;
-    const px = new Uint8Array(60 * 60 * 4);
-    gl.readPixels(Math.floor(w / 2 - 30), Math.floor(h / 2 - 30), 60, 60, gl.RGBA, gl.UNSIGNED_BYTE, px);
-    let r = 0, g = 0, b = 0;
-    for (let i = 0; i < px.length; i += 4) { r += px[i]; g += px[i + 1]; b += px[i + 2]; }
-    const n = px.length / 4;
-    return [Math.round(r / n), Math.round(g / n), Math.round(b / n)];
+  /* 采样画面若干点，用于验证"真的画出了东西" */
+  sample: () => {
+    const pts = [[0.5,0.62],[0.5,0.75],[0.5,0.9],[0.12,0.8],[0.88,0.8],[0.5,0.2]];
+    return pts.map(([fx,fy]) => {
+      const d = ctx.getImageData(Math.floor(VIEW_W*fx), Math.floor(VIEW_H*fy), 1, 1).data;
+      return `rgb(${d[0]},${d[1]},${d[2]})`;
+    });
   },
 };
+requestAnimationFrame(frame);
 </script>
 
 <script>
@@ -1329,43 +2978,28 @@ window.__race = {
   var btn = document.getElementById('btnHome');
   var dlg = document.getElementById('homeConfirm');
   if (!btn || !dlg) return;
-  btn.addEventListener('click', function (e) {
-    e.stopPropagation();
-    dlg.classList.add('show');
-  });
+  btn.addEventListener('click', function (e) { e.stopPropagation(); dlg.classList.add('show'); });
   document.getElementById('hcOk').addEventListener('click', function () {
     try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (err) {}
     window.location.replace('../index.html');
   });
-  document.getElementById('hcCancel').addEventListener('click', function () {
-    dlg.classList.remove('show');
-  });
-  dlg.addEventListener('pointerdown', function (e) {
-    if (e.target === dlg) dlg.classList.remove('show');
-  });
+  document.getElementById('hcCancel').addEventListener('click', function () { dlg.classList.remove('show'); });
+  dlg.addEventListener('pointerdown', function (e) { if (e.target === dlg) dlg.classList.remove('show'); });
 })();
 </script>
 
-
 <script>
-/* ---- 禁用浏览器回退：按物理回退键只会弹确认弹窗 ---- */
+/* ---- 禁用浏览器回退 ---- */
 (function () {
   var dlg = document.getElementById('homeConfirm');
-  /* 无弹窗结构（理论上不会发生）时退化为静默推回 */
   function guardBack() {
     try { history.pushState({ g: 1 }, '', '#guard'); } catch (e) {}
-    if (dlg) {
-      dlg.classList.add('show');
-      try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (e) {}
-    }
+    if (dlg) { dlg.classList.add('show'); try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (e) {} }
   }
   try {
     history.pushState({ g: 1 }, '', '#guard');
     window.addEventListener('popstate', guardBack);
-    /* 页面显示状态变化（从 bfcache 恢复）时重新垫垫子 */
-    window.addEventListener('pageshow', function (e) {
-      if (e.persisted) { try { history.pushState({ g: 1 }, '', '#guard'); } catch (err) {} }
-    });
+    window.addEventListener('pageshow', function (e) { if (e.persisted) { try { history.pushState({ g: 1 }, '', '#guard'); } catch (err) {} } });
   } catch (e) {}
 })();
 </script>
