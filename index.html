@@ -470,16 +470,18 @@ window.addEventListener('contextmenu', e => e.preventDefault());
     </a>
     <a class="card" href="racing-3d/index.html" data-quick="off">
       <div class="icon" aria-hidden="true">🏎️</div>
-      <div class="name">极速飞车 3D</div>
-      <div class="desc">真正的 3D 赛车（娱乐向，非教育游戏）！油门自动，只需左右键转向，在蜿蜒的公路赛道上跑 3 圈，从最后一名追到冠军。实时软阴影、速度感 FOV、漂移烟，60fps 流畅竞速！</div>
+      <div class="name">极速飞车 3D · 无尽公路</div>
+      <div class="desc">真正的 3D 赛车（娱乐向，非教育游戏）！油门自动，只需左右键转向，这条路<b>永远开不到头</b>——四季轮转、晴雨雷雪大雾大风轮番登场，雨天雪天还会打滑。左上角只记录你的里程和超越车辆数，能开多远开多远！</div>
       <div class="tags">
         <span class="tag">3D 赛车</span>
-        <span class="tag">左右键操控</span>
+        <span class="tag">无尽模式</span>
+        <span class="tag">四季天气</span>
         <span class="tag">three.js</span>
       </div>
       <span class="play">开始游戏</span>
     </a>
-    <a class="card" href="mba-english/index.html" data-quick="off">
+    <!-- 成人向内容：仅在主网格展示（卡片常驻可见，不进快捷目录） -->
+    <a class="card" href="mba-english/index.html" id="adultCard" data-quick="off">
       <div class="icon" aria-hidden="true">📖</div>
       <div class="name">新探索英语复习</div>
       <div class="desc">《新探索研究生英语读写教程（提高版）》Unit 1–5 复习工具：236 个核心词汇 + 31 个专有名词 + 27 个难句解析。单词抽认卡、中英选择题、拼写闯关、词义辨析、难句选句、语法点解读、难句填空，还能按单元速查全部资料。</div>
@@ -519,6 +521,8 @@ window.addEventListener('contextmenu', e => e.preventDefault());
   /* 从主网格卡片提取游戏清单 */
   var cards = document.querySelectorAll('.grid .card');
   cards.forEach(function (card) {
+    /* 主网格卡片：一律当前标签内跳转（data-same-tab 由防误开新标签脚本拦截） */
+    card.setAttribute('data-same-tab', '1');
     /* data-quick="off" 的卡片只在主网格展示，不进快捷目录（如 3D 赛车） */
     if (card.getAttribute('data-quick') === 'off') return;
     var href = card.getAttribute('href');
@@ -528,6 +532,7 @@ window.addEventListener('contextmenu', e => e.preventDefault());
     if (!href || !icon || !name) return;
     var a = document.createElement('a');
     a.href = href;
+    a.setAttribute('data-same-tab', '1');
     a.innerHTML = '<span class="qi">' + icon.textContent.trim() + '</span>' +
       '<span>' + name.textContent.trim() + '</span>' +
       '<span class="qcat">' + (tag ? catOf(tag.textContent) : '综合') + '</span>';
@@ -558,6 +563,28 @@ window.addEventListener('contextmenu', e => e.preventDefault());
       if (e.persisted) { try { history.pushState({ g: 1 }, '', '#home'); } catch (err) {} }
     });
   } catch (e) {}
+})();
+</script>
+
+<script>
+/* ---- 防误开新标签：装饰键点击 / 中键点击一律留在当前标签打开 ---- */
+(function () {
+  function sameTab(el, ev) {
+    var a = el && el.closest ? el.closest('a[href][data-same-tab]') : null;
+    if (!a) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (ev.type === 'auxclick' && ev.button !== 1) return;
+    location.href = a.getAttribute('href');
+  }
+  /* 捕获阶段拦截：Ctrl/Cmd/Shift/Alt + 左键、中键（auxclick）都会先到这里 */
+  document.addEventListener('click', function (e) {
+    if (e.button !== 0 && e.type === 'click') return;
+    if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) sameTab(e.target, e);
+  }, true);
+  document.addEventListener('auxclick', function (e) { sameTab(e.target, e); }, true);
+  /* 长按（触屏）或拖动可能触发浏览器「新标签打开」手势，一并屏蔽 */
+  document.addEventListener('contextmenu', function (e) { sameTab(e.target, e); }, true);
 })();
 </script>
 
