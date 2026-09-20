@@ -16,7 +16,7 @@
   #game { display: block; width: 100vw; height: 100vh; }
 
   /* ---- HUD ---- */
-  .hud { position: absolute; top: 72px; left: 14px; z-index: 10; display: flex; gap: 10px; flex-wrap: wrap; pointer-events: none; }
+  .hud { position: absolute; top: 72px; left: 14px; z-index: 10; display: flex; gap: 10px; flex-wrap: wrap; pointer-events: none; max-width: calc(100vw - 28px); }
   .hud-chip { background: rgba(255,252,246,.92); border: 2px solid rgba(120,170,235,.45); border-radius: 14px; color: #2a4a78; padding: 7px 16px; font-size: 17px; font-weight: 700; box-shadow: 0 4px 14px rgba(90,140,200,.2); backdrop-filter: blur(6px); }
   .hud-chip b { color: #ff8c42; font-size: 21px; }
 
@@ -24,10 +24,22 @@
   #btnHome { position: absolute; top: 12px; left: 12px; z-index: 60; font-size: 20px; line-height: 1; padding: 9px 13px; border-radius: 12px; cursor: pointer; background: rgba(10, 16, 40, .72); border: 1px solid rgba(120, 200, 255, .35); color: #dff2ff; font-family: inherit; }
   #btnHome:active { transform: scale(.94); }
   #btnMute:active { transform: scale(.94); }
+  /* 提示开关（图形提示 / 纯文字），放在音量键左边 */
+  #btnHint { position: absolute; top: 14px; right: 70px; z-index: 60; font-size: 18px; line-height: 1; padding: 9px 14px; border-radius: 12px; cursor: pointer; background: rgba(255,252,246,.92); border: 2px solid rgba(120,170,235,.45); color: #2a4a78; font-family: inherit; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+  #btnHint:active { transform: scale(.94); }
+  #btnHint .knob { display: inline-block; width: 30px; height: 17px; border-radius: 999px; background: #c9d8ec; position: relative; transition: background .18s; }
+  #btnHint .knob::after { content: ''; position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: transform .18s; }
+  #btnHint.on { border-color: rgba(46,204,113,.7); color: #1f7a45; }
+  #btnHint.on .knob { background: #2ecc71; }
+  #btnHint.on .knob::after { transform: translateX(13px); }
+  #btnHint .lbl { font-size: 14px; white-space: nowrap; }
+  @media (max-width: 560px) { #btnHint .lbl { display: none; } }
 
-  #caption { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 15; background: rgba(255,252,246,.94); border: 2px solid rgba(120,170,235,.5); border-radius: 18px; color: #2a4a78; padding: 10px 26px; font-size: 21px; font-weight: 700; letter-spacing: 1px; pointer-events: none; white-space: nowrap; max-width: 92vw; text-align: center; }
+  #caption { position: absolute; top: 76px; left: 50%; transform: translateX(-50%); z-index: 15; background: rgba(255,252,246,.94); border: 2px solid rgba(120,170,235,.5); border-radius: 18px; color: #2a4a78; padding: 10px 26px; font-size: 21px; font-weight: 700; letter-spacing: 1px; pointer-events: none; white-space: nowrap; max-width: 92vw; text-align: center; }
+  /* 窄屏/竖屏：HUD 会折成两行，把字幕条移到题干卡片下面 */
+  @media (max-width: 760px) { #caption { top: 300px; font-size: 17px; padding: 8px 18px; } }
 
-  #toast { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%) scale(1); z-index: 30; font-size: 52px; font-weight: 800; color: #ff8c42; text-shadow: 0 3px 10px rgba(255,255,255,.95), 0 4px 14px rgba(180,110,50,.3); opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; white-space: nowrap; }
+  #toast { position: absolute; left: 50%; top: 62%; transform: translate(-50%, -50%) scale(1); z-index: 30; font-size: 52px; font-weight: 800; color: #ff8c42; text-shadow: 0 3px 10px rgba(255,255,255,.95), 0 4px 14px rgba(180,110,50,.3); opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; white-space: nowrap; }
   #toast.pop { opacity: 1; transform: translate(-50%, -58%) scale(1.12); }
 
   /* ---- 结算 ---- */
@@ -71,6 +83,7 @@
   <div class="hud-chip">已学会 <b id="hudTotal">0</b> / 99 字</div>
 </div>
 <button id="btnHome" title="返回主页">🏠</button>
+<button id="btnHint" title="图形提示开关"><span class="knob"></span><span class="lbl">图形提示</span></button>
 <button id="btnMute" title="声音开关">🔊</button>
 <div id="caption" style="display:none"></div>
 <div id="toast"></div>
@@ -81,6 +94,7 @@
   <div class="rules">
     听语音读出的字，在四个选项里把它<b>找出来</b>！<br>
     一共 <b>9 关</b>，每关 11 个字，答完全部 <b>99 个常用汉字</b>。<br>
+    开启<b>图形提示</b>后，每个汉字下面都会画一个小图（耳 = 一只耳朵 👂）。<br>
     通过一关会自动进入下一关，答错也不怕，会告诉你正确读音。
   </div>
   <button id="btnStart">开始闯关</button>
@@ -124,7 +138,7 @@ resize();
 const STATE = { START: 0, RUNNING: 1, FINISH: 2 };
 let state = STATE.START;
 /* 题干卡片纵坐标：HUD 在 top:72（高约 40），下移避开 */
-const CARD_Y = 130;
+const CARD_Y = 150;
 
 /* ---------------- 字库：99 字 / 9 关 × 11 字 ---------------- */
 const LEVELS = [
@@ -270,6 +284,513 @@ const sfxWrong  = () => beep(200, .22, 'sawtooth', .1);
 const sfxLevel  = () => { [523, 659, 784, 1047].forEach((f, i) => beep(f, .2, 'sine', .17, i * 0.11)); };
 const sfxWin    = () => { [523, 659, 784, 1047, 1319].forEach((f, i) => beep(f, .24, 'sine', .18, i * 0.13)); };
 
+/* ===== 图形提示数据（由 _art.js / _map.js 生成，请勿手改；改完跑 python3 _sync.py） ===== */
+/* =========================================================================
+ * 汉字图形提示引擎 ART（开发用模块，最终内联回 index.html）
+ * 每个图元以「单位坐标」绘制：原点在左上角，范围 0..1 × 0..1。
+ * kind = 'picto' 表示象形（按汉字字形排布笔画）, 'scene' 表示实物/场景画。
+ * ========================================================================= */
+
+/* ---------- 基础画笔工具（相对 100×100 设计网格） ---------- */
+function _line(o, x1, y1, x2, y2) {
+  o.ctx.beginPath(); o.ctx.moveTo(o.x + x1 * o.s, o.y + y1 * o.s); o.ctx.lineTo(o.x + x2 * o.s, o.y + y2 * o.s); o.ctx.stroke();
+}
+function _poly(o, pts, close) {
+  o.ctx.beginPath();
+  pts.forEach((p, i) => { const X = o.x + p[0] * o.s, Y = o.y + p[1] * o.s; i ? o.ctx.lineTo(X, Y) : o.ctx.moveTo(X, Y); });
+  if (close !== false) o.ctx.closePath();
+  if (o.fill) o.ctx.fill();
+  if (o.stroke && o.lw > 0) o.ctx.stroke();
+}
+function _c(o, x, y, r) { o.ctx.beginPath(); o.ctx.arc(o.x + x * o.s, o.y + y * o.s, r * o.s, 0, Math.PI * 2); if (o.fill) o.ctx.fill(); if (o.stroke && o.lw > 0) o.ctx.stroke(); }
+function _ell(o, x, y, rx, ry, rot) {
+  o.ctx.beginPath();
+  o.ctx.ellipse(o.x + x * o.s, o.y + y * o.s, Math.abs(rx) * o.s, Math.abs(ry) * o.s, rot || 0, 0, Math.PI * 2);
+  if (o.fill) o.ctx.fill(); if (o.stroke && o.lw > 0) o.ctx.stroke();
+}
+function _rect(o, x, y, w, h, r) {
+  r = Math.min(r || 0, Math.abs(w) / 2, Math.abs(h) / 2);
+  const X = o.x + x * o.s, Y = o.y + y * o.s, W = w * o.s, H = h * o.s;
+  o.ctx.beginPath();
+  if (o.ctx.roundRect) { o.ctx.roundRect(X, Y, W, H, r * o.s); }
+  else {
+    const rr = r * o.s;
+    o.ctx.moveTo(X + rr, Y);
+    o.ctx.arcTo(X + W, Y, X + W, Y + H, rr); o.ctx.arcTo(X + W, Y + H, X, Y + H, rr);
+    o.ctx.arcTo(X, Y + H, X, Y, rr); o.ctx.arcTo(X, Y, X + W, Y, rr);
+    o.ctx.closePath();
+  }
+  if (o.fill) o.ctx.fill(); if (o.stroke && o.lw > 0) o.ctx.stroke();
+}
+function _dot(o, x, y, r) { o.fill = true; o.stroke = false; _c(o, x, y, r === undefined ? 4 : r); }
+function _ink(o, col) { const s = o.stroke, f = o.fill, c = o.ctx.fillStyle; o.stroke = true; o.fill = false; o.ctx.strokeStyle = col || o.ink; o.ctx.fillStyle = c; return () => { o.stroke = s; o.fill = f; o.ctx.strokeStyle = col || o.ink; }; }
+function _fill(o, col) { const s = o.stroke, f = o.fill; o.fill = true; o.stroke = false; o.ctx.fillStyle = col; return () => { o.stroke = s; o.fill = f; }; }
+
+/* emoji 兜底 */
+function _em(o, ch, size, dy) {  o.ctx.save();
+  o.ctx.font = `${(size || 0.72) * o.s * 100}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif`;
+  o.ctx.textAlign = 'center'; o.ctx.textBaseline = 'middle';
+  o.ctx.fillStyle = '#000';
+  o.ctx.fillText(ch, o.x + o.s * 50, o.y + o.s * (dy === undefined ? 54 : dy));
+  o.ctx.restore();
+}
+/* 大号数字：画在格子下半部，圆底白字，孩子一眼认出「这是几」 */
+function _digit(o, txt, cy, hero) {
+  /* hero=true：大号的独立数字牌（整格居中），用于「九」这类直接用数字表示的字 */
+  const big = txt.length > 1;
+  const w = hero ? 74 : (big ? 48 : 34), h = hero ? 74 : 32, r = hero ? 20 : 11;
+  const bx = 50 - w / 2, by = cy - h / 2;
+  const f = _fill(o, o.pal.deep);
+  _rect(o, bx, by, w, h, r);
+  f();
+  const u = _ink(o, o.pal.line || o.pal.deep); o.ctx.lineWidth = (hero ? 4 : 3) * o.s;
+  _rect(o, bx, by, w, h, r);
+  u();
+  /* 注意：_fill/_ink 退出时会还原 fillStyle，白色必须在它们之后设置 */
+  o.ctx.save();
+  o.ctx.fillStyle = '#ffffff';
+  /* o.s 已经是「每设计单位的像素数」，所以字号直接用 s 乘设计字号即可 */
+  o.ctx.font = `bold ${(hero ? 52 : (big ? 21 : 23)) * o.s}px "PingFang SC", "Helvetica Neue", Arial, system-ui, sans-serif`;
+  o.ctx.textAlign = 'center'; o.ctx.textBaseline = 'middle';
+  o.ctx.fillText(txt, o.x + 50 * o.s, o.y + (cy + (hero ? 2 : 1)) * o.s);
+  o.ctx.restore();
+}
+
+function _flowPts(pts, ctrl) {
+  const p = [];
+  for (let i = 0; i < 48; i++) {
+    const t = i / 47;
+    let x = 0, y = 0;
+    const n = pts.length;
+    if (n === 2) { x = pts[0][0] + (pts[1][0] - pts[0][0]) * t; y = pts[0][1] + (pts[1][1] - pts[0][1]) * t; }
+    else { const mt = 1 - t; x = mt * mt * pts[0][0] + 2 * mt * t * pts[1][0] + t * t * pts[2][0]; y = mt * mt * pts[0][1] + 2 * mt * t * pts[1][1] + t * t * pts[2][1]; }
+    if (ctrl) { const a = Math.sin(t * ctrl.freq + (ctrl.phase || 0)) * ctrl.amp; x += a * (ctrl.dx || 1); y += a * (ctrl.dy || 0); }
+    p.push([x, y]);
+  }
+  return p;
+}
+function _ribbon(o, pts, ctrl, width) {
+  const p = _flowPts(pts, ctrl);
+  o.ctx.beginPath();
+  p.forEach((q, i) => i ? o.ctx.lineTo(o.x + q[0] * o.s, o.y + q[1] * o.s) : o.ctx.moveTo(o.x + q[0] * o.s, o.y + q[1] * o.s));
+  o.ctx.lineCap = 'round'; o.ctx.lineJoin = 'round';
+  o.ctx.lineWidth = width * o.s; o.ctx.stroke();
+}
+function _arcS(o, cx, cy, r, a0, a1) { o.ctx.beginPath(); o.ctx.arc(o.x + cx * o.s, o.y + cy * o.s, r * o.s, a0 * Math.PI, a1 * Math.PI); if (o.stroke && o.lw > 0) o.ctx.stroke(); if (o.fill) o.ctx.fill(); }
+function _ti(o, x, y, scale, rot, fn) {   /* 局部变换绘制 */
+  o.ctx.save(); o.ctx.translate(o.x + x * o.s, o.y + y * o.s); if (rot) o.ctx.rotate(rot); o.ctx.scale(scale * o.s, scale * o.s); fn(o.ctx); o.ctx.restore();
+}
+
+/* 汉字类图元共用的「象形提示条」：底部小注（如 甲骨文象形） */
+function _pictoBase(o, glyphFn) {
+  /* 浅色方框，模仿甲骨/金文字形卡片 */
+  o.ctx.lineJoin = 'round'; o.ctx.lineCap = 'round';
+  glyphFn(o);
+}
+
+/* =========================================================================
+ * ART：每个键 → { kind, draw(o) }
+ * o = { ctx, x, y, s(单元边长/100), py, pal, ink, bold }
+ * ========================================================================= */
+const ART = {};
+function def(id, kind, draw) { ART[id] = { kind, draw }; }
+function emoji(id, ch) { ART[id] = { kind: 'scene', draw(o) { _em(o, ch, 0.74); } }; }
+
+/* ------------------------- 1. 数字与大小 ------------------------- */
+/* 一到十：统一直接显示大号数字牌（和「九」一样），不用别的图形 */
+def('shu-1',  'scene', o => { _digit(o, '1',  50, true); });
+def('shu-2',  'scene', o => { _digit(o, '2',  50, true); });
+def('shu-3',  'scene', o => { _digit(o, '3',  50, true); });
+def('shu-4',  'scene', o => { _digit(o, '4',  50, true); });
+def('shu-5',  'scene', o => { _digit(o, '5',  50, true); });
+def('shu-6',  'scene', o => { _digit(o, '6',  50, true); });
+def('shu-7',  'scene', o => { _digit(o, '7',  50, true); });
+def('shu-8',  'scene', o => { _digit(o, '8',  50, true); });
+def('shu-9',  'scene', o => { _digit(o, '9',  50, true); });
+def('shu-10', 'scene', o => { _digit(o, '10', 50, true); });
+def('shu-da', 'scene', o => { _em(o, '🐘', 0.76); });
+
+/* ------------------------- 2. 人与身体 ------------------------- */
+def('ti-ren', 'scene', o => { _em(o, '🧍', 0.8); });
+def('ti-kou', 'scene', o => {   /* 口：张得大大的嘴巴 */
+  /* 嘴唇外圈 */
+  const lip = _fill(o, '#ef7d92'); _ell(o, 50, 54, 33, 28, 0); lip();
+  /* 口腔（深色） */
+  const inner = _fill(o, '#7a2438'); _ell(o, 50, 55, 25, 20, 0); inner();
+  /* 上排牙齿 */
+  const th = _fill(o, '#ffffff'); _rect(o, 26, 36, 48, 9, 3); th();
+  const tl = _ink(o, '#d8c6cc'); o.ctx.lineWidth = 2.5 * o.s;
+  for (let i = 1; i < 6; i++) _line(o, 26 + i * 8, 36, 26 + i * 8, 45);
+  tl();
+  /* 舌头 */
+  const tg = _fill(o, '#e2647f'); _ell(o, 50, 66, 17, 9, 0); tg();
+  const u2 = _ink(o, o.ink); o.ctx.lineWidth = 7 * o.s; _ell(o, 50, 54, 33, 28, 0); u2();
+});
+def('ti-shou', 'scene', o => { _em(o, '✋', 0.74); });
+def('ti-mu', 'scene', o => {   /* 目：竖起来的眼睛（象形，横目竖写） */
+  const f = _fill(o, '#ffffff'); _ell(o, 50, 50, 21, 33, 0); f();
+  const u = _ink(o); o.ctx.lineWidth = 9 * o.s; _ell(o, 50, 50, 21, 33, 0); u();
+  const f2 = _fill(o, o.pal.deep); _c(o, 50, 50, 12); f2();
+  const f3 = _fill(o, '#ffffff'); _c(o, 46, 45, 4); f3();
+  const v = _ink(o); o.ctx.lineWidth = 6 * o.s; _line(o, 27, 24, 17, 15); _line(o, 73, 24, 83, 15); v();
+});
+def('ti-er', 'scene', o => {   /* 耳：一只耳朵（象形，含耳廓与耳道） */
+  const u = _ink(o); o.ctx.lineWidth = 13 * o.s; o.ctx.lineCap = 'round';
+  o.ctx.beginPath();
+  o.ctx.moveTo(o.x + 64 * o.s, o.y + 24 * o.s);
+  o.ctx.bezierCurveTo(o.x + 34 * o.s, o.y + 8 * o.s,  o.x + 12 * o.s, o.y + 34 * o.s, o.x + 22 * o.s, o.y + 56 * o.s);
+  o.ctx.bezierCurveTo(o.x + 28 * o.s, o.y + 72 * o.s, o.x + 42 * o.s, o.y + 76 * o.s, o.x + 46 * o.s, o.y + 88 * o.s);
+  o.ctx.stroke();
+  u();
+  const f = _fill(o, o.pal.deep); _ell(o, 40, 46, 9, 13, -0.25); f();
+  const v = _ink(o, o.pal.deep); o.ctx.lineWidth = 7 * o.s;
+  o.ctx.beginPath();
+  o.ctx.moveTo(o.x + 52 * o.s, o.y + 32 * o.s);
+  o.ctx.bezierCurveTo(o.x + 34 * o.s, o.y + 30 * o.s, o.x + 32 * o.s, o.y + 60 * o.s, o.x + 46 * o.s, o.y + 62 * o.s);
+  o.ctx.stroke();
+  v();
+});
+def('ti-zu', 'scene', o => { _em(o, '🦶', 0.76); });
+def('ti-tou', 'scene', o => { _em(o, '👦', 0.78); });
+def('ti-xin', 'scene', o => { _em(o, '❤️', 0.72); });
+def('ti-ya', 'scene', o => { _em(o, '🦷', 0.74); });
+def('ti-li', 'scene', o => { _em(o, '💪', 0.74); });
+def('ti-xiao', 'scene', o => { _em(o, '🤏', 0.76); });
+
+/* ------------------------- 3. 天地自然 ------------------------- */
+def('zr-tian', 'scene', o => {   /* 天：一片开阔的天空 */
+  /* 由深到浅的天蓝渐变，占满整格 —— 一眼就是「天」 */
+  let sky;
+  try {
+    sky = o.ctx.createLinearGradient(o.x, o.y, o.x, o.y + 100 * o.s);
+    sky.addColorStop(0, '#5aa9e6'); sky.addColorStop(1, '#cfeaff');
+  } catch (e) { sky = '#a8d8f8'; }
+  const f = _fill(o, sky); _rect(o, 0, 0, 100, 100, 0); f();
+  /* 太阳 */
+  const sun = _fill(o, '#ffd75c'); _c(o, 76, 26, 13); sun();
+  const sr = _ink(o, '#ffc23d'); o.ctx.lineWidth = 4 * o.s;
+  for (let i = 0; i < 8; i++) {
+    const a = i * Math.PI / 4;
+    _line(o, 76 + Math.cos(a) * 17, 26 + Math.sin(a) * 17, 76 + Math.cos(a) * 23, 26 + Math.sin(a) * 23);
+  }
+  sr();
+  /* 两朵白云 */
+  const cl = _fill(o, 'rgba(255,255,255,.95)');
+  _ell(o, 30, 52, 17, 11, 0); _ell(o, 44, 48, 13, 12, 0); _ell(o, 17, 55, 11, 8, 0);
+  _ell(o, 66, 74, 14, 9, 0); _ell(o, 78, 71, 11, 10, 0);
+  cl();
+  /* 飞过的小鸟，点出「天空」的空间感 */
+  const b = _ink(o, '#3d6f9e'); o.ctx.lineWidth = 3.5 * o.s; o.ctx.lineCap = 'round';
+  _arcS(o, 24, 26, 6, 1.05, 1.95); _arcS(o, 36, 26, 6, 1.05, 1.95);
+  b();
+});
+def('zr-di', 'scene', o => { _em(o, '🌍', 0.76); });
+def('zr-ri', 'scene', o => { _em(o, '☀️', 0.74); });
+def('zr-yue', 'scene', o => { _em(o, '🌙', 0.74); });
+def('zr-shan', 'scene', o => {   /* 山：三峰 */
+  const f1 = _fill(o, o.pal.deep); _poly(o, [[8, 84], [34, 30], [42, 48], [50, 34], [62, 56], [72, 38], [92, 84]]); f1();
+  const f2 = _fill(o, '#ffffff');
+  _poly(o, [[28, 41], [34, 31], [40, 41], [34, 46]]); f2();
+  _poly(o, [[67, 47], [72, 39], [77, 47], [72, 52]]); f2();
+  const u = _ink(o, o.ink); o.ctx.lineWidth = 7 * o.s; _line(o, 8, 84, 92, 84); u();
+});
+def('zr-shui', 'scene', o => { _em(o, '💧', 0.7); });
+def('zr-huo', 'scene', o => { _em(o, '🔥', 0.72); });
+def('zr-tu', 'scene', o => {   /* 土：地上的土堆 + 小草 */
+  const f = _fill(o, o.pal.deep); _poly(o, [[10, 78], [34, 46], [66, 46], [90, 78]]); f();
+  const u = _ink(o); o.ctx.lineWidth = 7 * o.s; _line(o, 6, 78, 94, 78); u();
+  const v = _ink(o, '#4caf50'); o.ctx.lineWidth = 6 * o.s;
+  _line(o, 20, 78, 20, 62); _line(o, 20, 68, 12, 60); _line(o, 20, 68, 28, 60);
+  v();
+});
+def('zr-shi', 'scene', o => { _em(o, '🪨', 0.74); });
+def('zr-yun', 'scene', o => { _em(o, '☁️', 0.78); });
+def('zr-yu', 'scene', o => { _em(o, '🌧', 0.74); });
+
+/* ------------------------- 4. 植物动物 ------------------------- */
+def('zw-mu', 'scene', o => { _em(o, '🌳', 0.78); });
+def('zw-he', 'scene', o => { _em(o, '🌾', 0.76); });
+def('zw-hua', 'scene', o => { _em(o, '🌸', 0.76); });
+def('zw-cao', 'scene', o => { _em(o, '🍀', 0.76); });
+def('zw-shu', 'scene', o => { _em(o, '🌲', 0.78); });
+def('dw-niu', 'scene', o => { _em(o, '🐮', 0.78); });
+def('dw-yang', 'scene', o => { _em(o, '🐑', 0.78); });
+def('dw-ma', 'scene', o => { _em(o, '🐴', 0.78); });
+def('dw-niao', 'scene', o => { _em(o, '🐦', 0.78); });
+def('dw-yu', 'scene', o => { _em(o, '🐟', 0.78); });
+def('dw-chong', 'scene', o => { _em(o, '🐛', 0.78); });
+
+/* ------------------------- 5. 家人称呼 ------------------------- */
+def('jr-ba', 'scene', o => { _em(o, '👨', 0.8); });
+def('jr-ma', 'scene', o => { _em(o, '👩\u200d🦰', 0.62, 42); });
+def('jr-ye', 'scene', o => { _em(o, '👴', 0.8); });
+def('jr-nai', 'scene', o => { _em(o, '👵', 0.8); });
+def('jr-ge', 'scene', o => { _em(o, '🧑', 0.8); });
+def('jr-jie', 'scene', o => { _em(o, '👧', 0.8); });
+def('jr-di', 'scene', o => { _em(o, '👶', 0.8); });
+def('jr-mei', 'scene', o => { _em(o, '👶', 0.62, 42); });   /* 用婴儿区分 姐/妹 */
+def('jr-jia', 'scene', o => { _em(o, '🏠', 0.78); });
+def('jr-wo', 'scene', o => { _em(o, '🙋', 0.78); });
+def('jr-ni', 'scene', o => { _em(o, '👉', 0.74); });
+
+/* ------------------------- 6. 动作行为 ------------------------- */
+def('dz-kan', 'scene', o => {   /* 看：一双亮晶晶的大眼睛（横着的两只，与竖写的「目」区分） */
+  const eye = (cx) => {
+    const w = _fill(o, '#ffffff'); _ell(o, cx, 50, 24, 19, 0); w();
+    const u = _ink(o); o.ctx.lineWidth = 6 * o.s; _ell(o, cx, 50, 24, 19, 0); u();
+    /* 虹膜 + 瞳孔 + 高光 */
+    const ir = _fill(o, o.pal.deep); _c(o, cx + 1, 50, 11); ir();
+    const pu = _fill(o, '#20304a'); _c(o, cx + 1, 50, 5.5); pu();
+    const hl = _fill(o, '#ffffff'); _c(o, cx - 3, 45, 3.4); hl();
+    /* 睫毛 */
+    const l = _ink(o); o.ctx.lineWidth = 4.5 * o.s; o.ctx.lineCap = 'round';
+    _line(o, cx - 20, 36, cx - 25, 28); _line(o, cx, 33, cx, 25); _line(o, cx + 20, 36, cx + 25, 28);
+    l();
+  };
+  eye(30); eye(70);
+  /* 中间的眉头，像一双眼睛一起看出去 */
+  const b = _ink(o); o.ctx.lineWidth = 5 * o.s;
+  _arcS(o, 50, 84, 16, 1.15, 1.85);
+  b();
+});
+def('dz-ting', 'scene', o => { _em(o, '👂', 0.78); });
+def('dz-shuo', 'scene', o => {   /* 说：一张正在说话的嘴巴 */
+  /* 嘴唇 */
+  const lip = _fill(o, '#ef7d92'); _ell(o, 46, 50, 26, 20, 0); lip();
+  /* 口腔 */
+  const inner = _fill(o, '#7a2438'); _ell(o, 46, 51, 19, 14, 0); inner();
+  /* 上牙 */
+  const th = _fill(o, '#ffffff'); _rect(o, 27, 37, 38, 7, 2.5); th();
+  /* 舌头 */
+  const tg = _fill(o, '#e2647f'); _ell(o, 46, 58, 13, 7, 0); tg();
+  const u = _ink(o, o.ink); o.ctx.lineWidth = 6 * o.s; _ell(o, 46, 50, 26, 20, 0); u();
+  /* 右边飘出的话音波纹：在「说」 */
+  const w = _ink(o, o.pal.deep); o.ctx.lineWidth = 5 * o.s; o.ctx.lineCap = 'round';
+  _arcS(o, 74, 50, 11, -0.62, 0.62);
+  _arcS(o, 80, 50, 19, -0.55, 0.55);
+  w();
+});
+def('dz-zou', 'scene', o => { _em(o, '🚶', 0.78); });
+def('dz-pao', 'scene', o => { _em(o, '🏃', 0.78); });
+def('dz-tiao', 'scene', o => { _em(o, '🤸', 0.78); });
+def('dz-chi', 'scene', o => { _em(o, '🍚', 0.76); });
+def('dz-he', 'scene', o => { _em(o, '🥤', 0.76); });
+def('dz-xiao', 'scene', o => { _em(o, '😄', 0.6, 42); });
+def('dz-ku', 'scene', o => { _em(o, '😭', 0.6, 42); });
+def('dz-wan', 'scene', o => { _em(o, '⚽', 0.64, 44); });
+
+/* ------------------------- 7. 方位与颜色 ------------------------- */
+def('fw-shang', 'scene', o => { emoji('__x', ''); _em(o, '⬆️', 0.68); });
+def('fw-xia', 'scene', o => { _em(o, '⬇️', 0.68); });
+def('fw-zuo', 'scene', o => { _em(o, '⬅️', 0.68); });
+def('fw-you', 'scene', o => { _em(o, '➡️', 0.68); });
+def('fw-zhong', 'scene', o => { _em(o, '🎯', 0.8); });
+def('fw-qian', 'scene', o => { _em(o, '⏩', 0.72); });
+def('fw-hou', 'scene', o => { _em(o, '⏪', 0.72); });
+def('se-hong', 'scene', o => { _rect(o, 16, 24, 68, 52, 14); });
+def('se-huang', 'scene', o => { _rect(o, 16, 24, 68, 52, 14); });
+def('se-bai', 'scene', o => { _rect(o, 16, 24, 68, 52, 14); });
+def('se-hei', 'scene', o => { _rect(o, 16, 24, 68, 52, 14); });
+
+/* ------------------------- 8. 时间与数量 ------------------------- */
+def('sj-zao', 'scene', o => { _em(o, '🌅', 0.76); });
+def('sj-wan', 'scene', o => { _em(o, '🌃', 0.76); });
+def('sj-nian', 'scene', o => { _em(o, '📅', 0.76); });
+def('sj-duo', 'scene', o => {   /* 多：一堆多多的圆点 */
+  const f = _fill(o, o.pal.deep);
+  const pts = [[22, 26], [50, 22], [78, 28], [16, 52], [44, 48], [72, 52], [30, 76], [58, 78], [86, 60]];
+  for (const p of pts) { _c(o, p[0], p[1], 10); }
+  f();
+  const u = _ink(o, o.pal.line); o.ctx.lineWidth = 5 * o.s;
+  for (const p of pts) { _c(o, p[0], p[1], 10); }
+  u();
+});
+def('sj-shao', 'scene', o => {   /* 少：孤零零一个小点 */
+  const f = _fill(o, o.pal.deep); _c(o, 50, 46, 15); f();
+  const u = _ink(o, o.pal.line); o.ctx.lineWidth = 6 * o.s; _c(o, 50, 46, 15); u();
+  const f2 = _fill(o, o.pal.deep); _c(o, 50, 78, 4); f2();
+});
+def('sj-gao', 'scene', o => { _em(o, '🦒', 0.8); });
+def('sj-chang', 'scene', o => { _em(o, '📏', 0.76); });
+def('sj-hao', 'scene', o => { _em(o, '👍', 0.74); });
+def('sj-kai', 'scene', o => {   /* 开：箱子盖子打开了 */
+  const f = _fill(o, '#c98a4b'); _rect(o, 22, 54, 56, 32, 6); f();
+  const u = _ink(o, '#8a5024'); o.ctx.lineWidth = 8 * o.s; _rect(o, 22, 54, 56, 32, 6); u();
+  const f2 = _fill(o, '#e0a95f'); _rect(o, 6, 24, 66, 20, 6); f2();
+  const v = _ink(o, '#8a5024'); o.ctx.lineWidth = 8 * o.s; _rect(o, 6, 24, 66, 20, 6); v();
+  const w = _ink(o, '#8a5024'); o.ctx.lineWidth = 6 * o.s; _line(o, 50, 44, 50, 54); w();
+});
+def('sj-lai', 'scene', o => { _em(o, '🤚', 0.66, 44); });
+def('sj-qu', 'scene', o => { _em(o, '🚪', 0.74); });
+
+/* ------------------------- 9. 生活常用 ------------------------- */
+def('sh-shu', 'scene', o => { _em(o, '📚', 0.76); });
+def('sh-che', 'scene', o => { _em(o, '🚗', 0.78); });
+def('sh-men', 'scene', o => {   /* 门：一扇打开的木门 */
+  const f = _fill(o, '#c98a4b'); _rect(o, 18, 14, 64, 72, 8); f();
+  const u = _ink(o, '#8a5024'); o.ctx.lineWidth = 9 * o.s; _rect(o, 18, 14, 64, 72, 8); u();
+  const v = _ink(o, '#8a5024'); o.ctx.lineWidth = 6 * o.s;
+  _line(o, 18, 40, 82, 40); _line(o, 50, 40, 50, 86);
+  v();
+  const f2 = _fill(o, '#ffd34d'); _c(o, 41, 60, 5); f2();   /* 门把手 */
+});
+def('sh-deng', 'scene', o => { _em(o, '💡', 0.74); });
+def('sh-fan', 'scene', o => { _em(o, '🍚', 0.74); });
+def('sh-hua', 'scene', o => { _em(o, '🎨', 0.76); });
+def('sh-yi', 'scene', o => { _em(o, '👕', 0.78); });
+def('sh-chuang', 'scene', o => { _em(o, '🛏', 0.78); });
+def('sh-xue', 'scene', o => { _em(o, '🎓', 0.78); });
+def('sh-ai', 'scene', o => { _em(o, '💖', 0.74); });
+def('sh-xing', 'scene', o => { _em(o, '⭐', 0.74); });
+
+/* ------------------------- 调色板与入口 ------------------------- */
+const PALETTES = {
+  warm:  { bg: '#fff3e2', deep: '#f2a35e', line: '#d98a3f', ink: '#8a5024' },
+  sky:   { bg: '#eaf5ff', deep: '#7db8ee', line: '#4a90d9', ink: '#2a4a78' },
+  green: { bg: '#eafaf0', deep: '#82d3a6', line: '#4bb87c', ink: '#1f5e42' },
+  pink:  { bg: '#fff1f6', deep: '#f7b2cd', line: '#e5789f', ink: '#8a2e50' },
+  sun:   { bg: '#fffbe6', deep: '#ffd75c', line: '#e0ac1f', ink: '#7a5a10' },
+  violet:{ bg: '#f5f1ff', deep: '#b7a6f5', line: '#8f79e6', ink: '#4a3a8a' },
+};
+/* 颜色字专用：实物填色色块（后定义覆盖上面的占位实现） */
+const COLOR_FILL = { 'se-hong': '#e94b4b', 'se-huang': '#ffd34d', 'se-bai': '#ffffff', 'se-hei': '#333844' };
+Object.keys(COLOR_FILL).forEach(k => {
+  const col = COLOR_FILL[k];
+  ART[k].draw = function (o) {
+    const f = _fill(o, col); _rect(o, 16, 24, 68, 52, 14); f();
+    const u = _ink(o, 'rgba(0,0,0,.22)'); o.ctx.lineWidth = 4 * o.s; _rect(o, 16, 24, 68, 52, 14); u();
+  };
+});
+
+/* 主入口：在 (x, y) 处绘制边长 size 的图形提示 */
+function drawHint(c, id, x, y, size, palKey) {
+  const a = ART[id];
+  if (!a) return false;
+  const pal = PALETTES[palKey] || PALETTES.sky;
+  const o = {
+    ctx: c, x, y, s: size / 100, ink: pal.ink, pal,
+    fill: false, stroke: false, lw: 1,
+  };
+  c.save();
+  c.textBaseline = 'middle';
+  try { a.draw(o); } catch (e) { /* 单个图形出错不影响游戏 */ }
+  c.restore();
+  return true;
+}
+
+/* 汉字 → 图形提示映射（99 字全覆盖） */
+const HANZI_ART = {
+  /* 1 数字与大小 */
+  '一': ['shu-1', 'warm', '一，就是数字 1'],
+  '二': ['shu-2', 'warm', '二，就是数字 2'],
+  '三': ['shu-3', 'warm', '三，就是数字 3'],
+  '四': ['shu-4', 'warm', '四，就是数字 4'],
+  '五': ['shu-5', 'warm', '五，就是数字 5'],
+  '六': ['shu-6', 'warm', '六，就是数字 6'],
+  '七': ['shu-7', 'warm', '七，就是数字 7'],
+  '八': ['shu-8', 'warm', '八，就是数字 8'],
+  '九': ['shu-9', 'warm', '九，就是数字 9'],
+  '十': ['shu-10', 'warm', '十，就是数字 10'],
+  '大': ['shu-da', 'warm', '大象是很大的动物'],
+  /* 2 人与身体 */
+  '人': ['ti-ren', 'sky', '站着的一个人'],
+  '口': ['ti-kou', 'sky', '张大嘴巴，圆圆的一个口'],
+  '手': ['ti-shou', 'sky', '一只张开的手'],
+  '目': ['ti-mu', 'sky', '竖起来的一只眼睛'],
+  '耳': ['ti-er', 'sky', '软软的一只耳朵'],
+  '足': ['ti-zu', 'sky', '一只小脚丫'],
+  '头': ['ti-tou', 'sky', '小男孩的圆圆脑袋'],
+  '心': ['ti-xin', 'sky', '砰砰跳的心脏'],
+  '牙': ['ti-ya', 'sky', '白白的牙齿'],
+  '力': ['ti-li', 'sky', '鼓起来的小胳膊，很有力'],
+  '小': ['ti-xiao', 'sky', '用两根手指捏一捏，好小呀'],
+  /* 3 天地自然 */
+  '天': ['zr-tian', 'sky', '抬头看，蓝蓝的天空'],
+  '地': ['zr-di', 'green', '我们脚下的大地'],
+  '日': ['zr-ri', 'sun', '太阳公公'],
+  '月': ['zr-yue', 'violet', '弯弯的月亮'],
+  '山': ['zr-shan', 'green', '三座连在一起的山峰'],
+  '水': ['zr-shui', 'sky', '一滴水'],
+  '火': ['zr-huo', 'warm', '红红的火苗'],
+  '土': ['zr-tu', 'warm', '地上的一堆土'],
+  '石': ['zr-shi', 'sky', '一块石头'],
+  '云': ['zr-yun', 'sky', '白白的云朵'],
+  '雨': ['zr-yu', 'sky', '下雨啦'],
+  /* 4 植物动物 */
+  '木': ['zw-mu', 'green', '一棵大树'],
+  '禾': ['zw-he', 'green', '田里金黄的禾苗'],
+  '花': ['zw-hua', 'pink', '一朵小花'],
+  '草': ['zw-cao', 'green', '绿绿的小草'],
+  '树': ['zw-shu', 'green', '高高的松树'],
+  '牛': ['dw-niu', 'green', '哞哞叫的牛'],
+  '羊': ['dw-yang', 'green', '毛茸茸的绵羊'],
+  '马': ['dw-ma', 'green', '跑得很快的马'],
+  '鸟': ['dw-niao', 'sky', '会飞的小鸟'],
+  '鱼': ['dw-yu', 'sky', '水里游的鱼'],
+  '虫': ['dw-chong', 'green', '爬来爬去的小虫子'],
+  /* 5 家人称呼 */
+  '爸': ['jr-ba', 'warm', '爸爸'],
+  '妈': ['jr-ma', 'pink', '妈妈'],
+  '爷': ['jr-ye', 'sky', '爷爷'],
+  '奶': ['jr-nai', 'pink', '奶奶'],
+  '哥': ['jr-ge', 'sky', '哥哥'],
+  '姐': ['jr-jie', 'pink', '姐姐'],
+  '弟': ['jr-di', 'sun', '弟弟'],
+  '妹': ['jr-mei', 'pink', '妹妹，家里最小的宝宝'],
+  '家': ['jr-jia', 'warm', '我们的家'],
+  '我': ['jr-wo', 'violet', '举起手，就是我'],
+  '你': ['jr-ni', 'sky', '手指一指，就是你'],
+  /* 6 动作行为 */
+  '看': ['dz-kan', 'sky', '两只亮晶晶的眼睛，用眼睛看'],
+  '听': ['dz-ting', 'sky', '用耳朵听'],
+  '说': ['dz-shuo', 'violet', '嘴巴张开在说话'],
+  '走': ['dz-zou', 'green', '慢慢走路'],
+  '跑': ['dz-pao', 'warm', '快快跑步'],
+  '跳': ['dz-tiao', 'warm', '蹦蹦跳跳'],
+  '吃': ['dz-chi', 'warm', '用嘴巴吃饭'],
+  '喝': ['dz-he', 'sky', '咕嘟咕嘟喝水'],
+  '笑': ['dz-xiao', 'sun', '开心地笑'],
+  '哭': ['dz-ku', 'sky', '伤心地哭'],
+  '玩': ['dz-wan', 'pink', '踢皮球，一起玩'],
+  /* 7 方位与颜色 */
+  '上': ['fw-shang', 'sky', '箭头朝上'],
+  '下': ['fw-xia', 'sky', '箭头朝下'],
+  '左': ['fw-zuo', 'sky', '箭头朝左'],
+  '右': ['fw-you', 'sky', '箭头朝右'],
+  '中': ['fw-zhong', 'warm', '箭靶的红心，就在中间'],
+  '前': ['fw-qian', 'green', '往前走'],
+  '后': ['fw-hou', 'green', '往后退'],
+  '红': ['se-hong', 'pink', '红色的色块'],
+  '黄': ['se-huang', 'sun', '黄色的色块'],
+  '白': ['se-bai', 'sky', '白色的色块'],
+  '黑': ['se-hei', 'violet', '黑色的色块'],
+  /* 8 时间与数量 */
+  '早': ['sj-zao', 'sun', '太阳升起来，早上好'],
+  '晚': ['sj-wan', 'violet', '月亮出来啦，天晚了'],
+  '年': ['sj-nian', 'pink', '一年十二个月的日历'],
+  '多': ['sj-duo', 'warm', '一堆圆点，密密麻麻，好多好多'],
+  '少': ['sj-shao', 'sky', '孤零零一个小点，好少呀'],
+  '高': ['sj-gao', 'green', '长颈鹿很高很高'],
+  '长': ['sj-chang', 'warm', '用尺子量一量，长长的'],
+  '好': ['sj-hao', 'green', '竖起大拇指，真棒'],
+  '开': ['sj-kai', 'sun', '箱子盖子打开了'],
+  '来': ['sj-lai', 'sky', '抬起手打招呼，过来呀'],
+  '去': ['sj-qu', 'warm', '走出门，出发去'],
+  /* 9 生活常用 */
+  '书': ['sh-shu', 'violet', '一本本书'],
+  '车': ['sh-che', 'sky', '小汽车'],
+  '门': ['sh-men', 'warm', '一扇打开的门'],
+  '灯': ['sh-deng', 'sun', '亮亮的电灯'],
+  '饭': ['sh-fan', 'warm', '一碗白米饭'],
+  '画': ['sh-hua', 'pink', '用颜料画画'],
+  '衣': ['sh-yi', 'sky', '一件衣服'],
+  '床': ['sh-chuang', 'violet', '睡觉的小床'],
+  '学': ['sh-xue', 'sky', '戴上帽子去上学'],
+  '爱': ['sh-ai', 'pink', '爱心代表爱'],
+  '星': ['sh-xing', 'violet', '一闪一闪的小星星'],
+};
+/* ===== 图形提示数据结束 ===== */
+
 /* ---------------- 状态 ---------------- */
 let level = 1;                    // 1..9
 let qIndex = 0;                   // 本关第几题 0..10
@@ -287,6 +808,12 @@ let shakeT = 0;
 let levelBanner = 0;              // 关卡横幅计时
 let confetti = [];                // 庆祝纸屑
 let particles = [];               // 答对粒子
+/* ---- 图形提示（右上角开关，默认开启） ---- */
+let hintOn = true;
+try { const v = localStorage.getItem('hq_hint'); if (v === '0') hintOn = false; }
+catch (e) { /* 隐私模式忽略 */ }
+/* 取某字的图形信息；返回 { id, pal, tip } 或 null */
+function hintOf(han) { const m = HANZI_ART[han]; return m ? { id: m[0], pal: m[1], tip: m[2] } : null; }
 const $ = id => document.getElementById(id);
 
 /* 出题：目标字 + 3 个干扰项（优先同学科主题、随机其余） */
@@ -341,7 +868,8 @@ function pickOption(idx) {
     } else {
       nextTimer = 0.85;
     }
-    speak(`${c.han}，答对啦！`, { key: false });
+    const hi = hintOn ? hintOf(c.han) : null;
+    speak(hi ? `${c.han}，答对啦！${hi.tip}` : `${c.han}，答对啦！`, { key: false });
   } else {
     /* 答错：无惩罚，播报正确读音 */
     wrongTotal++;
@@ -496,22 +1024,39 @@ function drawScene(t) {
   ctx.fillText('🔈', cardX + 26, cardY + 66);
   /* 提示文字 */
   ctx.fillStyle = th.ink;
-  ctx.font = `bold ${Math.min(30, W * 0.036)}px "PingFang SC", system-ui, sans-serif`;
+  ctx.font = `bold ${Math.min(30, W * 0.036, cardW * 0.048)}px "PingFang SC", system-ui, sans-serif`;
   ctx.textAlign = 'left';
   ctx.fillText('听一听，找出这个字', cardX + 82, cardY + 52);
   ctx.font = `600 ${Math.min(21, W * 0.026)}px "PingFang SC", system-ui, sans-serif`;
   ctx.fillStyle = th.accent;
   ctx.fillText(`拼音 ${target ? target.py : ''}`, cardX + 82, cardY + 92);
-  /* 关卡名（右） */
-  ctx.textAlign = 'right';
-  ctx.fillStyle = th.ink;
-  ctx.globalAlpha = 0.65;
-  ctx.font = `bold ${Math.min(22, W * 0.026)}px "PingFang SC", system-ui, sans-serif`;
-  ctx.fillText(`第 ${level} 关 · ${LEVELS[level - 1].name}`, cardX + cardW - 26, cardY + 52);
-  ctx.globalAlpha = 0.45;
-  ctx.font = `600 ${Math.min(18, W * 0.022)}px "PingFang SC", system-ui, sans-serif`;
-  ctx.fillText(`本关 ${Math.min(qIndex, PER_LEVEL)} / ${PER_LEVEL}`, cardX + cardW - 26, cardY + 92);
-  ctx.globalAlpha = 1;
+  /* 关卡名（右）—— 开启图形提示时左移给右上小图让位；太窄就整块不画（HUD 已有同样信息） */
+  const hasCardArt = hintOn && target && hintOf(target.han);
+  const showCardMeta = W >= 620;
+  const rX = hasCardArt ? cardX + cardW - (W < 780 ? 96 : 126) : cardX + cardW - 26;
+  if (showCardMeta) {
+    ctx.textAlign = 'right';
+    ctx.fillStyle = th.ink;
+    ctx.globalAlpha = 0.65;
+    ctx.font = `bold ${Math.min(22, W * 0.026)}px "PingFang SC", system-ui, sans-serif`;
+    ctx.fillText(`第 ${level} 关 · ${LEVELS[level - 1].name}`, rX, cardY + 52);
+    ctx.globalAlpha = 0.45;
+    ctx.font = `600 ${Math.min(18, W * 0.022)}px "PingFang SC", system-ui, sans-serif`;
+    ctx.fillText(`本关 ${Math.min(qIndex, PER_LEVEL)} / ${PER_LEVEL}`, rX, cardY + 92);
+    ctx.globalAlpha = 1;
+  }
+  /* ---- 目标字的图形提示（开启时显示在题干卡片右上角） ---- */
+  if (hasCardArt) {
+    const hi = hintOf(target.han);
+    if (hi) {
+      const bs = Math.min(92, cardW * 0.22), bxp = cardX + cardW - bs - 16, byp = cardY + (132 - bs) / 2;
+      ctx.globalAlpha = 0.5;
+      ctx.fillStyle = PALETTES[hi.pal] ? PALETTES[hi.pal].bg : '#ffffff';
+      roundRect(bxp, byp, bs, bs, 18); ctx.fill();
+      ctx.globalAlpha = 1;
+      drawHint(ctx, hi.id, bxp, byp, bs, hi.pal);
+    }
+  }
   ctx.restore();
 
   /* ---- 四选一按钮 ---- */
@@ -519,11 +1064,16 @@ function drawScene(t) {
   const cols = W < 620 ? 2 : 4;
   const rows = Math.ceil(n / cols);
   const gapX = 22, gapY = 24;
-  const btnW = Math.min(200, (cardW - gapX * (cols - 1)) / cols);
-  const btnH = Math.min(190, Math.max(110, H * 0.22));
+  const gridX0 = 0;
+  const btnW = Math.min(hintOn ? 224 : 200, (cardW - gapX * (cols - 1)) / cols);
   const gridW = btnW * cols + gapX * (cols - 1);
   const gridX = (W - gridW) / 2;
-  const gridY = cardY + 132 + Math.max(30, H * 0.05);
+  const gridY = cardY + 132 + Math.max(16, Math.min(40, H * 0.04));
+  /* 竖向可用空间：网格底边不能压到进度条（H-72） */
+  const avail = H - 72 - gridY - gapY * (rows - 1);
+  const maxH = avail / rows;
+  /* 开启图形提示时卡片加高，放下「字 + 图 + 拼音」三层 */
+  const btnH = Math.max(96, Math.min(hintOn ? 232 : 190, maxH, Math.max(hintOn ? 140 : 110, H * (hintOn ? 0.27 : 0.22))));
 
   optionRects = [];
   options.forEach((c, i) => {
@@ -552,16 +1102,55 @@ function drawScene(t) {
     roundRect(bx, by, btnW, btnH, 22);
     ctx.stroke();
 
+    /* 汉字（含图形提示时上移让位）、拼音、插图 三段式排布 */
+    const hinfo = hintOf(c.han);
+    const showArt = hintOn && !!hinfo;
+    let hanY, pyY, artBox;
+    if (showArt) {
+      artBox = Math.min(btnW - 34, btnH * 0.46);
+      hanY = by + btnH * 0.215;
+      pyY  = by + btnH * (artBox / btnH > 0.42 ? 0.885 : 0.86);
+      /* 图与拼音之间偏下放置 */
+      var artY = by + btnH * 0.63 - artBox / 2 - (btnH * 0.05);
+      artY = Math.max(by + btnH * 0.36, artY);
+    } else {
+      hanY = by + btnH * 0.44;
+      pyY  = by + btnH * 0.82;
+    }
+
     /* 汉字 */
     ctx.fillStyle = isRight ? '#06340f' : isWrong ? '#8a1f1f' : th.ink;
-    ctx.font = `bold ${Math.min(btnH * 0.52, btnW * 0.58)}px "PingFang SC", "Microsoft YaHei", system-ui, sans-serif`;
+    const hanSize = showArt ? Math.min(btnH * 0.30, btnW * 0.36) : Math.min(btnH * 0.52, btnW * 0.58);
+    ctx.font = `bold ${hanSize}px "PingFang SC", "Microsoft YaHei", system-ui, sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(c.han, bx + btnW / 2, by + btnH * 0.44);
+    ctx.fillText(c.han, bx + btnW / 2, hanY);
+
+    /* ---- 图形提示（字 + 物 一起记） ---- */
+    if (showArt) {
+      const cx = bx + btnW / 2;
+      /* 图底圆角浅色衬底，白色/黑色这类色块也能看清边界 */
+      ctx.save();
+      ctx.globalAlpha = 0.55;
+      ctx.fillStyle = PALETTES[hinfo.pal] ? PALETTES[hinfo.pal].bg : '#ffffff';
+      roundRect(cx - artBox / 2, artY, artBox, artBox, artBox * 0.22);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      drawHint(ctx, hinfo.id, cx - artBox / 2, artY, artBox, hinfo.pal);
+      ctx.restore();
+    }
+
     /* 拼音（小字） */
-    ctx.globalAlpha = 0.55;
-    ctx.font = `600 ${Math.min(20, btnW * 0.13)}px system-ui, sans-serif`;
-    ctx.fillText(c.py, bx + btnW / 2, by + btnH * 0.82);
-    ctx.globalAlpha = 1;
+    if (showArt) {
+      ctx.globalAlpha = 0.55;
+      ctx.font = `600 ${Math.min(16, btnW * 0.105)}px system-ui, sans-serif`;
+      ctx.fillText(c.py, bx + btnW / 2, pyY);
+      ctx.globalAlpha = 1;
+    } else {
+      ctx.globalAlpha = 0.55;
+      ctx.font = `600 ${Math.min(20, btnW * 0.13)}px system-ui, sans-serif`;
+      ctx.fillText(c.py, bx + btnW / 2, pyY);
+      ctx.globalAlpha = 1;
+    }
     /* 对错标记 */
     if (isRight) {
       ctx.fillStyle = '#2ecc71';
@@ -575,23 +1164,24 @@ function drawScene(t) {
     ctx.restore();
   });
 
-  /* ---- 关卡横幅 ---- */
+  /* ---- 关卡横幅（贴在题干卡片上，不遮挡下面的选项） ---- */
   if (levelBanner > 0) {
     const a = Math.min(1, levelBanner / 0.5);
+    const k = Math.min(1, (2.6 - levelBanner) / 0.25);      /* 入场缩放 */
+    const bh = 78;
+    const bw = Math.min(W - 60, 460) * (0.9 + 0.1 * k);
+    const byy = cardY - 50;
     ctx.save();
-    ctx.globalAlpha = a * 0.94;
-    const bw = Math.min(W - 60, 560), bh = 110;
+    ctx.globalAlpha = a * 0.97;
     ctx.fillStyle = '#ffffff';
-    roundRect((W - bw) / 2, H * 0.34, bw, bh, 26);
-    ctx.fill();
+    roundRect((W - bw) / 2, byy, bw, bh, 22); ctx.fill();
     ctx.strokeStyle = th.accent;
     ctx.lineWidth = 4;
-    roundRect((W - bw) / 2, H * 0.34, bw, bh, 26);
-    ctx.stroke();
+    roundRect((W - bw) / 2, byy, bw, bh, 22); ctx.stroke();
     ctx.fillStyle = th.accent;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.font = `bold ${Math.min(40, W * 0.05)}px "PingFang SC", system-ui, sans-serif`;
-    ctx.fillText(`第 ${level} 关 · ${LEVELS[level - 1].name}`, W / 2, H * 0.34 + bh / 2);
+    ctx.font = `bold ${Math.min(34, W * 0.042)}px "PingFang SC", system-ui, sans-serif`;
+    ctx.fillText(`第 ${level} 关 · ${LEVELS[level - 1].name}`, W / 2, byy + bh / 2);
     ctx.restore();
   }
 
@@ -695,7 +1285,7 @@ $('btnStart').addEventListener('click', () => {
   resetGame();
   state = STATE.RUNNING;
   levelBanner = 2.6;
-  speak('汉字闯关开始！听一听，找出这个字', { key: true });
+  speak('汉字闯关开始！听一听，找出这个字，看看小图帮忙记', { key: true });
 });
 $('btnRestart').addEventListener('click', () => {
   $('result').classList.remove('show');
@@ -740,12 +1330,41 @@ $('btnMute').addEventListener('click', () => {
   if (muted && synth) synth.cancel();
 });
 
+/* ---------------- 图形提示开关 ---------------- */
+function paintHintBtn() {
+  const b = $('btnHint');
+  b.classList.toggle('on', hintOn);
+  b.title = hintOn ? '图形提示：已开启（点一下关闭）' : '图形提示：已关闭（点一下开启）';
+}
+$('btnHint').addEventListener('click', e => {
+  e.stopPropagation();
+  hintOn = !hintOn;
+  try { localStorage.setItem('hq_hint', hintOn ? '1' : '0'); } catch (err) { /* 忽略 */ }
+  paintHintBtn();
+  sfxTap();
+  if (state === STATE.RUNNING && target) {
+    if (hintOn) {
+      const hi = hintOf(target.han);
+      showToast('图形提示开', true);
+      if (hi) speak(`图形提示打开了。${target.han}，${hi.tip}`, { key: true });
+    } else {
+      showToast('图形提示关', true);
+      speak('图形提示关掉了，只看汉字', { key: true });
+    }
+  }
+});
+paintHintBtn();
+
 /* ---------------- 测试钩子 ---------------- */
 window.__testOptions = () => options.map((c, i) => ({ idx: i, han: c.han, py: c.py }));
 window.__testTarget = () => target ? { han: target.han, py: target.py } : null;
 window.__testPick = i => { pickOption(i); };
 window.__testState = () => ({ state, level, qIndex, learnedTotal, streak, bestStreak, wrong: wrongTotal });
 window.__testAllChars = () => ALL.map(c => c.han);
+window.__testHint = () => ({ on: hintOn, btnOn: $('btnHint').classList.contains('on') });
+window.__testToggleHint = () => $('btnHint').click();
+window.__testHit = () => optionRects.map(r => ({ idx: r.idx, x: r.x, y: r.y, w: r.w, h: r.h }));
+window.__testArtMissing = () => ALL.filter(c => !HANZI_ART[c.han] || !ART[HANZI_ART[c.han][0]]).map(c => c.han);
 </script>
 </body>
 </html>
