@@ -15,3 +15,7 @@ _design.py
 
 # 开发临时脚本（图形设计/调试用，不入库）
 tangram/_*.py
+hanzi-quest/_art.js
+hanzi-quest/_map.js
+hanzi-quest/_sync.py
+hanzi-quest/_test.js
