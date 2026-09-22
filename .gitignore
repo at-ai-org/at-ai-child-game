@@ -19,3 +19,7 @@ hanzi-quest/_art.js
 hanzi-quest/_map.js
 hanzi-quest/_sync.py
 hanzi-quest/_test.js
+
+# Windows kiosk 宿主程序的构建产物（源码入库，产物不入库）
+windows-kiosk/bin/
+windows-kiosk/obj/
