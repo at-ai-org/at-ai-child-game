@@ -14,7 +14,7 @@
     user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
   }
   #game { display: block; width: 100vw; height: 100vh; }
-  .hud { position: absolute; top: 72px; left: 14px; z-index: 10; display: flex; gap: 10px; flex-wrap: wrap; pointer-events: none; }
+  .hud { position: absolute; top: 72px; left: 14px; right: 14px; z-index: 10; display: flex; gap: 10px; flex-wrap: wrap; pointer-events: none; }
   .hud-chip { background: rgba(10, 16, 40, .72); border: 1px solid rgba(120, 200, 255, .35); border-radius: 14px; color: #dff2ff; padding: 7px 15px; font-size: 17px; font-weight: 600; box-shadow: 0 4px 18px rgba(0,0,0,.35); backdrop-filter: blur(6px); }
   .hud-chip b { color: #ffd35c; font-size: 21px; }
   #btnMute { position: absolute; top: 12px; right: 12px; z-index: 60; font-size: 20px; line-height: 1; padding: 9px 13px; border-radius: 12px; cursor: pointer; background: rgba(10, 16, 40, .72); border: 1px solid rgba(120, 200, 255, .35); color: #dff2ff; }
@@ -65,7 +65,7 @@
 <canvas id="game"></canvas>
 <button id="btnMute" title="声音开关">🔊</button>
 <div class="hud">
-  <div class="hud-chip">第 <b id="hudLevel">1</b> 关</div>
+  <div class="hud-chip">第 <b id="hudLevel">1</b> / <b id="hudMaxLevel">18</b> 关</div>
   <div class="hud-chip">配对 <b id="hudPairs">0</b> / <b id="hudTotal">4</b></div>
   <div class="hud-chip">翻牌 <b id="hudFlips">0</b> 次</div>
 </div>
@@ -82,7 +82,7 @@
   <p class="rules">
     卡片都扣着，点一下翻开看看是什么图案。<br>
     一次翻两张：<b>图案一样</b> 就配对成功，<b>不一样</b> 会翻回去，记住它们的位置！<br>
-    把所有配对都找出来，一共 <b>3 关</b>，越玩越多！
+    把所有配对都找出来，一共 <b>18 关</b>，卡片越来越多，翻回也越来越快！
   </p>
   <button id="btnStart">开始游戏</button>
 </div>
@@ -92,8 +92,8 @@ window.addEventListener('contextmenu', e => e.preventDefault());
 
 /* =========================================================
  * 记忆翻牌 Memory Cards —— 单文件 Canvas 小游戏
- * 翻两张配对：一样亮起 + 朗读图案名；不一样 1 秒翻回。
- * 3 关（4 对 → 6 对 → 8 对）。无失败，鼓励记忆。
+ * 翻两张配对：一样亮起 + 朗读图案名；不一样会翻回。
+ * 18 关（4 对 → 15 对）：卡片逐关变多，配错后翻回的时间逐关变短。无失败，鼓励记忆。
  * ========================================================= */
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -104,7 +104,32 @@ resize();
 
 const STATE = { START: 0, RUNNING: 1, FINISH: 2 };
 let state = STATE.START;
-let level = 1, pairsTotal = 4, pairsFound = 0, flips = 0, bestEff = Infinity;
+const MAX_LEVEL = 18;
+/* 18 关配置：pairs = 图案对数，back = 配错后翻回时间（秒）
+ * 卡片逐关变多（4 对 → 15 对），翻回时间逐关变短（1.4s → 0.85s），难度平滑上升 */
+const LEVELS = [
+  { pairs: 4,  back: 1.40 },  // 第 1 关
+  { pairs: 4,  back: 1.30 },  // 第 2 关
+  { pairs: 5,  back: 1.30 },  // 第 3 关
+  { pairs: 5,  back: 1.20 },  // 第 4 关
+  { pairs: 6,  back: 1.20 },  // 第 5 关
+  { pairs: 6,  back: 1.10 },  // 第 6 关
+  { pairs: 7,  back: 1.10 },  // 第 7 关
+  { pairs: 8,  back: 1.10 },  // 第 8 关
+  { pairs: 8,  back: 1.00 },  // 第 9 关
+  { pairs: 9,  back: 1.00 },  // 第 10 关
+  { pairs: 10, back: 1.00 },  // 第 11 关
+  { pairs: 10, back: 0.95 },  // 第 12 关
+  { pairs: 11, back: 0.95 },  // 第 13 关
+  { pairs: 12, back: 0.90 },  // 第 14 关
+  { pairs: 12, back: 0.90 },  // 第 15 关
+  { pairs: 13, back: 0.90 },  // 第 16 关
+  { pairs: 14, back: 0.85 },  // 第 17 关
+  { pairs: 15, back: 0.85 },  // 第 18 关
+];
+const levelConf = lv => LEVELS[Math.max(0, Math.min(MAX_LEVEL, lv) - 1)];
+let level = 1, pairsTotal = LEVELS[0].pairs, pairsFound = 0, flips = 0, bestEff = Infinity;
+let totalFlips = 0, totalPairs = 0, backTime = LEVELS[0].back;
 let cards = [], flipA = null, flipB = null, lockT = -1, celebrateT = 0;
 let particles = [];
 let cardHits = [];
@@ -178,8 +203,10 @@ $('btnMute').addEventListener('click', () => {
 
 /* 关卡生成 */
 function buildLevel() {
-  const totalPairs = level === 1 ? 4 : level === 2 ? 6 : 8;
+  const conf = levelConf(level);
+  const totalPairs = Math.min(conf.pairs, FACES.length);
   pairsTotal = totalPairs; pairsFound = 0;
+  backTime = conf.back;
   const pool = [...FACES];
   // 洗牌取前 N
   for (let i = pool.length - 1; i > 0; i--) {
@@ -202,6 +229,7 @@ function buildLevel() {
 
 function updateHUD() {
   $('hudLevel').textContent = level;
+  $('hudMaxLevel').textContent = MAX_LEVEL;
   $('hudPairs').textContent = pairsFound;
   $('hudTotal').textContent = pairsTotal;
   $('hudFlips').textContent = flips;
@@ -247,9 +275,9 @@ function flipCard(idx) {
         setTimeout(nextLevel, 1400);
       }
     } else {
-      // 不配对：1 秒后翻回
+      // 不配对：按本关配置的时间后翻回（关卡越高翻回越快）
       sfxBack();
-      lockT = 1.0;
+      lockT = backTime;
     }
   } else return;
   updateHUD();
@@ -257,50 +285,68 @@ function flipCard(idx) {
 
 function nextLevel() {
   const eff = flips / pairsTotal;
+  totalFlips += flips; totalPairs += pairsTotal;
   if (eff < bestEff) bestEff = eff;
-  if (level >= 3) {
+  if (level >= MAX_LEVEL) {
     showResult();
   } else {
+    const prevPairs = pairsTotal;
     level++;
     flips = 0;
     buildLevel();
-    speak(`第${level}关，卡片更多啦！`);
+    if (pairsTotal > prevPairs) speak(`第${level}关，卡片更多啦！一共${pairsTotal}对！`);
+    else speak(`第${level}关，要看快一点哦！`);
   }
 }
 
 function showResult() {
+  const eff = totalPairs > 0 ? totalFlips / totalPairs : 0;
   let title, medal;
-  if (bestEff <= 1.6)      { title = '🥇 金牌记忆王！'; medal = '金牌'; }
-  else if (bestEff <= 2.2) { title = '🥈 银牌记忆王！'; medal = '银牌'; }
-  else if (bestEff <= 3.0) { title = '🥉 铜牌记忆王！'; medal = '铜牌'; }
-  else                     { title = '🎉 全部配对！';   medal = '继续加油'; }
+  if (eff <= 3.0)      { title = '🥇 金牌记忆王！'; medal = '金牌'; }
+  else if (eff <= 4.0) { title = '🥈 银牌记忆王！'; medal = '银牌'; }
+  else if (eff <= 5.0) { title = '🥉 铜牌记忆王！'; medal = '铜牌'; }
+  else                 { title = '🎉 全部配对！';   medal = '继续加油'; }
   $('resultTitle').textContent = title;
   $('resultDesc').innerHTML =
-    `闯过 <b style="color:#ffd35c">3</b> 关（${medal}）<br>` +
-    `记忆效率 <b style="color:#ffd35c">${bestEff.toFixed(1)}</b> 张/对（越少越棒）<br>` +
-    `小脑袋真厉害！`;
+    `闯过 <b style="color:#ffd35c">${MAX_LEVEL}</b> 关（${medal}）<br>` +
+    `平均每对用 <b style="color:#ffd35c">${eff.toFixed(1)}</b> 次翻牌（越少越棒）<br>` +
+    `最棒一关 <b style="color:#ffd35c">${isFinite(bestEff) ? bestEff.toFixed(1) : '—'}</b> 次/对，小脑袋真厉害！`;
   $('result').classList.add('show');
   state = STATE.FINISH;
-  speak(`全部配对完成！获得${medal}！`);
+  speak(`全部${MAX_LEVEL}关配对完成！获得${medal}！`);
 }
 
-/* 布局 */
+/* 布局：按卡片数量 + 屏幕比例自动挑列数，保证卡片尽量大又不溢出 */
 function layout() {
   const n = cards.length;
-  let cols = n <= 8 ? 4 : n <= 12 ? 4 : 4;
-  let rows = Math.ceil(n / cols);
-  if (W < H * 0.8) { cols = n <= 8 ? 4 : 4; rows = Math.ceil(n / cols); }
-  const availW = Math.min(W * 0.9, 760);
-  const availH = H * 0.68;
-  const cw = Math.min(availW / cols, availH / rows * 0.78);
-  const chh = cw * 1.3;
-  const ox = W / 2 - (cols * cw + (cols - 1) * 12) / 2;
-  const oy = H / 2 - (rows * chh + (rows - 1) * 12) / 2 + 20;
+  const gap = n > 20 ? 8 : n > 12 ? 10 : 12;
+  const topArea = Math.min(118, H * 0.26);      // 顶部 HUD 让位
+  const availW = Math.min(W * 0.92, 980);
+  const availH = Math.max(120, H - topArea - 16);
+  let best = null;
+  for (let cols = 1; cols <= n; cols++) {
+    const rows = Math.ceil(n / cols);
+    const cw = Math.min(
+      (availW - (cols - 1) * gap) / cols,
+      (availH - (rows - 1) * gap) / (rows * 1.3)
+    );
+    if (cw < 10) continue;
+    const gridW = cols * cw + (cols - 1) * gap;
+    const gridH = rows * cw * 1.3 + (rows - 1) * gap;
+    const fill = (gridW * gridH) / (availW * availH);     // 0~1，越大越不浪费
+    const score = cw * (0.75 + 0.25 * fill);              // 主看卡片大小，兼顾版面利用率
+    if (!best || score > best.score) best = { cols, rows, cw, gridW, gridH, score };
+  }
+  if (!best) best = { cols: n, rows: 1, cw: 10, gridW: n * 10, gridH: 13, score: 0 };
+  const cw = best.cw, chh = cw * 1.3;
+  const oy = topArea + (availH - best.gridH) / 2;
   cardHits = [];
   cards.forEach((c, i) => {
-    const col = i % cols, row = Math.floor(i / cols);
-    c.x = ox + col * (cw + 12);
-    c.y = oy + row * (chh + 12);
+    const col = i % best.cols, row = Math.floor(i / best.cols);
+    const inRow = Math.min(best.cols, n - row * best.cols);       // 末行可能不满，居中摆放
+    const rowOx = W / 2 - (inRow * cw + (inRow - 1) * gap) / 2;
+    c.x = rowOx + col * (cw + gap);
+    c.y = oy + row * (chh + gap);
     c.w = cw; c.h = chh;
     cardHits.push({ x: c.x, y: c.y, w: cw, h: chh });
   });
@@ -621,14 +667,18 @@ $('btnRestart').addEventListener('click', () => {
 });
 function resetGame() {
   level = 1; pairsFound = 0; flips = 0; bestEff = Infinity;
+  totalFlips = 0; totalPairs = 0;
   particles = [];
   buildLevel();
 }
 
 /* 测试钩子 */
-window.__testCards = () => cards.map((c, i) => ({ idx: i, face: c.face.k, matched: c.matched, id: c.id }));
+window.__testCards = () => cards.map((c, i) => ({ idx: i, face: c.face.k, matched: c.matched, id: c.id, x: c.x, y: c.y, w: c.w, h: c.h }));
 window.__testFlip = i => flipCard(i);
-window.__testState = () => ({ state, level, pairsFound, pairsTotal, flips, lock: lockT });
+window.__testState = () => ({ state, level, pairsFound, pairsTotal, flips, lock: lockT, back: backTime, maxLevel: MAX_LEVEL, totalFlips, totalPairs, cardCount: cards.length });
+window.__testLevels = () => LEVELS.map((c, i) => ({ level: i + 1, pairs: c.pairs, back: c.back }));
+/* 版面信息（每张卡片的位置尺寸，供自动化验证是否溢出/重叠） */
+window.__testLayout = () => ({ W, H, hits: cardHits.length, grids: cardHits.map(h => [Math.round(h.x), Math.round(h.y), Math.round(h.w), Math.round(h.h)]) });
 </script>
 
 <script>
