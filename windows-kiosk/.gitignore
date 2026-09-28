@@ -1,0 +1,3 @@
+# 图标生成器产出的中间预览图（可随时用 make-icon.py 重新生成）
+preview-*.png
+variants.png

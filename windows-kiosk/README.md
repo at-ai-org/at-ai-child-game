@@ -4,6 +4,11 @@
 
 专门为**一台 Windows 机器**设计，不需要安装程序、不需要代码签名。
 
+![图标预览](icon-preview.png)
+
+图标是**手柄造型**（`app.ico`，含 16/24/32/48/64/128/256 七个尺寸），由 `make-icon.py` 生成，
+不依赖任何第三方库；16/24px 用小尺寸专用简化版，任务栏里也看得清。
+
 ---
 
 ## 为什么用这个方案（而不是浏览器全屏）
@@ -97,7 +102,8 @@ publish\
 | 换成加载远程网址 | `Program.cs` 里 `core.Navigate("http://...")`，并去掉 `SetVirtualHostNameToFolderMapping` |
 | 允许 F11 / 右键 | `Program.cs` 里对应的 `Set(() => s.XXX = false)` 改成 `true` |
 | 窗口标题 | `Program.cs` 里 `Text = "..."` |
-| 图标 | 加一个 `.ico`，在 `csproj` 里加 `<ApplicationIcon>app.ico</ApplicationIcon>` |
+| 图标 | 改 `make-icon.py` 里的配色（`GRAD_A/GRAD_B/PAD/DPAD/BTN`）或几何（`GEO`），重跑 `python3 make-icon.py` 重新生成 `app.ico` |
+| 换图标造型 | `make-icon.py --variants` 会把多种握把造型并排渲染成 `variants.png` 方便挑 |
 
 ---
 
