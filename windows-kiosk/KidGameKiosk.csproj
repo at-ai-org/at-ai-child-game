@@ -8,7 +8,7 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>KidGameKiosk</AssemblyName>
     <RootNamespace>KidGameKiosk</RootNamespace>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <Product>少儿 AI 游戏乐园</Product>
     <!-- 允许在 macOS / Linux 上交叉编译，方便在没有 Windows 时也能验证能否编译通过 -->
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
