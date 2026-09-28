@@ -8,8 +8,10 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>KidGameKiosk</AssemblyName>
     <RootNamespace>KidGameKiosk</RootNamespace>
-    <Version>1.1.0</Version>
+    <Version>1.1.1</Version>
     <Product>少儿 AI 游戏乐园</Product>
+    <!-- 图标：由 make-icon.py 生成的多尺寸 .ico（16/24/32/48/64 位图 + 128/256 PNG） -->
+    <ApplicationIcon>app.ico</ApplicationIcon>
     <!-- 允许在 macOS / Linux 上交叉编译，方便在没有 Windows 时也能验证能否编译通过 -->
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <!-- 单个 exe，双击即用 -->
