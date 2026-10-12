@@ -394,8 +394,10 @@ namespace KidGameKiosk
                 Progress<UpdateProgress> prog = new Progress<UpdateProgress>(p =>
                 {
                     string phase = p.Phase == "download" ? "正在下载新版本…"
+                                 : p.Phase == "waiting" ? "Gitee 正在后台打包这个版本，稍等几秒…"
                                  : p.Phase == "extract" ? "正在解压…" : "正在校验…";
-                    SetState("downloading", phase, p.Phase == "download" ? p.Percent : 100);
+                    int pct = p.Phase == "download" ? p.Percent : (p.Phase == "waiting" ? 0 : 100);
+                    SetState("downloading", phase, pct);
                 });
 
                 VersionInfo staged = await UpdateService.StageAsync(

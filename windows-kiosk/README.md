@@ -162,6 +162,20 @@ publish\
 | `windows-kiosk/Program.cs` | 页面 ↔ 宿主的消息桥：`get-state` / `check` / `update` / `restart` |
 | `index.html`（游戏主页） | 版本号、更新弹窗、进度条。普通浏览器里只显示版本号，不弹窗 |
 
+### 踩过的坑（改 Updater.cs 前一定要看）
+
+**Gitee 的两个接口对 User-Agent 的要求刚好相反**，实测记录：
+
+| 接口 | 要什么 UA | 用错会怎样 |
+|---|---|---|
+| `/raw/master/version.json` | 像浏览器 | 用 curl 那类 UA 会被拦，返回 `The content may contain violation information` |
+| `/repository/archive/master.zip` | 像 curl（UA 里带 `curl` 字样） | 用浏览器 UA 会被当成人在浏览网页，返回「预计等待时间 <3s」的**打包中网页**，而不是 zip。实测 `python-requests` / `git/2.40` / 无 UA / 浏览器 UA 都拿不到，只有 `curl`、`wget` 能直接拿到 |
+
+所以 `Updater.cs` 里给两类请求准备了两个 UA，别合并。另外归档是**按需打包**的：
+刚 push 完新提交时，即使 UA 对了也可能先拿到那个等待页，所以下载后要检查文件头是不是
+`PK`，不是就等几秒重试（最多 4 次）。Gitee 那个 `check_archive` 内部接口需要会话令牌，
+试过走不通（返回「验证信息过期」），别去逆向它。
+
 ---
 
 ## 已知限制

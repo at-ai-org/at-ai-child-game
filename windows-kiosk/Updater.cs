@@ -107,9 +107,23 @@ namespace KidGameKiosk
         public const string VersionUrl = RepoUrl + "/raw/master/version.json";
         public const string ArchiveUrl = RepoUrl + "/repository/archive/master.zip";
 
-        private const string UserAgent =
+        /// <summary>
+        /// Gitee 的两个接口对 User-Agent 的要求**刚好相反**（实测，别想着合并成一个）：
+        ///  - /raw/...（version.json）：要像浏览器。用 curl 那类 UA 会被拦，
+        ///    返回「The content may contain violation information」
+        ///  - /repository/archive/master.zip：要像 curl。用浏览器 UA 会被当成人在浏览网页，
+        ///    返回一个「预计等待时间 &lt;3s」的打包中页面，而不是 zip 文件
+        ///    （实测 UA 里带 "curl" 字样就会直接给 zip；python-requests / git / 无 UA 都拿不到）
+        /// </summary>
+        private const string VersionUserAgent =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " +
             "Chrome/120.0.0.0 Safari/537.36 KidGameKiosk";
+
+        private const string ArchiveUserAgent = "curl/8.7.1 (KidGameKiosk)";
+
+        /// <summary>归档下载重试次数与间隔（Gitee 按需打包，通常等几秒就好）。</summary>
+        private const int ArchiveAttempts = 4;
+        private const int ArchiveRetryDelayMs = 4000;
 
         /// <summary>打包/更新时都跳过这些顶层项（和 build.ps1 保持一致）。</summary>
         private static readonly string[] SkipTopLevel =
@@ -130,8 +144,6 @@ namespace KidGameKiosk
             catch { /* 个别环境不支持，忽略 */ }
             HttpClient c = new HttpClient(handler);
             c.Timeout = Timeout.InfiniteTimeSpan;   // 超时统一用 CancellationToken 控制
-            try { c.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", UserAgent); } catch { }
-            try { c.DefaultRequestHeaders.TryAddWithoutValidation("Cache-Control", "no-cache"); } catch { }
             return c;
         }
 
@@ -164,12 +176,19 @@ namespace KidGameKiosk
             string full = url + (url.IndexOf('?') >= 0 ? "&" : "?") + "t=" +
                           DateTime.UtcNow.Ticks.ToString(CultureInfo.InvariantCulture);
             using (CancellationTokenSource cts = new CancellationTokenSource(timeoutMs))
+            using (HttpRequestMessage req = new HttpRequestMessage(HttpMethod.Get, full))
             {
-                string text = await Http.GetStringAsync(full, cts.Token).ConfigureAwait(false);
-                VersionInfo v = Parse(text);
-                if (v == null || !v.IsUsable)
-                    throw new InvalidDataException("远端 version.json 内容不合法");
-                return v;
+                req.Headers.TryAddWithoutValidation("User-Agent", VersionUserAgent);
+                req.Headers.TryAddWithoutValidation("Cache-Control", "no-cache");
+                using (HttpResponseMessage resp = await Http.SendAsync(req, cts.Token).ConfigureAwait(false))
+                {
+                    resp.EnsureSuccessStatusCode();
+                    string text = await resp.Content.ReadAsStringAsync(cts.Token).ConfigureAwait(false);
+                    VersionInfo v = Parse(text);
+                    if (v == null || !v.IsUsable)
+                        throw new InvalidDataException("远端 version.json 内容不合法");
+                    return v;
+                }
             }
         }
 
@@ -254,8 +273,7 @@ namespace KidGameKiosk
             SafeDeleteFile(archive);
 
             // ---- 1. 下载归档 ----
-            Report(progress, "download", 0, 0, 0);
-            await DownloadAsync(archiveUrl, archive, progress, ct).ConfigureAwait(false);
+            await DownloadArchiveAsync(archiveUrl, archive, progress, ct).ConfigureAwait(false);
 
             // ---- 2. 解压 ----
             Report(progress, "extract", 0, 0, 0);
@@ -294,10 +312,68 @@ namespace KidGameKiosk
             return staged;
         }
 
+        /// <summary>
+        /// 下载仓库归档。
+        ///
+        /// Gitee 的归档是「按需打包」的：刚 push 过的新提交，第一次请求
+        /// /repository/archive/master.zip 拿到的不是 zip，而是一个「预计等待时间 &lt;3s」
+        /// 的 HTML 网页（它同时在后台打包）；过几秒再请求才是真正的 zip。
+        /// 所以这里要「看魔数 + 等几秒重试」，不能拿到什么就解压什么。
+        /// </summary>
+        private static async Task DownloadArchiveAsync(
+            string url, string dest, IProgress<UpdateProgress> progress, CancellationToken ct)
+        {
+            Exception last = null;
+            for (int attempt = 1; attempt <= ArchiveAttempts; attempt++)
+            {
+                try
+                {
+                    Report(progress, attempt == 1 ? "download" : "waiting", 0, 0, 0);
+                    await DownloadAsync(url, dest, progress, ct).ConfigureAwait(false);
+                    if (LooksLikeZip(dest)) return;
+                    last = new InvalidDataException(
+                        "Gitee 返回的不是压缩包（通常是它正在后台打包这个版本）");
+                    SafeDeleteFile(dest);
+                }
+                catch (Exception ex)
+                {
+                    last = ex;
+                    SafeDeleteFile(dest);
+                }
+
+                if (attempt < ArchiveAttempts)
+                {
+                    Report(progress, "waiting", 0, 0, 0);
+                    await Task.Delay(ArchiveRetryDelayMs, ct).ConfigureAwait(false);
+                }
+            }
+            throw new IOException(
+                "下载归档失败（已重试 " + ArchiveAttempts + " 次）：" +
+                (last != null ? last.Message : "未知原因"), last);
+        }
+
+        /// <summary>是不是一个 zip（本地文件头魔数 PK）。</summary>
+        private static bool LooksLikeZip(string file)
+        {
+            try
+            {
+                using (FileStream fs = File.OpenRead(file))
+                {
+                    if (fs.Length < 4) return false;
+                    int b0 = fs.ReadByte(), b1 = fs.ReadByte();
+                    return b0 == 'P' && b1 == 'K';
+                }
+            }
+            catch { return false; }
+        }
+
         private static async Task DownloadAsync(string url, string dest, IProgress<UpdateProgress> progress, CancellationToken ct)
         {
-            using (HttpResponseMessage resp = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false))
+            using (HttpRequestMessage req = new HttpRequestMessage(HttpMethod.Get, url))
             {
+                req.Headers.TryAddWithoutValidation("User-Agent", ArchiveUserAgent);
+                using (HttpResponseMessage resp = await Http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false))
+                {
                 resp.EnsureSuccessStatusCode();
                 long total = resp.Content.Headers.ContentLength ?? -1L;
                 using (Stream src = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false))
@@ -319,6 +395,7 @@ namespace KidGameKiosk
                         }
                     }
                     await fs.FlushAsync(ct).ConfigureAwait(false);
+                }
                 }
             }
         }
