@@ -17,29 +17,44 @@
  *         收紧到中心 12px 后，上述 34 处全部被抓出并修正。
  *     这类错位*只有真渲染出来才看得见*，静态检查完全发现不了。
  *
- * 依赖：node-canvas。若未安装：
+ * 依赖：node-canvas 或 @napi-rs/canvas（后者有预编译包，不需要本地编译 cairo，
+ *       macOS 上 node-canvas 常常装不上，建议优先用 @napi-rs/canvas）：
  *   mkdir -p /tmp/spotverify && cd /tmp/spotverify && npm init -y
- *   npm install canvas --cache /tmp/npmcache-spot
+ *   npm install @napi-rs/canvas --cache /tmp/npmcache-spot
  * 用法：
- *   node tools/spot-diff-verify.mjs [node_modules 路径]
- *   默认从 /tmp/spotverify/node_modules/canvas 加载
+ *   node tools/spot-diff-verify.mjs [canvas 模块路径]
+ *   不给参数时依次尝试 /tmp/spotverify 下的 canvas / @napi-rs/canvas
+ *   （也可用环境变量 SPOT_CANVAS 指定）
  * 退出码：0 = 全部通过；1 = 有问题。
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 import vm from 'node:vm';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const HTML = join(__dirname, '..', 'spot-difference', 'index.html');
-const canvasPath = process.argv[2] || '/tmp/spotverify/node_modules/canvas/index.js';
 
-let createCanvas;
-try {
-  ({ createCanvas } = await import(pathToFileURL(canvasPath).href));
-} catch (e) {
-  console.error(`✗ 无法加载 node-canvas（${canvasPath}）：${e.message}`);
-  console.error('  请先安装：mkdir -p /tmp/spotverify && cd /tmp/spotverify && npm init -y && npm install canvas --cache /tmp/npmcache-spot');
+let createCanvas = null, canvasPath = '';
+const candidates = [
+  process.argv[2],
+  process.env.SPOT_CANVAS,
+  '/tmp/spotverify/node_modules/canvas/index.js',
+  '/tmp/spotverify/node_modules/@napi-rs/canvas/index.js',
+  join(__dirname, '..', 'node_modules', 'canvas', 'index.js'),
+  join(__dirname, '..', 'node_modules', '@napi-rs', 'canvas', 'index.js'),
+].filter(p => p && existsSync(p));
+
+for (const p of candidates) {
+  try {
+    ({ createCanvas } = await import(pathToFileURL(p).href));
+    if (createCanvas) { canvasPath = p; break; }
+  } catch (e) { /* 试下一个 */ }
+}
+if (!createCanvas) {
+  console.error(`✗ 无法加载 canvas 模块（尝试过：${candidates.join(', ') || '无候选路径'}）`);
+  console.error('  请先安装：mkdir -p /tmp/spotverify && cd /tmp/spotverify && npm init -y');
+  console.error('           npm install @napi-rs/canvas --cache /tmp/npmcache-spot');
   process.exit(2);
 }
 

@@ -68,7 +68,7 @@ body{background: #0b1026;font-family: "PingFang SC", "Microsoft YaHei", system-u
 <div id="voiceBar">点击开始，睁大眼睛找不同吧！</div>
 
 <div class="hud">
-  <div class="hud-chip">第 <b id="hudLevel">1</b> / <b id="hudTotalLevel">36</b> 关</div>
+  <div class="hud-chip">第 <b id="hudLevel">1</b> / <b id="hudTotalLevel">48</b> 关</div>
   <div class="hud-chip">找到 <b id="hudFound">0</b> / <b id="hudTotal">5</b> 处</div>
   <div class="hud-chip">用了 <b id="hudHints">0</b> 次提示 💡</div>
 </div>
@@ -91,7 +91,7 @@ body{background: #0b1026;font-family: "PingFang SC", "Microsoft YaHei", system-u
     左右两幅画看起来一样，其实藏着 5 处小秘密：<br>
     🔍 点击<b>任意一幅图</b>里不一样的地方 → 放大镜圈出它！<br>
     💡 实在找不到就点"提示"，一处不同会闪闪发光<br>
-    🏆 闯过 36 大场景：公园、海底、太空、糖果城、农场、雪地、森林、游乐园、水果摊、图书馆……更多惊喜等你发现！
+    🚜 48 大场景<b>每局随机出题</b>：公园、海底、太空、水果摊、图书馆……还有挖掘机、压路机、塔吊等 12 种工程车！
   </p>
   <button id="btnStart">开始侦探之旅</button>
 </div>
@@ -104,7 +104,7 @@ window.addEventListener('contextmenu', e => e.preventDefault());
  * 找不同小侦探 Spot Difference —— 单文件 Canvas 小游戏
  * 左右两幅 400×300 场景图（中间竖线隔开），同一绘制函数带 variant 参数；
  * 点击任意一幅图的差异处 → 放大镜光圈标记；点错 → 轻摇 + 嗡声；
- * 5 处找齐 → 烟花庆祝进下一关，36 关结算。
+ * 5 处找齐 → 烟花庆祝进下一关，48 关结算（出题顺序每局随机）。
  * ========================================================= */
 
 const canvas = document.getElementById('game');
@@ -124,21 +124,24 @@ const IMG_W = 400, IMG_H = 300;
 const HIT_R = 40;                         // 基准命中半径（幼儿手指粗，判定放宽）
 const HIT_R_MIN = 34;                     // 靠边的差异至少也留这么大的判定圈
 const STATE = { START: 0, RUNNING: 1, LEVEL_UP: 2, FINISH: 3 };
-const TOTAL_LEVELS = 36;
+/* 关卡总数 = 场景数，在 SCENES 定义之后求值（见下方「关卡顺序」段） */
 const HINT_TIME = 2.6;                    // 提示高亮持续秒数（幼儿看得清）
 const CHEER_TIME = 1.4;
 
 /* ---------------- 场景定义 ----------------
  * 每关一个绘制函数，variant ∈ {'A','B'}，5 个差异点坐标写死（场景内 400×300 系）。
- * 共 36 大场景。
- *   第 1-18 关：公园、海底、太空、糖果城、农场、雪地、森林、夜晚、生日、
+ * 共 48 大场景（下面数组的下标只是"场景编号"，实际出题顺序每局随机，见「关卡顺序」）。
+ *   场景 1-18：公园、海底、太空、糖果城、农场、雪地、森林、夜晚、生日、
  *              沙漠、海滩、花园、马戏团、超市、恐龙、湖泊、万圣节、游乐园。
- *   第 19-36 关：水果摊、雨天、图书馆、厨房、太空站、菜市场、音乐教室、消防站、
+ *   场景 19-36：水果摊、雨天、图书馆、厨房、太空站、菜市场、音乐教室、消防站、
  *              医院、火车站、农场池塘、露营、乐高城、天文台、花市、运动场、
  *              宠物店、面包店。
+ *   场景 37-48：工程车主题——挖掘机、推土机、压路机、塔吊、水泥搅拌车、自卸卡车、
+ *              装载机、叉车、混凝土泵车、洒水车、高空作业车、打桩机。
  * d.desc: 测试/提示语音用差异名。
  * 注意：差异点坐标必须落在"该差异真正画出来的位置"上（见 tools/spot-diff-verify.mjs
- * 的像素校验），数量类差异要指向"消失/新增的那一个"，而不是两者都有的那个。 */
+ * 与 tools/spot-diff-scene-check.mjs 的像素校验），数量类差异要指向"消失/新增的那一个"，
+ * 而不是两者都有的那个；大小类差异要指向"A 比 B 多出来的那一圈"，不能取中心。 */
 const SCENES = [
   {
     name: '公园', sky: ['#aee3ff', '#e8f7ff'],
@@ -192,7 +195,7 @@ const SCENES = [
       { x: 322, y: 130, desc: '风车叶片颜色' },    // 颜色：风车叶片红 vs 蓝
       { x: 222, y: 222, desc: '小鸡数量' },        // 数量：小鸡 3 只 vs 2 只（第 3 只消失）
       { x: 118, y: 150, desc: '干草堆大小' },      // 大小：左中干草堆
-      { x: 266, y: 238, desc: '南瓜' },            // 有无：右下南瓜
+      { x: 280, y: 248, desc: '南瓜' },            // 有无：右下南瓜（点位右移，离 D3 小鸡 63px）
     ],
   },
   {
@@ -333,7 +336,7 @@ const SCENES = [
     diffs: [
       { x: 70,  y: 96,  desc: '气球颜色' },        // 颜色：左上气球
       { x: 270, y: 113, desc: '摩天轮舱色' },      // 颜色：摩天轮舱红 vs 蓝
-      { x: 200, y: 170, desc: '旋转木马' },        // 有无：中央旋转木马
+      { x: 200, y: 150, desc: '旋转木马' },        // 有无：中央旋转木马（点位取木马身体，判定圈覆盖顶棚到基座）
       { x: 152, y: 228, desc: '爆米花数量' },      // 数量：左下爆米花 3 vs 2（第 3 桶消失）
       { x: 292, y: 230, desc: '棉花糖' },          // 有无：右下棉花糖
     ],
@@ -404,7 +407,7 @@ const SCENES = [
       { x: 86,  y: 182, desc: '番茄数量' },        // 数量：左上番茄 3 vs 2
       { x: 302, y: 110, desc: '茄子颜色' },        // 颜色：右上茄子紫 vs 绿
       { x: 200, y: 180, desc: '稻草人' },          // 有无：中间稻草人
-      { x: 100, y: 234, desc: '南瓜大小' },        // 大小：左下南瓜
+      { x: 124, y: 240, desc: '南瓜大小' },        // 大小：左下南瓜（点位取 A 多出来的一圈，离 D1 番茄 69px）
       { x: 300, y: 236, desc: '玉米数量' },        // 数量：右下玉米 3 vs 2
     ],
   },
@@ -449,7 +452,7 @@ const SCENES = [
       { x: 307, y: 88,  desc: '信号灯颜色' },      // 颜色：右上信号灯绿 vs 红
       { x: 268, y: 189, desc: '车厢窗户' },        // 数量：中间车窗 4 vs 3（第 4 扇消失）
       { x: 100, y: 236, desc: '行李箱' },          // 有无：左下行李箱
-      { x: 300, y: 234, desc: '站牌大小' },        // 大小：右站牌
+      { x: 340, y: 198, desc: '站牌大小' },        // 大小：右站牌（点位取 A 大出来的一角，离 D3 车窗 73px）
     ],
   },
   {
@@ -471,7 +474,7 @@ const SCENES = [
       { x: 300, y: 180, desc: '帐篷颜色' },        // 颜色：右上帐篷
       { x: 200, y: 184, desc: '篝火' },            // 有无：中间篝火
       { x: 100, y: 236, desc: '松树大小' },        // 大小：左下松树
-      { x: 300, y: 234, desc: '星星数量' },        // 数量：右下星星 4 vs 3
+      { x: 176, y: 96,  desc: '天上星星数量' },    // 数量：星星 4 颗 vs 3 颗（第 4 颗消失）
     ],
   },
   {
@@ -540,7 +543,158 @@ const SCENES = [
       { x: 300, y: 234, desc: '咖啡杯' },          // 有无：右下咖啡杯
     ],
   },
+
+  /* ===== 场景 37-48：工程车专场 =====
+   * 12 种工程机械各一关。坐标一律落在距四边 ≥ 40px 的安全区内、两两相距 ≥ 60px，
+   * 并经 tools/spot-diff-scene-check.mjs 双向校验（点位压在差异上 + 每块差异都被点位覆盖）。 */
+  {
+    name: '挖掘机', sky: ['#bfe6ff', '#eaf7ff'],
+    draw: drawExcavator,
+    diffs: [
+      { x: 80,  y: 92,  desc: '左上小鸟数量' },   // 数量：小鸟 3 只 vs 2 只（第 3 只消失）
+      { x: 59,  y: 215, desc: '铲斗大小' },       // 大小：铲斗 A 宽 B 窄（A 多出来的一段）
+      { x: 272, y: 144, desc: '驾驶室颜色' },     // 颜色：驾驶室红 vs 蓝
+      { x: 270, y: 220, desc: '履带轮数量' },     // 数量：负重轮 3 个 vs 2 个（最右边消失）
+      { x: 336, y: 252, desc: '土堆' },           // 有无：右下土堆
+    ],
+  },
+  {
+    name: '推土机', sky: ['#bfe6ff', '#eaf7ff'],
+    draw: drawBulldozer,
+    diffs: [
+      { x: 75,  y: 215, desc: '铲刀大小' },       // 大小：铲刀 A 宽 B 窄（A 向左多出来的一段）
+      { x: 211, y: 221, desc: '履带轮数量' },     // 数量：负重轮 3 个 vs 2 个（中间那个消失）
+      { x: 276, y: 145, desc: '驾驶室颜色' },     // 颜色：驾驶室红 vs 蓝
+      { x: 336, y: 253, desc: '右下土堆' },       // 有无：右下土堆
+      { x: 86,  y: 80,  desc: '左上小鸟飞行方向' }, // 朝向：小鸟 A 朝右飞 B 朝左飞
+    ],
+  },
+  {
+    name: '压路机', sky: ['#cfe9ff', '#f2fbff'],
+    draw: drawRoller,
+    diffs: [
+      { x: 66,  y: 64,  desc: '左上太阳' },        // 有无：左上太阳
+      { x: 238, y: 120, desc: '驾驶室颜色' },      // 颜色：驾驶室红 vs 蓝
+      { x: 140, y: 130, desc: '排气管方向' },      // 朝向：排气管 A 右倾 B 左倾
+      { x: 206, y: 222, desc: '底盘支撑轮数量' },  // 数量：支撑轮 3 个 vs 2 个（中间那个消失）
+      { x: 308, y: 193, desc: '前滚筒大小' },      // 大小：前滚筒 A 大 B 小（A 向上多出来的一圈）
+    ],
+  },
+  {
+    name: '塔吊', sky: ['#a8dcf8', '#e8f7ff'],
+    draw: drawTowerCrane,
+    diffs: [
+      { x: 82,  y: 74,  desc: '塔尖小旗方向' },    // 朝向：小旗 A 朝右 B 朝左
+      { x: 110, y: 178, desc: '吊钩上的钢管' },    // 有无：吊钩上的钢管捆
+      { x: 210, y: 222, desc: '塔身斜撑数量' },    // 数量：斜撑 5 根 vs 4 根（最下面那根消失）
+      { x: 286, y: 78,  desc: '驾驶室颜色' },      // 颜色：驾驶室红 vs 蓝
+      { x: 352, y: 149, desc: '平衡重大小' },      // 大小：平衡重 A 大 B 小（A 向下多出来的一截）
+    ],
+  },
+  {
+    name: '水泥搅拌车', sky: ['#bfe6ff', '#eaf7ff'],
+    draw: drawMixer,
+    diffs: [
+      { x: 226, y: 150, desc: '滚筒条纹数量' },   // 数量：滚筒竖条纹 A 2 道 vs B 1 道（左边那道消失）
+      { x: 166, y: 148, desc: '驾驶室车窗大小' }, // 大小：车窗 A 大 B 小（A 向右多出来的一块）
+      { x: 277, y: 180, desc: '车尾出料斗大小' }, // 大小：出料斗 A 长 B 短（A 向左多出来的一段）
+      { x: 82,  y: 112, desc: '车顶水箱' },       // 有无：车顶蓝色水箱
+      { x: 334, y: 214, desc: '车尾车轮位置' },   // 朝向：最后一只车轮 A 靠右 vs B 靠左（点位取 A 的轮心；B 的轮心离它也只有 34px，两边都点得中）
+    ],
+  },
+  {
+    name: '自卸卡车', sky: ['#a8dcff', '#e4f5ff'],
+    draw: drawDumpTruck,
+    diffs: [
+      { x: 200, y: 103, desc: '车斗前挡板高低' }, // 大小：车斗前挡板 A 高 B 矮（A 上方多出来的一条）
+      { x: 200, y: 180, desc: '车斗侧面的标条' }, // 有无：车斗侧面的黄色标条
+      { x: 317, y: 81,  desc: '车斗里的土堆' },   // 有无：车斗里的土堆
+      { x: 90,  y: 148, desc: '驾驶室车窗大小' }, // 大小：车窗 A 大 B 小（A 向右多出来的一块）
+      { x: 81,  y: 214, desc: '前轮大小' },       // 大小：前轮 A 大 B 小（点位取在差异环正中）
+    ],
+  },
+  {
+    name: '装载机', sky: ['#b0e0ff', '#e6f6ff'],
+    draw: drawLoader,
+    diffs: [
+      { x: 150, y: 160, desc: '铲斗臂颜色' },     // 颜色：铲斗臂 A 橙 vs B 绿
+      { x: 340, y: 150, desc: '驾驶室车窗大小' }, // 大小：车窗 A 大 B 小（A 向右多出来的一块）
+      { x: 364, y: 78,  desc: '车尾排气管高低' }, // 大小：排气管 A 高 B 矮（A 上方多出来的一段）
+      { x: 198, y: 210, desc: '前轮大小' },       // 大小：前轮 A 大 B 小（A 向左多出来的一圈）
+      { x: 52,  y: 206, desc: '铲斗形状' },       // 形状：A 方形斗 vs B 带尖角（点位取 B 尖角伸出去的那块）
+    ],
+  },
+  {
+    name: '叉车', sky: ['#bfe6ff', '#eaf7ff'],
+    draw: drawForklift,
+    diffs: [
+      { x: 250, y: 150, desc: '驾驶室颜色' },   /* 颜色：驾驶室红 vs 蓝 */
+      { x: 86,  y: 192, desc: '货叉长短' },     /* 大小：A 长 B 短（A 多伸出来的一段） */
+      { x: 330, y: 70,  desc: '天空小鸟数量' }, /* 数量：小鸟 3 只 vs 2 只（第 3 只消失） */
+      { x: 76,  y: 74,  desc: '天空太阳' },     /* 有无：左上太阳 */
+      { x: 334, y: 214, desc: '货箱箭头方向' }, /* 形状朝向：箭头朝上 vs 朝左 */
+    ],
+  },
+  {
+    name: '混凝土泵车', sky: ['#bfe6ff', '#f0faff'],
+    draw: drawPumpTruck,
+    diffs: [
+      { x: 214, y: 172, desc: '泵车机身颜色' }, /* 颜色：机身灰 vs 蓝 */
+      { x: 300, y: 214, desc: '车轮数量' },     /* 数量：车轮 3 个 vs 2 个（最右消失） */
+      { x: 300, y: 72,  desc: '臂架弯折方向' }, /* 形状朝向：第二段向右上折 vs 向右下折 */
+      { x: 166, y: 60,  desc: '云朵大小' },     /* 大小：A 左侧多出一团（云更宽） */
+      { x: 54,  y: 224, desc: '水泥袋' },       /* 有无：左下水泥袋 */
+    ],
+  },
+  {
+    name: '洒水车', sky: ['#cfeaff', '#f2fbff'],
+    draw: drawWaterTruck,
+    diffs: [
+      { x: 110, y: 168, desc: '驾驶室颜色' },   /* 颜色：驾驶室红 vs 蓝 */
+      { x: 312, y: 212, desc: '车轮数量' },     /* 数量：车轮 3 个 vs 2 个（最右消失） */
+      { x: 162, y: 250, desc: '路面水洼' },     /* 有无：左下水洼 */
+      { x: 346, y: 86,  desc: '水枪水柱长短' }, /* 大小：A 水柱多喷出一段 */
+      { x: 206, y: 108, desc: '水罐小旗方向' }, /* 形状朝向：小旗朝右 vs 朝左 */
+    ],
+  },
+  {
+    name: '高空作业车', sky: ['#bfe6ff', '#eaf7ff'],
+    draw: drawLiftTruck,
+    diffs: [
+      { x: 41,  y: 138, desc: '吊篮底板颜色' },   /* 颜色：吊篮底板橙 vs 绿 */
+      { x: 122, y: 178, desc: '车身颜色' },       /* 颜色：车身黄 vs 红 */
+      { x: 212, y: 238, desc: '车轮数量' },       /* 数量：车轮 2 个 vs 1 个（后轮消失） */
+      { x: 140, y: 72,  desc: '伸缩臂长度' },     /* 大小：伸缩臂 A 高 B 矮（A 向上多伸出一段） */
+      { x: 321, y: 142, desc: '右侧白云' },       /* 有无：右侧白云 */
+    ],
+  },
+  {
+    name: '打桩机', sky: ['#b8ddf5', '#e8f4ff'],
+    draw: drawPileDriver,
+    diffs: [
+      { x: 216, y: 124, desc: '桩锤颜色' },       /* 颜色：桩锤蓝 vs 紫 */
+      { x: 175, y: 199, desc: '桩管长短' },       /* 大小：桩管 A 长 B 短（点位取在 A 多伸出来那段的中间） */
+      { x: 299, y: 191, desc: '排气烟团' },       /* 有无：排气烟团 */
+      { x: 232, y: 234, desc: '履带轮数量' },     /* 数量：履带轮 3 个 vs 2 个（右轮消失，点位取轮心） */
+      { x: 72,  y: 164, desc: '配重块' },         /* 有无：车尾配重块 */
+    ],
+  }
 ];
+
+/* ---------------- 关卡顺序（每局随机） ----------------
+ * 以前 48 个场景永远按固定顺序出题，孩子玩两遍就记住了"下一关是哪个"，
+ * 靠记忆而不是靠观察，难度直线下降。现在改成：每次开局（含"再玩一次"）
+ * 用 Fisher-Yates 把整份场景洗牌一次，本局的出题顺序存在 LEVELS 里。
+ * 游戏逻辑一律通过 curScene() 取当前关卡场景，不要再直接按下标取 SCENES。 */
+let LEVELS = SCENES.slice();
+function shuffleLevels() {
+  for (let i = LEVELS.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = LEVELS[i]; LEVELS[i] = LEVELS[j]; LEVELS[j] = t;
+  }
+}
+function curScene() { return LEVELS[level - 1]; }
+const TOTAL_LEVELS = SCENES.length;      // 关卡总数 = 场景数
 
 /* ---------------- 状态 ---------------- */
 let state = STATE.START;
@@ -672,12 +826,12 @@ function startLevel() {
   cheerTimer = -1;
   state = STATE.RUNNING;
   updateHUD();
-  say(`第 ${level} 关 ${SCENES[level - 1].name}，找出 5 处不同吧！`);
+  say(`第 ${level} 关 ${curScene().name}，找出 5 处不同吧！`);
 }
 
 function hitDiff(i) {
   if (state !== STATE.RUNNING || foundFlags[i]) return false;
-  const d = SCENES[level - 1].diffs[i];
+  const d = curScene().diffs[i];
   foundFlags[i] = 1;
   foundCount++;
   marks.push({ x: d.x, y: d.y, anim: 0 });
@@ -694,7 +848,7 @@ function hitDiff(i) {
     spawnFireworks();
     const last = level >= TOTAL_LEVELS;
     toast(last ? '🎉 全部通关啦！' : '🎉 本关找齐啦！', true);
-    say(last ? '太厉害了！三十六关全部通关！' : `${SCENES[level - 1].name}找齐啦！真棒！`);
+    say(last ? `太厉害了！${TOTAL_LEVELS} 关全部通关！` : `${curScene().name}找齐啦！真棒！`);
   }
   return true;
 }
@@ -713,7 +867,7 @@ function hitRadiusFor(d) {
 function clickStage(gx, gy) {
   /* gx/gy 是 400×300 图内坐标 */
   if (state !== STATE.RUNNING) return false;
-  const scene = SCENES[level - 1];
+  const scene = curScene();
   /* 在所有未找到的差异里，挑"点击点落在判定圈内、且离点击最近"的那一个。
    * 用归一化距离（d²/r²）比较，判定圈大的点不会被判定圈小的点抢走。 */
   let best = -1, bestScore = Infinity;
@@ -755,7 +909,7 @@ canvas.addEventListener('pointerdown', e => {
 /* ---------------- 提示 ---------------- */
 $('btnHint').addEventListener('click', () => {
   if (state !== STATE.RUNNING) return;
-  const scene = SCENES[level - 1];
+  const scene = curScene();
   const candidates = [];
   for (let i = 0; i < scene.diffs.length; i++) if (!foundFlags[i]) candidates.push(i);
   if (!candidates.length) return;
@@ -2225,31 +2379,30 @@ function drawLake(g, v) {
   g.beginPath();
   g.moveTo(322, 112); g.lineTo(322, 152); g.lineTo(342, 152);
   g.closePath(); g.fill();
-  /* D3 中央鸭妈妈：A 有 / B 无 */
-  if (v === 'A') {
+  /* D3 中央鸭妈妈：A 有 / B 无
+   * 注意：小鸭子 / 水纹 / 睡莲三样**两版都要画**。以前它们一半画在 A 分支里，
+   * 结果 A 版的小鸭子一直排到 x=124，离差异点 (200,150) 有 76px —— 孩子点了那只
+   * 明显"少了一只"的小鸭子，判定圈却够不着，被判成点错（见 tools/spot-diff-scene-check.mjs）。 */
+  g.fillStyle = '#5cb858';
+  g.beginPath(); g.ellipse(196, 160, 22, 8, 0, 0.2, Math.PI * 1.8); g.fill();
+  g.beginPath(); g.ellipse(150, 170, 16, 6, 0, 0.2, Math.PI * 1.8); g.fill();
+  for (let k = 0; k < 3; k++) {         /* 小鸭子：两版一致 */
+    const dx2 = 168 - k * 22, dy2 = 158 + (k % 2) * 5;
+    ballAt(g, dx2, dy2, 7, ['#f0e0b8', '#e0c078']);
+    ballAt(g, dx2 + 6, dy2 - 8, 4.5, ['#f0e0b8', '#e0c078']);
+    g.fillStyle = '#1b1b33';
+    g.beginPath(); g.arc(dx2 + 7.5, dy2 - 9, 1.2, 0, Math.PI*2); g.fill();
+  }
+  g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 2;   /* 水纹：两版一致 */
+  g.beginPath(); g.ellipse(196, 166, 20, 4, 0, 0, Math.PI*2); g.stroke();
+  g.beginPath(); g.ellipse(146, 172, 16, 3.5, 0, 0, Math.PI*2); g.stroke();
+  if (v === 'A') {                      /* 只有母鸭是差异 */
     ballAt(g, 196, 150, 13, ['#e8d8a8', '#c8a858']);
     ballAt(g, 208, 138, 8, ['#e8d8a8', '#c8a858']);
     g.fillStyle = '#f0a820';
     g.beginPath(); g.moveTo(214, 138); g.lineTo(223, 140); g.lineTo(214, 143); g.closePath(); g.fill();
     g.fillStyle = '#1b1b33';
     g.beginPath(); g.arc(211, 136, 1.8, 0, Math.PI*2); g.fill();
-    /* 小鸭子 */
-    for (let k = 0; k < 3; k++) {
-      const dx2 = 168 - k * 22, dy2 = 158 + (k % 2) * 5;
-      ballAt(g, dx2, dy2, 7, ['#f0e0b8', '#e0c078']);
-      ballAt(g, dx2 + 6, dy2 - 8, 4.5, ['#f0e0b8', '#e0c078']);
-      g.fillStyle = '#1b1b33';
-      g.beginPath(); g.arc(dx2 + 7.5, dy2 - 9, 1.2, 0, Math.PI*2); g.fill();
-    }
-    /* 水纹 */
-    g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 2;
-    g.beginPath(); g.ellipse(196, 166, 20, 4, 0, 0, Math.PI*2); g.stroke();
-    g.beginPath(); g.ellipse(146, 172, 16, 3.5, 0, 0, Math.PI*2); g.stroke();
-  } else {
-    /* 无鸭：睡莲叶 */
-    g.fillStyle = '#5cb858';
-    g.beginPath(); g.ellipse(196, 160, 22, 8, 0, 0.2, Math.PI * 1.8); g.fill();
-    g.beginPath(); g.ellipse(150, 170, 16, 6, 0, 0.2, Math.PI * 1.8); g.fill();
   }
   /* D4 左下荷花：A 有 / B 无（上移离开底边） */
   if (v === 'A') {
@@ -2428,13 +2581,16 @@ function drawPark2(g, v) {
   g.moveTo(cx - 26, 158); g.lineTo(cx, cy);
   g.moveTo(cx + 26, 158); g.lineTo(cx, cy);
   g.stroke();
+  /* D2 摩天轮其中一个吊舱颜色：A 红 / B 蓝
+   * 只让 k===4 那个吊舱变色（差异点就是它）。以前 8 个吊舱一起变，
+   * 孩子点其它 7 个明显变色的吊舱都会被判成点错。 */
   const podC = v === 'A' ? '#e8556a' : '#3a8ae8';
   for (let k = 0; k < 8; k++) {
     const a = k * Math.PI / 4;
     const px = cx + Math.cos(a) * 52, py = cy + Math.sin(a) * 52;
     g.strokeStyle = '#a8a8b8'; g.lineWidth = 2;
     g.beginPath(); g.moveTo(cx, cy); g.lineTo(px, py); g.stroke();
-    g.fillStyle = podC;
+    g.fillStyle = k === 4 ? podC : '#f0c040';
     g.beginPath(); g.arc(px, py + 5, 7, 0, Math.PI*2); g.fill();
   }
   g.fillStyle = '#8a8a9a';
@@ -2451,7 +2607,11 @@ function drawPark2(g, v) {
     g.moveTo(168, 130); g.quadraticCurveTo(200, 108, 232, 130);
     g.closePath(); g.fill();
     g.fillStyle = '#f0d040';
-    g.beginPath(); g.moveTo(196, 112); g.lineTo(204, 112); g.lineTo(200, 100); g.closePath(); g.fill();
+    /* 顶棚小旗：用「旗杆+三角旗」画在顶棚峰值上，并整体落在差异点 (200,150) 的判定圈内。
+     * 原来是悬空的小三角，离差异点 63px，孩子点它会被判成点错。 */
+    g.strokeStyle = '#e0b878'; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(200, 128); g.lineTo(200, 108); g.stroke();
+    g.beginPath(); g.moveTo(200, 106); g.lineTo(214, 112); g.lineTo(200, 118); g.closePath(); g.fill();
     /* 立柱 */
     g.fillStyle = '#c8a878';
     g.fillRect(160, 130, 8, 66);
@@ -3445,8 +3605,10 @@ function drawCamp(g, v) {
   g.beginPath(); g.moveTo(0, -46); g.lineTo(-22, -8); g.lineTo(22, -8); g.closePath(); g.fill();
   g.beginPath(); g.moveTo(0, -30); g.lineTo(-26, 6); g.lineTo(26, 6); g.closePath(); g.fill();
   g.restore();
-  /* D5 右下星星数量：A 4 颗 / B 3 颗 */
-  const starPos = [[262, 216], [288, 200], [312, 218], [276, 186]];
+  /* D5 天上星星数量：A 4 颗 / B 3 颗
+   * 星星挪到左侧天空：原来画在帐篷顶上（x 260-312），第 4 颗离帐篷差异点只有 25px，
+   * 两处判定圈重叠会互相抢命中，而且星星画在帐篷上本身也不合理。 */
+  const starPos = [[140, 70], [180, 56], [222, 74], [176, 96]];
   const starN = v === 'A' ? 4 : 3;
   for (let i = 0; i < starN; i++) drawStar(g, starPos[i][0], starPos[i][1], 9, '#ffe08a');
 }
@@ -3954,6 +4116,1152 @@ function drawBakery(g, v) {
 }
 
 
+/* =========================================================================
+ * 场景 37-48：工程车专场（挖掘机 / 推土机 / 压路机 / 塔吊 / 水泥搅拌车 /
+ * 自卸卡车 / 装载机 / 叉车 / 混凝土泵车 / 洒水车 / 高空作业车 / 打桩机）
+ * 写法与前面 36 关完全一致：variant ∈ {'A','B'}，5 个差异点写死在 400×300 系里。
+ * 差异点必须落在「真正画出来的那个位置」上（tools/spot-diff-scene-check.mjs 校验），
+ * 大小类差异取「A 比 B 多出来的那一圈/那一块」，不能取中心。
+ * ========================================================================= */
+
+/* ================= 场景 37：挖掘机 ================= */
+function drawExcavator(g, v) {
+  bgFill(g, '#bfe6ff', '#eaf7ff');
+  cloudAt(g, 320, 46, 0.9);
+  cloudAt(g, 176, 34, 0.6);
+  /* 工地黄土 */
+  groundAt(g, 236, '#d8b078', '#c09858');
+  /* 远处蓝色施工围挡（两版完全一致） */
+  g.fillStyle = '#7fb8e8';
+  for (let i = 0; i < 10; i++) g.fillRect(i * 42 + 6, 210, 34, 26);
+  g.fillStyle = '#5f9ad0';
+  for (let i = 0; i < 10; i++) g.fillRect(i * 42 + 6, 210, 34, 4);
+
+  /* --- D1 左上小鸟：A 3 只 / B 2 只（第 3 只消失）· 点位 (80,92) --- */
+  const birdPos = [[150, 62], [200, 50], [80, 92]];
+  const birdN = v === 'A' ? 3 : 2;
+  g.fillStyle = '#4a5a7a';
+  for (let i = 0; i < birdN; i++) {
+    const p = birdPos[i];
+    g.beginPath(); g.ellipse(p[0], p[1], 7, 4.5, -0.15, 0, Math.PI*2); g.fill();
+    g.beginPath();
+    g.moveTo(p[0] - 2, p[1] - 2);
+    g.quadraticCurveTo(p[0] - 9, p[1] - 12, p[0] - 15, p[1] - 4);
+    g.quadraticCurveTo(p[0] - 8, p[1] - 3, p[0] - 2, p[1] + 1);
+    g.closePath(); g.fill();
+    g.beginPath();
+    g.moveTo(p[0] + 2, p[1] - 2);
+    g.quadraticCurveTo(p[0] + 9, p[1] - 12, p[0] + 15, p[1] - 4);
+    g.quadraticCurveTo(p[0] + 8, p[1] - 3, p[0] + 2, p[1] + 1);
+    g.closePath(); g.fill();
+  }
+
+  /* --- 挖掘机本体（两版一致的部分） --- */
+  /* 履带 */
+  g.fillStyle = '#3f444d';
+  g.beginPath();
+  g.moveTo(126, 206); g.lineTo(296, 206);
+  g.quadraticCurveTo(308, 220, 296, 234); g.lineTo(126, 234);
+  g.quadraticCurveTo(114, 220, 126, 206);
+  g.closePath(); g.fill();
+  g.fillStyle = '#5c636e';
+  for (let i = 0; i < 8; i++) g.fillRect(128 + i * 21, 209, 12, 4);
+  /* --- D4 履带负重轮：A 3 个 / B 2 个（最右那个消失）· 点位 (270,220) --- */
+  const wheelPos = [[152, 220], [211, 220], [270, 220]];
+  const wheelN = v === 'A' ? 3 : 2;
+  for (let i = 0; i < wheelN; i++) {
+    ballAt(g, wheelPos[i][0], wheelPos[i][1], 13, ['#9aa2ae', '#5c636e']);
+    g.fillStyle = '#c8ced8';
+    g.beginPath(); g.arc(wheelPos[i][0], wheelPos[i][1], 4, 0, Math.PI*2); g.fill();
+  }
+  /* 车体 */
+  g.fillStyle = '#f0a41e';
+  g.beginPath();
+  g.moveTo(146, 206); g.lineTo(300, 206); g.lineTo(300, 168); g.lineTo(160, 168);
+  g.closePath(); g.fill();
+  g.fillStyle = '#c8801a';
+  g.fillRect(146, 196, 154, 10);
+  /* --- D3 驾驶室颜色：A 红 / B 蓝 · 点位 (272,144) --- */
+  const cabC = v === 'A' ? '#e8554a' : '#3a7ae8';
+  g.fillStyle = cabC;
+  g.fillRect(220, 124, 74, 44);
+  g.fillStyle = '#bfe8ff';
+  g.fillRect(228, 132, 32, 22);
+  g.fillStyle = 'rgba(255,255,255,.55)';
+  g.beginPath(); g.moveTo(228, 154); g.lineTo(242, 132); g.lineTo(250, 132); g.lineTo(236, 154);
+  g.closePath(); g.fill();
+  g.fillStyle = '#8a8f9a';
+  g.fillRect(216, 120, 82, 7);
+  /* 机械臂（boom + stick，两版一致） */
+  g.strokeStyle = '#e08a12'; g.lineWidth = 13; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(172, 180); g.lineTo(128, 132); g.stroke();
+  g.strokeStyle = '#c8801a'; g.lineWidth = 10;
+  g.beginPath(); g.moveTo(128, 132); g.lineTo(100, 190); g.stroke();
+  g.fillStyle = '#8a8f9a';
+  g.beginPath(); g.arc(128, 132, 7, 0, Math.PI*2); g.fill();
+  /* --- D2 铲斗大小：A 宽 / B 窄（A 向左侧多出来的一段）· 点位 (59,215) --- */
+  const bw = v === 'A' ? 46 : 28;                 /* 铲斗向左伸出的长度 */
+  g.fillStyle = '#6a707c';
+  g.beginPath();
+  g.moveTo(100, 200); g.lineTo(100 - bw, 200);
+  g.lineTo(100 - bw + 5, 230); g.lineTo(100, 230);
+  g.closePath(); g.fill();
+  g.fillStyle = '#9aa2ae';
+  g.beginPath();
+  g.moveTo(100, 200); g.lineTo(100 - bw, 200);
+  g.lineTo(100 - bw + 5, 208); g.lineTo(100, 208);
+  g.closePath(); g.fill();
+
+  /* --- D5 右下土堆：A 有 / B 无 · 点位 (336,252) --- */
+  if (v === 'A') {
+    g.fillStyle = '#b8894f';
+    g.beginPath();
+    g.moveTo(300, 268); g.quadraticCurveTo(336, 222, 372, 268);
+    g.closePath(); g.fill();
+    g.fillStyle = '#a07440';
+    g.beginPath(); g.arc(324, 260, 5, 0, Math.PI*2); g.fill();
+    g.beginPath(); g.arc(348, 256, 4, 0, Math.PI*2); g.fill();
+    g.beginPath(); g.arc(340, 266, 6, 0, Math.PI*2); g.fill();
+  } else {
+    g.fillStyle = '#c09858';
+    g.beginPath(); g.ellipse(336, 268, 34, 5, 0, 0, Math.PI*2); g.fill();
+  }
+}
+
+/* ================= 场景 38：推土机 ================= */
+function drawBulldozer(g, v) {
+  bgFill(g, '#bfe6ff', '#eaf7ff');
+  cloudAt(g, 330, 48, 0.9);
+  cloudAt(g, 176, 34, 0.55);
+  groundAt(g, 236, '#d8b078', '#c09858');            /* 工地黄土 */
+  /* 远处施工围挡（两版完全一致） */
+  g.fillStyle = '#7fb8e8';
+  for (let i = 0; i < 10; i++) g.fillRect(i * 42 + 6, 210, 34, 26);
+  g.fillStyle = '#5f9ad0';
+  for (let i = 0; i < 10; i++) g.fillRect(i * 42 + 6, 210, 34, 4);
+
+  /* --- D5 左上小鸟：A 朝右飞 / B 朝左飞 · 点位 (86,80) --- */
+  const birdPos = [[150, 56], [86, 80]];
+  const birdDir = [1, v === 'A' ? 1 : -1];
+  for (let i = 0; i < 2; i++) {
+    g.save();
+    g.translate(birdPos[i][0], birdPos[i][1]);
+    g.scale(birdDir[i], 1);
+    g.fillStyle = '#4a5a7a';
+    g.beginPath(); g.ellipse(0, 0, 10, 5.5, -0.1, 0, Math.PI*2); g.fill();
+    g.beginPath(); g.arc(11, -3, 4.5, 0, Math.PI*2); g.fill();
+    g.beginPath(); g.moveTo(14, -4); g.lineTo(23, 0); g.lineTo(14, 2); g.closePath(); g.fill();
+    g.beginPath();
+    g.moveTo(-1, -4);
+    g.quadraticCurveTo(-3, -21, -15, -17);
+    g.quadraticCurveTo(-7, -8, -1, 2);
+    g.closePath(); g.fill();
+    g.restore();
+  }
+
+  /* 履带 */
+  g.fillStyle = '#3f444d';
+  g.beginPath();
+  g.moveTo(126, 206); g.lineTo(296, 206);
+  g.quadraticCurveTo(310, 221, 296, 236); g.lineTo(126, 236);
+  g.quadraticCurveTo(112, 221, 126, 206);
+  g.closePath(); g.fill();
+  g.fillStyle = '#5c636e';
+  for (let i = 0; i < 8; i++) g.fillRect(128 + i * 21, 209, 12, 4);
+
+  /* --- D2 履带负重轮：A 3 个 / B 2 个（中间那个消失）· 点位 (211,221) --- */
+  const wheelPos = [[152, 221], [211, 221], [270, 221]];
+  const wheelIdx = v === 'A' ? [0, 1, 2] : [0, 2];
+  for (const k of wheelIdx) {
+    ballAt(g, wheelPos[k][0], wheelPos[k][1], 13, ['#9aa2ae', '#5c636e']);
+    g.fillStyle = '#c8ced8';
+    g.beginPath(); g.arc(wheelPos[k][0], wheelPos[k][1], 4, 0, Math.PI*2); g.fill();
+  }
+
+  /* 车体 */
+  g.fillStyle = '#f0a41e';
+  g.beginPath();
+  g.moveTo(146, 206); g.lineTo(300, 206); g.lineTo(300, 168); g.lineTo(160, 168);
+  g.closePath(); g.fill();
+  g.fillStyle = '#c8801a';
+  g.fillRect(146, 198, 154, 8);
+  /* 机罩与排气管（两版完全一致） */
+  g.fillStyle = '#8a8f9a';
+  g.fillRect(150, 163, 76, 6);
+  g.fillStyle = '#6e7682';
+  g.fillRect(158, 136, 10, 30);
+  g.fillRect(152, 132, 22, 6);
+
+  /* --- D3 驾驶室颜色：A 红 / B 蓝 · 点位 (276,145) --- */
+  g.fillStyle = v === 'A' ? '#e8554a' : '#3a7ae8';
+  g.fillRect(220, 122, 74, 46);
+  g.fillStyle = '#bfe8ff';
+  g.fillRect(228, 130, 32, 24);
+  g.fillStyle = 'rgba(255,255,255,.55)';
+  g.beginPath(); g.moveTo(228, 154); g.lineTo(242, 130); g.lineTo(250, 130); g.lineTo(236, 154);
+  g.closePath(); g.fill();
+  g.fillStyle = '#8a8f9a';
+  g.fillRect(216, 116, 82, 7);
+
+  /* 推土铲臂（两版完全一致） */
+  g.strokeStyle = '#e08a12'; g.lineWidth = 9; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(154, 200); g.lineTo(108, 200); g.stroke();
+  /* --- D1 铲刀大小：A 宽 / B 窄（右边缘固定，A 向左多伸出一段）· 点位 (75,215) --- */
+  const bw = v === 'A' ? 52 : 30;
+  g.fillStyle = '#6a707c';
+  g.beginPath();
+  g.moveTo(112, 196); g.lineTo(112 - bw, 196);
+  g.lineTo(112 - bw + 6, 235); g.lineTo(112, 235);
+  g.closePath(); g.fill();
+  g.fillStyle = '#9aa2ae';
+  g.beginPath();
+  g.moveTo(112, 196); g.lineTo(112 - bw, 196);
+  g.lineTo(112 - bw + 3, 206); g.lineTo(112, 206);
+  g.closePath(); g.fill();
+
+  /* --- D4 右下土堆：A 有 / B 无 · 点位 (336,253) --- */
+  if (v === 'A') {
+    g.fillStyle = '#b8894f';
+    g.beginPath();
+    g.moveTo(296, 276); g.quadraticCurveTo(336, 218, 376, 276);
+    g.closePath(); g.fill();
+    g.fillStyle = '#a07440';
+    g.beginPath(); g.arc(322, 264, 5, 0, Math.PI*2); g.fill();
+    g.beginPath(); g.arc(350, 260, 4, 0, Math.PI*2); g.fill();
+  }
+}
+
+/* ================= 场景 39：压路机 ================= */
+function drawRoller(g, v) {
+  bgFill(g, '#cfe9ff', '#f2fbff');
+  cloudAt(g, 322, 40, 0.85);
+  cloudAt(g, 168, 28, 0.5);
+  groundAt(g, 236, '#a8b0ba', '#98a0aa');            /* 沥青路面 */
+  /* 路中央黄线（两版完全一致） */
+  g.fillStyle = '#e8c840';
+  for (let i = 0; i < 8; i++) g.fillRect(i * 52 + 6, 266, 30, 6);
+
+  /* --- D1 左上太阳：A 有 / B 无 · 点位 (66,64) --- */
+  if (v === 'A') {
+    g.fillStyle = '#ffd23a';
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4;
+      g.beginPath();
+      g.moveTo(66 + Math.cos(a) * 26, 64 + Math.sin(a) * 26);
+      g.lineTo(66 + Math.cos(a + 0.22) * 38, 64 + Math.sin(a + 0.22) * 38);
+      g.lineTo(66 + Math.cos(a - 0.22) * 38, 64 + Math.sin(a - 0.22) * 38);
+      g.closePath(); g.fill();
+    }
+    ballAt(g, 66, 64, 26, ['#fff3a8', '#ffc21e']);
+  }
+
+  /* 后滚筒（两版完全一致，底边压在 y=236 地面线上） */
+  g.fillStyle = '#6e7682';
+  g.beginPath(); g.arc(100, 206, 30, 0, Math.PI * 2); g.fill();
+
+  /* --- D5 前滚筒大小：A 大 / B 小（底边固定，A 向上多出一圈）· 点位 (308,193) --- */
+  const fdr = v === 'A' ? 30 : 22;
+  g.fillStyle = '#6e7682';
+  g.beginPath(); g.arc(310, 236 - fdr, fdr, 0, Math.PI * 2); g.fill();
+
+  /* --- D3 排气管方向：A 向右倾 / B 向左倾（底口固定）· 点位 (140,130) --- */
+  const pipeTop = v === 'A' ? 161 : 119;
+  g.fillStyle = '#6e7682';
+  g.beginPath();
+  g.moveTo(134, 172); g.lineTo(146, 172);
+  g.lineTo(pipeTop + 6, 96); g.lineTo(pipeTop - 6, 96);
+  g.closePath(); g.fill();
+
+  /* 底盘车架（盖住排气管根部） */
+  g.fillStyle = '#f0a41e';
+  g.fillRect(120, 156, 170, 56);
+  g.fillStyle = '#c8801a';
+  g.fillRect(120, 200, 170, 12);
+
+  /* --- D4 底盘支撑轮：A 3 个 / B 2 个（中间那个消失）· 点位 (206,222) --- */
+  const rollerPos = [[166, 222], [206, 222], [246, 222]];
+  const rollerIdx = v === 'A' ? [0, 1, 2] : [0, 2];
+  for (const k of rollerIdx) {
+    ballAt(g, rollerPos[k][0], rollerPos[k][1], 13, ['#9aa2ae', '#5c636e']);
+  }
+
+  /* --- D2 驾驶室颜色：A 红 / B 蓝 · 点位 (238,120) --- */
+  g.fillStyle = v === 'A' ? '#e8554a' : '#3a7ae8';
+  g.fillRect(170, 96, 100, 60);
+  g.fillStyle = '#bfe8ff';
+  g.fillRect(178, 106, 42, 34);
+  g.fillStyle = 'rgba(255,255,255,.55)';
+  g.beginPath(); g.moveTo(178, 140); g.lineTo(196, 106); g.lineTo(206, 106); g.lineTo(188, 140);
+  g.closePath(); g.fill();
+  g.fillStyle = '#8a8f9a';
+  g.fillRect(166, 90, 108, 7);
+}
+
+/* ================= 场景 40：塔吊 ================= */
+function drawTowerCrane(g, v) {
+  bgFill(g, '#a8dcf8', '#e8f7ff');
+  cloudAt(g, 322, 38, 0.8);
+  cloudAt(g, 206, 28, 0.5);
+  groundAt(g, 236, '#d6b483', '#c09f6e');
+  /* 远处砖堆（两版完全一致） */
+  g.fillStyle = '#c8703a';
+  for (let r = 0; r < 3; r++)
+    for (let c = 0; c < 4 - r; c++)
+      g.fillRect(300 + c * 20 + r * 10, 278 - r * 13, 18, 11);
+
+  /* 起重臂（两版完全一致） */
+  g.fillStyle = '#e8b020';
+  g.fillRect(56, 104, 122, 6);
+  g.fillRect(56, 114, 122, 6);
+  for (let i = 0; i < 5; i++) g.fillRect(60 + i * 24, 110, 4, 4);
+  /* 平衡臂（两版完全一致） */
+  g.fillRect(242, 104, 130, 6);
+  g.fillRect(242, 114, 130, 6);
+  for (let i = 0; i < 5; i++) g.fillRect(252 + i * 26, 110, 4, 4);
+
+  /* 旗杆（两版完全一致） */
+  g.fillStyle = '#8a8f9a';
+  g.fillRect(58, 62, 5, 46);
+  /* --- D1 塔尖小旗方向：A 朝右 / B 朝左 · 点位 (82,74) --- */
+  const flagDir = v === 'A' ? 1 : -1;
+  g.fillStyle = '#e8403a';
+  g.beginPath();
+  g.moveTo(60, 62);
+  g.lineTo(60 + flagDir * 44, 73);
+  g.lineTo(60, 86);
+  g.closePath(); g.fill();
+
+  /* --- D2 吊钩货物：A 吊着一捆钢管 / B 只有空钩 · 点位 (110,178) --- */
+  /* 小车与吊索（两版完全一致） */
+  g.fillStyle = '#8a8f9a';
+  g.fillRect(104, 120, 24, 10);
+  g.strokeStyle = '#5a6070'; g.lineWidth = 3; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(116, 128); g.lineTo(116, 168); g.stroke();
+  if (v === 'A') {
+    g.beginPath(); g.moveTo(116, 167); g.lineTo(100, 173); g.stroke();
+    g.beginPath(); g.moveTo(116, 167); g.lineTo(132, 173); g.stroke();
+    g.fillStyle = '#9aa2ae';
+    g.fillRect(94, 172, 44, 9);
+    g.fillRect(94, 183, 44, 9);
+    g.fillStyle = '#6e7682';
+    g.beginPath(); g.arc(94, 176.5, 4.5, 0, Math.PI*2); g.fill();
+    g.beginPath(); g.arc(138, 176.5, 4.5, 0, Math.PI*2); g.fill();
+    g.beginPath(); g.arc(94, 187.5, 4.5, 0, Math.PI*2); g.fill();
+    g.beginPath(); g.arc(138, 187.5, 4.5, 0, Math.PI*2); g.fill();
+  } else {
+    g.strokeStyle = '#6e7682'; g.lineWidth = 5;
+    g.beginPath(); g.moveTo(116, 166); g.lineTo(116, 176); g.stroke();
+    g.beginPath(); g.arc(116, 184, 8, Math.PI * 0.6, Math.PI * 2.1); g.stroke();
+  }
+
+  /* 塔身立杆与横撑（两版完全一致） */
+  g.fillStyle = '#e8b020';
+  g.fillRect(186, 118, 10, 118);
+  g.fillRect(224, 118, 10, 118);
+  for (let i = 0; i < 6; i++) g.fillRect(186, 118 + i * 23, 48, 6);
+  /* --- D3 塔身斜撑数量：A 5 根 / B 4 根（最下面那根消失）· 点位 (210,222) --- */
+  const diagN = v === 'A' ? 5 : 4;
+  g.strokeStyle = '#f0c93a'; g.lineWidth = 7; g.lineCap = 'round';
+  for (let i = 0; i < diagN; i++) {
+    g.beginPath();
+    g.moveTo(196, 124 + i * 23); g.lineTo(224, 141 + i * 23);
+    g.stroke();
+  }
+
+  /* 塔顶回转台 */
+  g.fillStyle = '#9aa2ae';
+  g.fillRect(178, 100, 64, 22);
+
+  /* --- D5 平衡重大小：A 大 / B 小（上边固定，A 向下多出一截）· 点位 (352,149) --- */
+  const cwH = v === 'A' ? 40 : 22;
+  g.fillStyle = '#8a8f9a';
+  g.fillRect(332, 118, 42, cwH);
+  g.fillStyle = '#6e737e';
+  g.fillRect(332, 118 + cwH - 6, 42, 6);
+
+  /* --- D4 驾驶室颜色：A 红 / B 蓝 · 点位 (286,78) --- */
+  g.fillStyle = v === 'A' ? '#e8554a' : '#3a7ae8';
+  g.fillRect(244, 62, 56, 42);
+  g.fillStyle = '#bfe8ff';
+  g.fillRect(250, 70, 22, 22);
+  g.fillStyle = 'rgba(255,255,255,.55)';
+  g.beginPath(); g.moveTo(250, 92); g.lineTo(260, 70); g.lineTo(266, 70); g.lineTo(256, 92);
+  g.closePath(); g.fill();
+  g.fillStyle = '#8a8f9a';
+  g.fillRect(240, 56, 66, 7);
+}
+
+/* ================= 场景 41：水泥搅拌车 ================= */
+function drawMixer(g, v) {
+  bgFill(g, '#bfe6ff', '#eaf7ff');
+  cloudAt(g, 330, 40, 0.85);
+  cloudAt(g, 200, 30, 0.55);
+  groundAt(g, 236, '#d8b078', '#c09858');            /* 工地黄土 */
+
+  /* 底盘（两版一致） */
+  g.fillStyle = '#4a5058';
+  g.fillRect(112, 192, 248, 16);
+  g.fillStyle = '#666d78';
+  g.fillRect(112, 196, 248, 5);
+  g.fillStyle = '#3a4048';
+  g.fillRect(352, 188, 16, 24);                      /* 后保险杠 */
+
+  /* 滚筒（外壳 + 后盖，两版一致） */
+  g.fillStyle = '#d8dfe8';
+  g.beginPath();
+  g.moveTo(200, 128); g.quadraticCurveTo(226, 108, 260, 118);
+  g.quadraticCurveTo(300, 130, 332, 182);
+  g.lineTo(200, 192);
+  g.closePath(); g.fill();
+  g.fillStyle = '#9aa2ae';
+  g.beginPath();
+  g.moveTo(240, 116); g.quadraticCurveTo(292, 128, 332, 182);
+  g.lineTo(300, 158);
+  g.quadraticCurveTo(276, 122, 250, 118);
+  g.closePath(); g.fill();
+  g.fillStyle = '#8a8f9a';
+  g.beginPath(); g.ellipse(266, 116, 15, 7, 0.35, 0, Math.PI*2); g.fill();
+  g.fillStyle = '#6a707c';
+  g.beginPath(); g.ellipse(266, 116, 7, 3.5, 0.35, 0, Math.PI*2); g.fill();
+  /* 驾驶室（车顶 + 车身，罩在滚筒前面；两版一致） */
+  g.fillStyle = '#5a626e';
+  g.fillRect(58, 116, 142, 12);                      /* 车顶平台一直伸到车头，水箱就架在上面 */
+  g.fillStyle = '#f0a41e';
+  g.fillRect(116, 126, 80, 66);
+  /* --- D2 驾驶室车窗：A 大 / B 小（A 向右侧多出来的一块）· 点位 (166,148) --- */
+  const winW = v === 'A' ? 48 : 24;
+  g.fillStyle = '#bfe8ff';
+  g.fillRect(132, 136, winW, 26);
+  g.fillStyle = 'rgba(255,255,255,.5)';
+  g.beginPath();
+  g.moveTo(134, 160); g.lineTo(146, 137); g.lineTo(152, 137); g.lineTo(140, 160);
+  g.closePath(); g.fill();
+
+  /* 滚筒中段箍带（两版一致） */
+  g.fillStyle = '#9aa2ae';
+  g.beginPath();
+  g.moveTo(232, 126); g.lineTo(264, 128);
+  g.lineTo(296, 176); g.lineTo(258, 188);
+  g.closePath(); g.fill();
+  g.fillStyle = '#f0f4f8';
+  g.beginPath();
+  g.moveTo(238, 130); g.lineTo(266, 133);
+  g.lineTo(272, 144); g.lineTo(244, 141);
+  g.closePath(); g.fill();
+  /* --- D1 滚筒上的深蓝竖条纹：A 2 道 / B 1 道（左边那道消失）· 点位 (226,150) --- */
+  const st1x = 210, st2x = 288, stw = 20;
+  g.fillStyle = '#1e5c86';
+  if (v === 'A') {
+    g.beginPath();
+    g.moveTo(st1x, 126); g.lineTo(st1x + stw, 128);
+    g.lineTo(st1x + stw, 190); g.lineTo(st1x, 191);
+    g.closePath(); g.fill();
+  }
+  g.beginPath();
+  g.moveTo(st2x, 142); g.lineTo(st2x + stw, 156);
+  g.lineTo(st2x + stw, 183); g.lineTo(st2x, 187);
+  g.closePath(); g.fill();
+
+  /* --- D3 车尾出料斗：A 长 / B 短（A 向左多出来的一段）· 点位 (277,180) --- */
+  const cTip = v === 'A' ? 268 : 300;
+  g.fillStyle = '#9aa2ae';
+  g.beginPath();
+  g.moveTo(330, 146); g.lineTo(cTip, 170);
+  g.lineTo(cTip + 10, 190); g.lineTo(346, 166);
+  g.closePath(); g.fill();
+  g.fillStyle = '#c8ced8';
+  g.beginPath();
+  g.moveTo(330, 146); g.lineTo(cTip, 170);
+  g.lineTo(cTip + 4, 180); g.lineTo(334, 156);
+  g.closePath(); g.fill();
+
+  /* --- D4 车顶水箱：A 有 / B 无 · 点位 (82,112) --- */
+  if (v === 'A') {
+    g.fillStyle = '#3a7ae8';
+    g.fillRect(58, 100, 48, 28);
+    g.fillStyle = '#9ac8ff';
+    g.fillRect(58, 106, 48, 5);
+    g.fillStyle = '#2a5ab8';
+    g.fillRect(76, 92, 12, 9);
+  }
+
+  /* 车轮 */
+  const tire = (x, y) => {
+    g.fillStyle = '#3a4048';
+    g.beginPath(); g.arc(x, y, 22, 0, Math.PI*2); g.fill();
+    ballAt(g, x, y, 10, ['#b8bec8', '#6a707c']);
+    g.fillStyle = '#3a4048';
+    g.beginPath(); g.arc(x, y, 3.5, 0, Math.PI*2); g.fill();
+  };
+  tire(146, 214);
+  tire(230, 214);
+  /* --- D5 车尾车轮位置：A 靠右 / B 靠左（最后一只轮子整只挪了）· 点位 (354,214) --- */
+  tire(v === 'A' ? 334 : 300, 214);
+}
+
+/* ================= 场景 42：自卸卡车 ================= */
+function drawDumpTruck(g, v) {
+  bgFill(g, '#a8dcff', '#e4f5ff');
+  cloudAt(g, 300, 34, 0.8);
+  cloudAt(g, 124, 46, 0.55);
+  groundAt(g, 236, '#cfae7a', '#b89153');
+
+  /* 底盘（两版一致） */
+  g.fillStyle = '#4a5058';
+  g.fillRect(24, 192, 336, 16);
+  g.fillStyle = '#666d78';
+  g.fillRect(24, 195, 336, 4);
+
+  /* --- D1 车斗前挡板高低：A 高 / B 矮（A 上方多出来的一条）· 点位 (200,103) --- */
+  const bedTop = v === 'A' ? 92 : 132;
+  g.fillStyle = '#d84a3a';
+  g.beginPath();
+  g.moveTo(142, 226); g.lineTo(152, bedTop);
+  g.lineTo(318, bedTop); g.lineTo(332, 226);
+  g.closePath(); g.fill();
+  g.fillStyle = 'rgba(0,0,0,.20)';
+  g.beginPath();
+  g.moveTo(142, 226); g.lineTo(152, bedTop);
+  g.lineTo(162, bedTop); g.lineTo(154, 226);
+  g.closePath(); g.fill();
+  g.fillStyle = '#a83628';                           /* 斗沿压条（两版一致） */
+  g.beginPath();
+  g.moveTo(152, bedTop); g.lineTo(318, bedTop);
+  g.lineTo(318, bedTop + 7); g.lineTo(152, bedTop + 7);
+  g.closePath(); g.fill();
+  g.fillStyle = 'rgba(0,0,0,.25)';
+  g.fillRect(144, 214, 186, 12);                     /* 斗底加强板（两版一致） */
+
+  /* --- D2 车斗侧面的黄色标条：A 有 / B 无 · 点位 (200,180) --- */
+  if (v === 'A') {
+    g.fillStyle = '#f0c020';
+    g.fillRect(158, 170, 92, 20);
+    g.fillStyle = '#c8980f';
+    g.fillRect(158, 184, 92, 6);
+  }
+
+  /* --- D3 车斗里的土堆：A 有 / B 无 · 点位 (317,81) --- */
+  if (v === 'A') {
+    g.fillStyle = '#a8703f';
+    g.beginPath();
+    g.moveTo(286, 102); g.quadraticCurveTo(317, 58, 348, 102);
+    g.closePath(); g.fill();
+    g.fillStyle = '#8a5a30';
+    g.beginPath(); g.arc(303, 92, 5, 0, Math.PI*2); g.fill();
+    g.beginPath(); g.arc(331, 88, 4, 0, Math.PI*2); g.fill();
+    g.beginPath(); g.arc(318, 97, 5, 0, Math.PI*2); g.fill();
+  }
+
+  /* 驾驶室（两版一致） */
+  g.fillStyle = '#3f7d3f';
+  g.fillRect(52, 124, 56, 68);
+  g.fillStyle = '#2f6330';
+  g.fillRect(46, 114, 68, 12);
+  g.fillStyle = '#e8ffd8';
+  g.beginPath(); g.ellipse(102, 176, 9, 6, 0, 0, Math.PI*2); g.fill();
+  /* --- D4 驾驶室车窗：A 大 / B 小（A 向右侧多出来的一块）· 点位 (90,148) --- */
+  const winW2 = v === 'A' ? 44 : 20;
+  g.fillStyle = '#bfe8ff';
+  g.fillRect(58, 132, winW2, 34);
+  g.fillStyle = 'rgba(255,255,255,.5)';
+  g.beginPath(); g.moveTo(60, 164); g.lineTo(74, 134); g.lineTo(80, 134); g.lineTo(66, 164);
+  g.closePath(); g.fill();
+
+  /* --- D5 前轮大小：A 大 / B 小（A 向左侧多出来的一圈）· 点位 (78,214) --- */
+  const tr = v === 'A' ? 27 : 21;
+  g.fillStyle = '#3a4048';
+  g.beginPath(); g.arc(104, 214, tr, 0, Math.PI*2); g.fill();
+  ballAt(g, 104, 214, v === 'A' ? 12 : 9, ['#b8bec8', '#6a707c']);
+  g.fillStyle = '#3a4048';
+  g.beginPath(); g.arc(104, 214, 4, 0, Math.PI*2); g.fill();
+
+  /* 后轮（两版一致） */
+  for (const wx of [162, 314]) {
+    g.fillStyle = '#3a4048';
+    g.beginPath(); g.arc(wx, 214, 22, 0, Math.PI*2); g.fill();
+    ballAt(g, wx, 214, 10, ['#b8bec8', '#6a707c']);
+    g.fillStyle = '#3a4048';
+    g.beginPath(); g.arc(wx, 214, 4, 0, Math.PI*2); g.fill();
+  }
+}
+
+/* ================= 场景 43：装载机 ================= */
+function drawLoader(g, v) {
+  bgFill(g, '#b0e0ff', '#e6f6ff');
+  cloudAt(g, 338, 40, 0.8);
+  cloudAt(g, 180, 30, 0.5);
+  groundAt(g, 236, '#d2b184', '#b89153');
+  /* 远处施工围挡（两版一致） */
+  g.fillStyle = '#7fb8e8';
+  for (let i = 0; i < 10; i++) g.fillRect(i * 42 + 6, 212, 34, 24);
+  g.fillStyle = '#5f9ad0';
+  for (let i = 0; i < 10; i++) g.fillRect(i * 42 + 6, 212, 34, 4);
+
+  /* 底盘（两版一致） */
+  g.fillStyle = '#4a5058';
+  g.fillRect(150, 192, 190, 16);
+  g.fillStyle = '#666d78';
+  g.fillRect(150, 195, 190, 4);
+
+  /* --- D1 铲斗臂颜色：A 橙 / B 绿 · 点位 (150,160) --- */
+  const boomC = v === 'A' ? '#e88a1e' : '#4aa84a';
+  g.fillStyle = boomC;
+  g.beginPath();
+  g.moveTo(116, 152); g.lineTo(292, 140);
+  g.lineTo(292, 174); g.lineTo(116, 186);
+  g.closePath(); g.fill();
+  g.fillStyle = 'rgba(0,0,0,.22)';
+  g.beginPath();
+  g.moveTo(116, 178); g.lineTo(292, 166);
+  g.lineTo(292, 174); g.lineTo(116, 186);
+  g.closePath(); g.fill();
+
+  /* 车架竖撑（两版一致） */
+  g.fillStyle = '#8a8f9a';
+  g.fillRect(196, 192, 12, 26);
+
+  /* --- D4 前轮大小：A 大 / B 小（A 向左侧多出来的一圈）· 点位 (198,210) --- */
+  const fr = v === 'A' ? 32 : 24;
+  g.fillStyle = '#3a4048';
+  g.beginPath(); g.arc(236, 210, fr, 0, Math.PI*2); g.fill();
+  ballAt(g, 236, 210, v === 'A' ? 14 : 10, ['#b8bec8', '#6a707c']);
+  g.fillStyle = '#3a4048';
+  g.beginPath(); g.arc(236, 210, 4, 0, Math.PI*2); g.fill();
+  /* 后轮（两版一致） */
+  g.fillStyle = '#3a4048';
+  g.beginPath(); g.arc(308, 210, 24, 0, Math.PI*2); g.fill();
+  ballAt(g, 308, 210, 11, ['#b8bec8', '#6a707c']);
+  g.fillStyle = '#3a4048';
+  g.beginPath(); g.arc(308, 210, 4, 0, Math.PI*2); g.fill();
+
+  /* 驾驶室（两版一致） */
+  g.fillStyle = '#f0c020';
+  g.beginPath();
+  g.moveTo(282, 192); g.lineTo(282, 106);
+  g.lineTo(324, 98); g.lineTo(346, 192);
+  g.closePath(); g.fill();
+  g.fillStyle = '#c8980f';
+  g.fillRect(282, 186, 64, 6);
+  g.fillStyle = '#8a8f9a';
+  g.fillRect(276, 94, 56, 8);
+  /* --- D2 驾驶室车窗：A 大 / B 小（A 向右侧多出来的一块）· 点位 (340,150) --- */
+  const winW3 = v === 'A' ? 48 : 28;
+  g.fillStyle = '#bfe8ff';
+  g.fillRect(292, 124, winW3, 50);
+  g.fillStyle = 'rgba(255,255,255,.5)';
+  g.beginPath(); g.moveTo(294, 168); g.lineTo(306, 126); g.lineTo(314, 126); g.lineTo(302, 168);
+  g.closePath(); g.fill();
+
+  /* --- D3 车尾排气管高低：A 高 / B 矮（A 上方多出来的一段）· 点位 (368,64) --- */
+  const pipeTop = v === 'A' ? 46 : 102;
+  g.fillStyle = '#6a707c';
+  g.fillRect(360, pipeTop, 15, 192 - pipeTop);
+  g.fillStyle = '#3a4048';
+  g.fillRect(357, pipeTop, 21, 10);
+  g.fillStyle = 'rgba(255,255,255,.35)';
+  g.fillRect(363, pipeTop + 6, 4, 180 - pipeTop);
+
+  /* --- D5 铲斗形状：A 方形斗 / B 带尖角（B 向左伸出的尖角）· 点位 (48,204) --- */
+  const sharp = v === 'B';
+  g.fillStyle = '#6a707c';
+  g.beginPath();
+  if (sharp) {
+    g.moveTo(72, 182); g.lineTo(112, 182); g.lineTo(112, 228);
+    g.lineTo(72, 228); g.lineTo(34, 218);
+  } else {
+    g.moveTo(72, 182); g.lineTo(112, 182); g.lineTo(112, 228); g.lineTo(72, 228);
+  }
+  g.closePath(); g.fill();
+  g.fillStyle = '#9aa2ae';
+  g.beginPath();
+  if (sharp) {
+    g.moveTo(72, 182); g.lineTo(112, 182); g.lineTo(112, 192);
+    g.lineTo(72, 192); g.lineTo(46, 189);
+  } else {
+    g.moveTo(72, 182); g.lineTo(112, 182); g.lineTo(112, 192); g.lineTo(72, 192);
+  }
+  g.closePath(); g.fill();
+  /* 斗齿（两版一致） */
+  g.fillStyle = '#3a4048';
+  for (const tx of [76, 90, 104]) g.fillRect(tx, 226, 8, 6);
+}
+
+/* ================= 场景 44：叉车 ================= */
+function drawForklift(g, v) {
+  bgFill(g, '#bfe6ff', '#eaf7ff');
+  cloudAt(g, 118, 42, 0.75);                          /* 两版完全一致 */
+  cloudAt(g, 348, 134, 0.5);                          /* 两版完全一致 */
+
+  /* --- D4 左上太阳：A 有 / B 无 · 点位 (76,74) --- */
+  if (v === 'A') {
+    g.strokeStyle = '#ffd83a'; g.lineWidth = 6; g.lineCap = 'round';
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4;
+      g.beginPath();
+      g.moveTo(76 + Math.cos(a) * 22, 74 + Math.sin(a) * 22);
+      g.lineTo(76 + Math.cos(a) * 34, 74 + Math.sin(a) * 34);
+      g.stroke();
+    }
+    ballAt(g, 76, 74, 20, ['#fff6b0', '#ffc81e']);
+  }
+
+  /* --- D3 右上小鸟：A 3 只 / B 2 只（第 3 只消失）· 点位 (330,70) --- */
+  const birdPos = [[188, 58], [240, 44], [330, 70]];
+  const birdN = v === 'A' ? 3 : 2;
+  g.fillStyle = '#4a5a7a';
+  for (let i = 0; i < birdN; i++) {
+    const p = birdPos[i];
+    g.beginPath(); g.ellipse(p[0], p[1], 7, 4.5, -0.15, 0, Math.PI*2); g.fill();
+    g.beginPath();
+    g.moveTo(p[0] - 2, p[1] - 2);
+    g.quadraticCurveTo(p[0] - 9, p[1] - 12, p[0] - 15, p[1] - 4);
+    g.quadraticCurveTo(p[0] - 8, p[1] - 3, p[0] - 2, p[1] + 1);
+    g.closePath(); g.fill();
+    g.beginPath();
+    g.moveTo(p[0] + 2, p[1] - 2);
+    g.quadraticCurveTo(p[0] + 9, p[1] - 12, p[0] + 15, p[1] - 4);
+    g.quadraticCurveTo(p[0] + 8, p[1] - 3, p[0] + 2, p[1] + 1);
+    g.closePath(); g.fill();
+  }
+
+  groundAt(g, 236, '#c9cdd6', '#aeb4c0');             /* 水泥场地 */
+  /* 场后矮墙（两版完全一致） */
+  g.fillStyle = '#b8c2d0';
+  g.fillRect(0, 212, IMG_W, 24);
+  g.fillStyle = '#a4afbf';
+  g.fillRect(0, 212, IMG_W, 5);
+
+  /* 车轮（两版完全一致） */
+  for (const wp of [[180, 212], [262, 212]]) {
+    ballAt(g, wp[0], wp[1], 24, ['#7a808a', '#33373d']);
+    g.fillStyle = '#c8ced8';
+    g.beginPath(); g.arc(wp[0], wp[1], 8, 0, Math.PI*2); g.fill();
+  }
+  /* 底盘 */
+  g.fillStyle = '#4a5058';
+  g.fillRect(140, 196, 206, 16);
+  /* 车体 + 尾部配重 */
+  g.fillStyle = '#f0b81e';
+  g.fillRect(140, 166, 200, 30);
+  g.fillStyle = '#d8a012';
+  g.fillRect(300, 166, 44, 30);
+  g.fillStyle = '#c8801a';
+  g.fillRect(140, 190, 160, 6);
+  /* 门架（在前轮上方） */
+  g.fillStyle = '#8a8f9a';
+  g.fillRect(140, 92, 18, 116);
+  g.fillStyle = '#6a707c';
+  g.fillRect(144, 96, 5, 108);
+  /* --- D1 驾驶室颜色：A 红 / B 蓝 · 点位 (250,150) --- */
+  const cabC = v === 'A' ? '#e8554a' : '#3a7ae8';
+  g.fillStyle = cabC;
+  g.fillRect(212, 104, 88, 64);
+  g.fillStyle = '#cfeaff';
+  g.fillRect(220, 112, 56, 34);
+  g.fillStyle = 'rgba(255,255,255,.5)';
+  g.beginPath(); g.moveTo(220, 146); g.lineTo(238, 112); g.lineTo(248, 112); g.lineTo(230, 146);
+  g.closePath(); g.fill();
+  g.fillStyle = '#8a8f9a';
+  g.fillRect(206, 96, 100, 10);
+  /* 货叉架 */
+  g.fillStyle = '#8a8f9a';
+  g.fillRect(150, 176, 12, 34);
+  /* --- D2 货叉长短：A 长 / B 短（右端固定，A 向左多伸出一段）· 点位 (86,192) --- */
+  const forkLen = v === 'A' ? 96 : 44;
+  g.fillStyle = '#6a707c';
+  g.fillRect(158 - forkLen, 181, forkLen, 20);
+  g.fillStyle = '#9aa2ae';
+  g.fillRect(158 - forkLen, 181, forkLen, 6);
+
+  /* 地上的货箱（两版完全一致） */
+  g.fillStyle = '#d8a060';
+  g.fillRect(306, 200, 66, 36);
+  g.fillStyle = '#c08a48';
+  g.fillRect(306, 200, 66, 7);
+  g.strokeStyle = '#a87438'; g.lineWidth = 2;
+  g.strokeRect(307, 201, 64, 34);
+  /* --- D5 货箱箭头方向：A 朝上 / B 朝左 · 点位 (334,214) --- */
+  g.fillStyle = '#7a4a20';
+  if (v === 'A') {
+    g.fillRect(330, 212, 9, 22);
+    g.beginPath(); g.moveTo(334, 201); g.lineTo(320, 214); g.lineTo(348, 214);
+    g.closePath(); g.fill();
+  } else {
+    g.fillRect(322, 210, 34, 9);
+    g.beginPath(); g.moveTo(308, 214); g.lineTo(322, 202); g.lineTo(322, 226);
+    g.closePath(); g.fill();
+  }
+}
+
+/* ================= 场景 45：混凝土泵车 ================= */
+function drawPumpTruck(g, v) {
+  bgFill(g, '#bfe6ff', '#f0faff');
+
+  /* 云朵主体（两版完全一致） */
+  g.fillStyle = '#ffffff';
+  g.beginPath(); g.ellipse(212, 62, 34, 15, 0, 0, Math.PI*2); g.fill();
+  g.beginPath(); g.ellipse(238, 50, 24, 12, 0, 0, Math.PI*2); g.fill();
+  /* --- D4 云朵大小：A 左侧多出一大团（云更宽）· 点位 (166,60) --- */
+  if (v === 'A') {
+    g.beginPath(); g.ellipse(168, 64, 30, 14, 0, 0, Math.PI*2); g.fill();
+  }
+
+  groundAt(g, 236, '#c8ccd4', '#aeb4c0');
+  /* 场后围挡（两版完全一致） */
+  g.fillStyle = '#a8b4c4';
+  for (let i = 0; i < 11; i++) g.fillRect(i * 38 + 4, 208, 30, 28);
+  g.fillStyle = '#95a2b3';
+  for (let i = 0; i < 11; i++) g.fillRect(i * 38 + 4, 208, 30, 5);
+
+  /* 车轮（两版完全一致，画在底盘下面） */
+  for (const wp of [[104, 212], [252, 212]]) {
+    ballAt(g, wp[0], wp[1], 24, ['#7a808a', '#33373d']);
+    g.fillStyle = '#c8ced8';
+    g.beginPath(); g.arc(wp[0], wp[1], 8, 0, Math.PI*2); g.fill();
+  }
+  /* --- D2 车轮数量：A 3 个 / B 2 个（最右那个消失）· 点位 (300,214) --- */
+  if (v === 'A') {
+    ballAt(g, 298, 212, 24, ['#7a808a', '#33373d']);
+    g.fillStyle = '#c8ced8';
+    g.beginPath(); g.arc(298, 212, 8, 0, Math.PI*2); g.fill();
+  }
+  /* 底盘 */
+  g.fillStyle = '#4a5058';
+  g.fillRect(56, 196, 292, 16);
+  /* --- D1 泵车机身颜色：A 灰 / B 蓝 · 点位 (214,172) --- */
+  const bodyC = v === 'A' ? '#98a0ac' : '#4a86d8';
+  g.fillStyle = bodyC;
+  g.fillRect(178, 146, 166, 50);
+  g.fillStyle = 'rgba(255,255,255,.25)';
+  g.fillRect(178, 146, 166, 7);
+  /* 机身后部散热格栅（两版完全一致） */
+  g.fillStyle = 'rgba(0,0,0,.22)';
+  for (let i = 0; i < 4; i++) g.fillRect(308 + i * 8, 160, 5, 28);
+
+  /* 驾驶室（两版完全一致） */
+  g.fillStyle = '#e8554a';
+  g.fillRect(60, 134, 90, 62);
+  g.fillStyle = '#cfeaff';
+  g.fillRect(70, 144, 38, 32);
+  g.fillStyle = 'rgba(255,255,255,.5)';
+  g.beginPath(); g.moveTo(70, 176); g.lineTo(86, 144); g.lineTo(96, 144); g.lineTo(80, 176);
+  g.closePath(); g.fill();
+  g.fillStyle = '#8a8f9a';
+  g.fillRect(54, 126, 102, 10);
+
+  /* 臂架底座（两版完全一致） */
+  g.fillStyle = '#8a8f9a';
+  g.fillRect(186, 138, 48, 20);
+  /* 臂架第一段（两版完全一致） */
+  g.strokeStyle = '#e8b020'; g.lineWidth = 16; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(210, 146); g.lineTo(262, 84); g.stroke();
+  /* --- D3 臂架弯折方向：A 第二段向右上折 / B 向右下折 · 点位 (300,72) --- */
+  g.beginPath(); g.moveTo(262, 84);
+  if (v === 'A') g.lineTo(346, 56); else g.lineTo(340, 132);
+  g.stroke();
+  /* 臂架末端出料口（跟着第二段走） */
+  g.fillStyle = '#6a707c';
+  if (v === 'A') {
+    g.beginPath(); g.arc(350, 55, 9, 0, Math.PI*2); g.fill();
+  } else {
+    g.beginPath(); g.arc(343, 135, 9, 0, Math.PI*2); g.fill();
+  }
+
+  /* --- D5 左下水泥袋：A 有 / B 无 · 点位 (54,224) --- */
+  if (v === 'A') {
+    g.fillStyle = '#e0d2b0';
+    g.beginPath();
+    g.moveTo(32, 236); g.lineTo(36, 212); g.lineTo(72, 208); g.lineTo(76, 236);
+    g.closePath(); g.fill();
+    g.fillStyle = '#c9b893';
+    g.beginPath(); g.ellipse(54, 222, 16, 7, -0.18, 0, Math.PI*2); g.fill();
+    g.strokeStyle = '#b0a077'; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(40, 216); g.lineTo(68, 212); g.stroke();
+  }
+}
+
+/* ================= 场景 46：洒水车 ================= */
+function drawWaterTruck(g, v) {
+  bgFill(g, '#cfeaff', '#f2fbff');
+  cloudAt(g, 74, 46, 0.7);                            /* 两版完全一致 */
+  cloudAt(g, 300, 36, 0.5);                           /* 两版完全一致 */
+
+  groundAt(g, 236, '#9aa4b4', '#8492a6');             /* 湿路面 */
+
+  /* --- D3 左下水洼：A 有 / B 无 · 点位 (162,250) --- */
+  if (v === 'A') {
+    g.fillStyle = '#7fb0e0';
+    g.beginPath(); g.ellipse(162, 250, 38, 12, 0, 0, Math.PI*2); g.fill();
+    g.strokeStyle = 'rgba(255,255,255,.65)'; g.lineWidth = 2;
+    g.beginPath(); g.ellipse(162, 250, 24, 7, 0, 0, Math.PI*2); g.stroke();
+  }
+
+  /* 车轮（两版完全一致，画在底盘下面） */
+  for (const wp of [[104, 212], [256, 212]]) {
+    ballAt(g, wp[0], wp[1], 24, ['#7a808a', '#33373d']);
+    g.fillStyle = '#c8ced8';
+    g.beginPath(); g.arc(wp[0], wp[1], 8, 0, Math.PI*2); g.fill();
+  }
+  /* --- D2 车轮数量：A 3 个 / B 2 个（最右那个消失）· 点位 (312,212) --- */
+  if (v === 'A') {
+    ballAt(g, 312, 212, 24, ['#7a808a', '#33373d']);
+    g.fillStyle = '#c8ced8';
+    g.beginPath(); g.arc(312, 212, 8, 0, Math.PI*2); g.fill();
+  }
+  /* 底盘 */
+  g.fillStyle = '#4a5058';
+  g.fillRect(56, 196, 296, 16);
+
+  /* --- D1 驾驶室颜色：A 红 / B 蓝 · 点位 (110,168) --- */
+  const cabC = v === 'A' ? '#e8554a' : '#3a7ae8';
+  g.fillStyle = cabC;
+  g.fillRect(62, 136, 86, 62);
+  g.fillStyle = '#cfeaff';
+  g.fillRect(72, 146, 34, 30);
+  g.fillStyle = 'rgba(255,255,255,.5)';
+  g.beginPath(); g.moveTo(72, 176); g.lineTo(88, 146); g.lineTo(97, 146); g.lineTo(81, 176);
+  g.closePath(); g.fill();
+  g.fillStyle = '#8a8f9a';
+  g.fillRect(56, 128, 98, 10);
+
+  /* 水罐（两版完全一致） */
+  g.fillStyle = '#e8eff6';
+  g.beginPath();
+  g.moveTo(154, 198); g.lineTo(154, 150);
+  g.quadraticCurveTo(154, 128, 182, 128);
+  g.lineTo(322, 128);
+  g.quadraticCurveTo(350, 128, 350, 150);
+  g.lineTo(350, 198);
+  g.closePath(); g.fill();
+  g.fillStyle = '#5aa8e8';
+  g.fillRect(154, 164, 196, 12);
+  g.fillStyle = '#c3d3e2';
+  g.fillRect(154, 176, 196, 4);
+
+  /* 罐顶小旗杆（两版完全一致） */
+  g.strokeStyle = '#7a8593'; g.lineWidth = 5; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(190, 132); g.lineTo(190, 98); g.stroke();
+  /* --- D5 水罐小旗方向：A 朝右 / B 朝左 · 点位 (206,108) --- */
+  g.fillStyle = '#f0c020';
+  g.beginPath();
+  if (v === 'A') { g.moveTo(192, 97); g.lineTo(220, 108); g.lineTo(192, 119); }
+  else { g.moveTo(188, 97); g.lineTo(160, 108); g.lineTo(188, 119); }
+  g.closePath(); g.fill();
+
+  /* 罐顶高压水枪座（两版完全一致） */
+  g.fillStyle = '#7a8593';
+  g.fillRect(262, 114, 22, 16);
+  /* --- D4 水枪水柱长短：A 长 / B 短（起点固定，A 多喷出一段）· 点位 (346,86) --- */
+  const jetT = v === 'A' ? 20 : 12;
+  const jx = t => (1-t)*(1-t)*276 + 2*(1-t)*t*334 + t*t*356;
+  const jy = t => (1-t)*(1-t)*116 + 2*(1-t)*t*52 + t*t*100;
+  g.strokeStyle = '#5ab4f0'; g.lineWidth = 12; g.lineCap = 'round';
+  g.beginPath();
+  for (let i = 0; i <= jetT; i++) {
+    const t = i / 20;
+    if (i) g.lineTo(jx(t), jy(t)); else g.moveTo(jx(t), jy(t));
+  }
+  g.stroke();
+  g.strokeStyle = 'rgba(255,255,255,.75)'; g.lineWidth = 3;
+  g.beginPath();
+  for (let i = 0; i <= jetT; i++) {
+    const t = i / 20;
+    if (i) g.lineTo(jx(t), jy(t) - 2); else g.moveTo(jx(t), jy(t) - 2);
+  }
+  g.stroke();
+}
+
+/* ================= 场景 47：高空作业车 ================= */
+function drawLiftTruck(g, v) {
+  bgFill(g, '#bfe6ff', '#eaf7ff');
+  cloudAt(g, 74, 46, 0.7);
+  groundAt(g, 250, '#d8b078', '#c09858');            /* 工地黄土 */
+
+  /* --- D5 右侧白云：A 有 / B 无 · 点位 (322,142) --- */
+  if (v === 'A') {
+    cloudAt(g, 322, 142, 0.95);
+  }
+
+  /* 车轮（先画，被车身压住一部分） */
+  /* --- D3 车轮数量：A 2 个 / B 1 个（后轮消失）· 点位 (212,238) --- */
+  const wheelPos = [[118, 232], [212, 232]];   /* 轮底正好压在地面线 y=250 上（原来 y=246 会陷进地里 14px） */
+  const wheelN = v === 'A' ? 2 : 1;
+  for (let i = 0; i < wheelN; i++) {
+    ballAt(g, wheelPos[i][0], wheelPos[i][1], 18, ['#9aa2ae', '#4a505c']);
+    g.fillStyle = '#d8dce4';
+    g.beginPath(); g.arc(wheelPos[i][0], wheelPos[i][1], 7, 0, Math.PI*2); g.fill();
+    g.fillStyle = '#6a707c';
+    g.beginPath(); g.arc(wheelPos[i][0], wheelPos[i][1], 3, 0, Math.PI*2); g.fill();
+  }
+
+  /* 车体 */
+  /* --- D2 车身颜色：A 黄 / B 红 · 点位 (126,176) --- */
+  const bodyC = v === 'A' ? '#f0a41e' : '#e8554a';
+  g.fillStyle = bodyC;
+  g.fillRect(50, 166, 174, 60);
+  /* 驾驶室（左端，两版一致） */
+  g.fillStyle = '#3f444d';
+  g.fillRect(50, 168, 60, 56);
+  g.fillStyle = '#bfe8ff';
+  g.fillRect(58, 176, 40, 26);
+  g.fillStyle = 'rgba(255,255,255,.55)';
+  g.beginPath();
+  g.moveTo(58, 202); g.lineTo(72, 176); g.lineTo(80, 176); g.lineTo(66, 202);
+  g.closePath(); g.fill();
+  /* 底盘踏板（两版一致） */
+  g.fillStyle = '#8a8f9a';
+  g.fillRect(48, 218, 178, 8);
+
+  /* 转台底座 + 警示灯（两版一致） */
+  g.fillStyle = '#8a8f9a';
+  g.fillRect(174, 180, 34, 32);
+  g.fillStyle = '#6a707c';
+  g.fillRect(181, 174, 20, 6);
+  g.fillStyle = '#ffd84a';
+  g.fillRect(182, 164, 18, 10);
+  /* 液压缸支撑（两版一致） */
+  g.strokeStyle = '#c8ced8'; g.lineWidth = 7; g.lineCap = 'butt';
+  g.beginPath(); g.moveTo(206, 208); g.lineTo(186, 212); g.stroke();
+
+  /* 伸缩臂下段（两版一致，竖直矩形，避免与车身交界处出现半像素缝） */
+  g.fillStyle = '#e08a12';
+  g.fillRect(162, 150, 20, 56);
+  g.fillStyle = '#c8801a';
+  g.fillRect(168, 150, 8, 56);
+  /* --- D4 伸缩臂长度：A 长 / B 短（下端固定，A 向上多伸出一段）· 点位 (136,76) --- */
+  const boomTop = v === 'A' ? 60 : 96;
+  g.fillStyle = '#f0a41e';
+  g.fillRect(136, boomTop, 16, 150 - boomTop);
+  g.fillStyle = '#c8801a';
+  g.fillRect(142, boomTop + 10, 6, 140 - boomTop);
+  /* 臂头销轴（两版一致） */
+  g.fillStyle = '#8a8f9a';
+  g.beginPath(); g.arc(156, 150, 7, 0, Math.PI*2); g.fill();
+
+  /* 吊篮（镂空护栏） */
+  g.fillStyle = '#c8ced8';
+  for (const p of [46, 64, 82, 100]) g.fillRect(p, 88, 5, 45);
+  g.fillRect(40, 86, 68, 6);
+  g.fillRect(40, 126, 68, 5);
+  /* 底板金属板（两版一致） */
+  g.fillStyle = '#8a929e';
+  g.fillRect(40, 131, 68, 5);
+  /* --- D1 吊篮底板颜色：A 橙 / B 绿（护栏底下整块底板）· 点位 (48,140) --- */
+  const trayC = v === 'A' ? '#f08030' : '#4aa848';
+  g.fillStyle = trayC;
+  g.fillRect(40, 136, 68, 14);
+  g.fillStyle = '#a85a1a';
+  g.fillRect(40, 150, 68, 5);
+
+  /* 吊篮与伸缩臂之间的连接臂（两版一致）：补上这段，吊篮才不会悬空在臂旁边 */
+  g.fillStyle = '#e08a12';
+  g.fillRect(104, 145, 60, 12);
+  g.fillStyle = '#8a8f9a';
+  g.beginPath(); g.arc(166, 151, 6, 0, Math.PI*2); g.fill();
+
+  /* 固定装饰：远处围挡 */
+  g.fillStyle = '#7fb8e8';
+  for (let i = 0; i < 9; i++) g.fillRect(244 + i * 17, 230, 14, 20);
+  g.fillStyle = '#5f9ad0';
+  for (let i = 0; i < 9; i++) g.fillRect(244 + i * 17, 230, 14, 3);
+}
+
+/* ================= 场景 48：打桩机 ================= */
+function drawPileDriver(g, v) {
+  bgFill(g, '#b8ddf5', '#e8f4ff');
+  cloudAt(g, 310, 40, 0.7);
+  groundAt(g, 250, '#cfa870', '#b8905a');            /* 工地黄土 */
+
+  /* 履带底盘 */
+  g.fillStyle = '#3f444d';
+  g.beginPath();
+  g.moveTo(46, 218); g.lineTo(252, 218);
+  g.quadraticCurveTo(266, 234, 252, 248); g.lineTo(46, 248);
+  g.quadraticCurveTo(32, 234, 46, 218);
+  g.closePath(); g.fill();
+  g.fillStyle = '#5c636e';
+  for (let i = 0; i < 9; i++) g.fillRect(52 + i * 23, 221, 13, 4);
+
+  /* --- D4 履带轮数量：A 3 个 / B 2 个（右轮消失）· 点位 (232,234) --- */
+  const wheelPos = [[92, 234], [162, 234], [232, 234]];
+  const wheelN = v === 'A' ? 3 : 2;
+  for (let i = 0; i < wheelN; i++) {
+    ballAt(g, wheelPos[i][0], wheelPos[i][1], 14, ['#9aa2ae', '#5c636e']);
+    g.fillStyle = '#c8ced8';
+    g.beginPath(); g.arc(wheelPos[i][0], wheelPos[i][1], 4, 0, Math.PI*2); g.fill();
+  }
+
+  /* 机身 */
+  g.fillStyle = '#f0a41e';
+  g.fillRect(56, 186, 202, 34);
+  g.fillStyle = '#c8801a';
+  g.fillRect(56, 212, 202, 8);
+  /* 配重块 */
+  /* --- D5 配重块：A 有 / B 无 · 点位 (110,172) --- */
+  if (v === 'A') {
+    g.fillStyle = '#6a707c';
+    g.fillRect(60, 152, 52, 40);
+    g.fillStyle = '#4a505c';
+    g.fillRect(64, 156, 44, 6);
+  }
+  /* 驾驶室（机身左端，两版一致） */
+  g.fillStyle = '#3f444d';
+  g.fillRect(120, 150, 48, 42);
+  g.fillStyle = '#bfe8ff';
+  g.fillRect(127, 158, 34, 22);
+  g.fillStyle = 'rgba(255,255,255,.55)';
+  g.beginPath();
+  g.moveTo(127, 180); g.lineTo(141, 158); g.lineTo(149, 158); g.lineTo(135, 180);
+  g.closePath(); g.fill();
+
+  /* 导杆（桅杆） */
+  g.fillStyle = '#8a8f9a';
+  g.fillRect(278, 86, 20, 140);
+  g.fillStyle = '#c8ced8';
+  for (let i = 0; i < 8; i++) g.fillRect(278, 92 + i * 17, 20, 4);
+  g.fillStyle = '#6a707c';
+  g.fillRect(282, 84, 12, 6);
+
+  /* --- D1 桩锤颜色：A 蓝 / B 紫 · 点位 (220,124) --- */
+  const hammerC = v === 'A' ? '#3a7ae8' : '#8a3ad8';
+  g.fillStyle = hammerC;
+  g.fillRect(204, 102, 36, 44);
+  g.fillStyle = '#c8ced8';
+  g.fillRect(208, 108, 28, 5);
+  g.fillRect(208, 136, 28, 5);
+  /* 液压油缸（两版一致） */
+  g.strokeStyle = '#c8ced8'; g.lineWidth = 9; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(240, 126); g.lineTo(280, 148); g.stroke();
+  g.strokeStyle = '#8a8f9a'; g.lineWidth = 6;
+  g.beginPath(); g.moveTo(266, 140); g.lineTo(280, 148); g.stroke();
+
+  /* --- D2 桩管大小：A 长 / B 短（A 向上多伸出一段）· 点位 (176,190) --- */
+  const pileH = v === 'A' ? 60 : 34;
+  g.fillStyle = '#b0b8c4';
+  g.fillRect(164, 246 - pileH, 22, pileH);
+  g.fillStyle = '#8a929e';
+  g.fillRect(164, 246 - pileH, 6, pileH);
+  g.fillStyle = '#d8a83a';
+  g.fillRect(164, 246 - pileH, 22, 5);
+  g.fillRect(164, 246 - pileH, 22, 5);
+
+  /* --- D3 排气烟团：A 有 / B 无 · 点位 (306,196) --- */
+  if (v === 'A') {
+    g.fillStyle = 'rgba(238,240,244,.92)';
+    g.beginPath(); g.arc(306, 196, 20, 0, Math.PI*2); g.fill();
+    g.beginPath(); g.arc(284, 186, 13, 0, Math.PI*2); g.fill();
+    g.beginPath(); g.arc(326, 190, 12, 0, Math.PI*2); g.fill();
+  }
+
+  /* 固定装饰：堆放的钢管 */
+  g.fillStyle = '#8a929e';
+  for (let i = 0; i < 5; i++) g.fillRect(34, 186 + i * 11, 12, 8);
+  g.fillStyle = '#6a707c';
+  for (let i = 0; i < 5; i++) g.fillRect(34, 186 + i * 11, 12, 3);
+}
+
+/* ================= 工程车主题：新增关卡 ================= */
+
 /* ---------------- 舞台渲染 ---------------- */
 function drawStage(scene) {
   ctx.save();
@@ -4008,7 +5316,7 @@ function drawMarks(now) {
 /* 提示闪烁（左右两幅同一点位对比闪现） */
 function drawHintFlash(now) {
   if (hintFlash < 0 || now > hintUntil) return;
-  const scene = SCENES[level - 1];
+  const scene = curScene();
   const d = scene.diffs[hintFlash];
   const blink = 0.5 + 0.5 * Math.sin(now * 14);
   ctx.save();
@@ -4046,7 +5354,7 @@ function render(now) {
   ctx.fillRect(0, 0, W, H);
   if (state === STATE.START) return;
 
-  const scene = SCENES[level - 1];
+  const scene = curScene();
   drawStage(scene);
   drawMarks(now);
   drawHintFlash(now);
@@ -4128,7 +5436,7 @@ function showResult() {
   else                      { title = '🎉 观察小能手！'; medal = '参与奖'; }
   $('resultTitle').textContent = title;
   $('resultDesc').innerHTML =
-    `闯过 <b style="color:#ffd35c">36</b> 个场景（${medal}）<br>` +
+    `闯过 <b style="color:#ffd35c">${TOTAL_LEVELS}</b> 个场景（${medal}）<br>` +
     `使用提示 <b style="color:#ffd35c">${hintTotal}</b> 次 · 点错 <b style="color:#ffcf6b">${wrongTotal}</b> 次<br>` +
     `你的眼睛真尖，下次试试不用提示哦！`;
   $('result').classList.add('show');
@@ -4138,6 +5446,7 @@ function showResult() {
 
 /* ---------------- 开始 / 重开 ---------------- */
 function resetGame() {
+  shuffleLevels();                 // 每局重新洗牌：出题顺序不再固定
   level = 1; foundCount = 0;
   foundFlags = [0,0,0,0,0];
   hintTotal = 0; wrongTotal = 0;
@@ -4160,15 +5469,17 @@ $('btnRestart').addEventListener('click', () => {
 });
 
 /* ---------------- 测试钩子 ---------------- */
-window.__testDiffs = () => SCENES[level - 1].diffs.map((d, i) => ({
+window.__testDiffs = () => curScene().diffs.map((d, i) => ({
   x: d.x, y: d.y, found: !!foundFlags[i], desc: d.desc,
 }));
 window.__testClickDiff = (x, y) => clickStage(x, y);
 window.__testState = () => state;
 window.__testProgress = () => ({
   level, foundCount, hintTotal, wrongTotal, state,
-  scene: SCENES[level - 1].name,
+  scene: curScene().name,
 });
+window.__testOrder = () => LEVELS.map(s => s.name);   // 本局出题顺序（验证随机用）
+window.__testShuffle = () => shuffleLevels();
 </script>
 
 <script>
