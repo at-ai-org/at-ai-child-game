@@ -72,6 +72,7 @@ namespace KidGameKiosk
         internal KioskForm()
         {
             Text = "少儿 AI 游戏乐园";
+            Icon = LoadAppIcon();                     // 任务栏 / Alt-Tab 用的就是它
             FormBorderStyle = FormBorderStyle.None;   // 无标题栏、无边框
             WindowState = FormWindowState.Maximized;  // 铺满屏幕
             TopMost = true;                           // 不被打扰
@@ -82,6 +83,38 @@ namespace KidGameKiosk
             _web.Dock = DockStyle.Fill;
             _web.DefaultBackgroundColor = Color.FromArgb(20, 26, 46);
             Controls.Add(_web);
+        }
+
+        /// <summary>
+        /// 窗口图标（任务栏按钮、Alt-Tab 切换器、对话框标题栏都用它）。
+        ///
+        /// 为什么还要单独来这一手：csproj 里的 &lt;ApplicationIcon&gt; 只决定「exe 文件在
+        /// 资源管理器里长什么样」，管不到运行起来的窗口——WinForms 窗体如果没显式设 Icon，
+        /// 任务栏和 Alt-Tab 显示的是 .NET 自带的那个通用窗体图标。
+        /// 这里把 app.ico 作为嵌入资源读出来直接给窗体，顺便保留 16/24/32/48/128/256
+        /// 多个尺寸，任务栏小图标和高 DPI 下的 Alt-Tab 大图标都清晰。
+        /// </summary>
+        private static Icon LoadAppIcon()
+        {
+            try
+            {
+                using (Stream s = typeof(KioskForm).Assembly
+                    .GetManifestResourceStream("KidGameKiosk.app.ico"))
+                {
+                    if (s != null) return new Icon(s);
+                }
+            }
+            catch { /* 读不到就试下面的兜底 */ }
+
+            try
+            {
+                // 兜底：直接从 exe 文件里抠一个（单文件发布时 ProcessPath 就是 exe 本身）
+                string exe = Environment.ProcessPath;
+                if (!string.IsNullOrEmpty(exe)) return Icon.ExtractAssociatedIcon(exe);
+            }
+            catch { }
+
+            return null;   // 实在拿不到就用系统默认图标，不影响运行
         }
 
         // ------------------------------------------------------------------

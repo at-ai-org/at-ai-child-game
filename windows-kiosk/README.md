@@ -102,7 +102,7 @@ publish\
 | 换成加载远程网址 | `Program.cs` 里 `core.Navigate("http://...")`，并去掉 `SetVirtualHostNameToFolderMapping` |
 | 允许 F11 / 右键 | `Program.cs` 里对应的 `Set(() => s.XXX = false)` 改成 `true` |
 | 窗口标题 | `Program.cs` 里 `Text = "..."` |
-| 图标 | 改 `make-icon.py` 里的配色（`GRAD_A/GRAD_B/PAD/DPAD/BTN`）或几何（`GEO`），重跑 `python3 make-icon.py` 重新生成 `app.ico` |
+| 图标 | 改 `make-icon.py` 里的配色（`GRAD_A/GRAD_B/PAD/DPAD/BTN`）或几何（`GEO`），重跑 `python3 make-icon.py` 重新生成 `app.ico`（exe 文件图标 + 窗口图标都取自它，见下） |
 | 换图标造型 | `make-icon.py --variants` 会把多种握把造型并排渲染成 `variants.png` 方便挑 |
 
 ---
@@ -175,6 +175,29 @@ publish\
 刚 push 完新提交时，即使 UA 对了也可能先拿到那个等待页，所以下载后要检查文件头是不是
 `PK`，不是就等几秒重试（最多 4 次）。Gitee 那个 `check_archive` 内部接口需要会话令牌，
 试过走不通（返回「验证信息过期」），别去逆向它。
+
+---
+
+## 图标是怎么挂上去的（两层，别只改一层）
+
+Windows 上「一个程序长什么样」其实是**两处**图标，`app.ico` 同时喂给这两处：
+
+| 看得到的地方 | 谁决定的 |
+|---|---|
+| 资源管理器 / 桌面快捷方式 / 任务栏固定图标 | csproj 的 `<ApplicationIcon>app.ico</ApplicationIcon>`（编译时嵌进 exe 的资源段） |
+| **运行中窗口**的图标：任务栏按钮、Alt-Tab 切换器 | `Program.cs` 里 `KioskForm` 构造函数的 `Icon = LoadAppIcon()` |
+
+第二处很容易漏：`<ApplicationIcon>` 只管 exe 文件本身，**管不到运行起来的窗口**。
+WinForms 窗体如果没显式设 `Form.Icon`，它会用自己程序集里带的那个通用窗体图标
+（`System.Windows.Forms.wfc`），任务栏和 Alt-Tab 上就是一个灰底小方块——和 exe 文件图标不一样。
+所以 `app.ico` 还作为 `<EmbeddedResource>` 打进程序集，窗体构造时读出来设上：
+
+```xml
+<EmbeddedResource Include="app.ico" LogicalName="KidGameKiosk.app.ico" />
+```
+
+这样 16/24/32/48/64/128/256 七个尺寸都在，任务栏小图标和高 DPI 下的 Alt-Tab 大图标都清楚。
+取不到嵌入资源时会退回 `Icon.ExtractAssociatedIcon(exe)`，再不行就用系统默认图标，不影响运行。
 
 ---
 
