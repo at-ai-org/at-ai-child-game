@@ -1,4 +1,4 @@
-﻿<#
+<#
   少儿 AI 游戏乐园 —— Windows kiosk 版打包脚本
 
   用法（在 Windows 上）：
@@ -43,28 +43,41 @@ Write-Host '[3/3] 正在复制游戏文件到 www ...' -ForegroundColor Green
 if (Test-Path $www) { Remove-Item $www -Recurse -Force }
 New-Item -ItemType Directory -Path $www | Out-Null
 
-# 排除：版本库、宿主程序本身、开发脚本
-$skip = @('.git', 'windows-kiosk', 'tools')
+# 排除：版本库、宿主程序本身、开发脚本，以及绝对不能发布的本地凭证
+$skip = @('.git', 'windows-kiosk', 'tools', 'update', '.gitee-token', '.env')
 Get-ChildItem -Path $repo -Force | Where-Object { $skip -notcontains $_.Name } | ForEach-Object {
     Copy-Item -LiteralPath $_.FullName -Destination $www -Recurse -Force
 }
 # 顺带清掉不需要发布的备份文件
 Get-ChildItem -Path $www -Recurse -Filter 'index-3d-backup.html' -ErrorAction SilentlyContinue |
     Remove-Item -Force
+# 本地凭证万一漏进 www，直接删掉（这东西绝不能跟着发布出去）
+Get-ChildItem -Path $www -Recurse -Force -Include '.gitee-token', '.env' -ErrorAction SilentlyContinue |
+    Remove-Item -Force
 
 if (-not (Test-Path (Join-Path $www 'index.html'))) {
     Write-Host '[X] 复制后没找到 www\index.html，请检查仓库是否完整。' -ForegroundColor Red
     exit 1
 }
+# version.json 决定「启动时检查更新」比对的版本号，缺了它客户端就不知道自己是不是最新
+if (-not (Test-Path (Join-Path $www 'version.json'))) {
+    Write-Host '[!] 警告：www 里没有 version.json，客户端将无法比对版本。' -ForegroundColor Yellow
+}
 
 # ---------- 完成 ----------
 $exeSize = [math]::Round((Get-Item (Join-Path $out 'KidGameKiosk.exe')).Length / 1MB, 0)
+$contentVer = '未知'
+try {
+    $vj = Get-Content (Join-Path $www 'version.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ($vj.version) { $contentVer = $vj.version }
+} catch { }
 
 Write-Host ''
 Write-Host '=== 打包完成 ===' -ForegroundColor Cyan
 Write-Host ''
 Write-Host ('程序目录： ' + $out)
 Write-Host ('exe 大小： ' + $exeSize + ' MB')
+Write-Host ('内容版本： ' + $contentVer + '   （来自 version.json，客户端拿它和 Gitee 上的比）')
 Write-Host ''
 Write-Host '接下来：'
 Write-Host '  1. 双击 KidGameKiosk.exe  →  无边框全屏启动，直接进游戏主页'

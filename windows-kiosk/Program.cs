@@ -3,6 +3,10 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
@@ -52,6 +56,19 @@ namespace KidGameKiosk
         private readonly WebView2 _web = new WebView2();
         private bool _allowExit;          // 只有家长热键能置 true
 
+        // ---- 版本更新 ----
+        private CoreWebView2 _core;
+        private string _wwwRoot;
+        private VersionInfo _localVer;    // 本地内容版本（www\version.json）
+        private VersionInfo _remoteVer;   // Gitee 上的版本
+        private VersionInfo _stagedVer;   // 已下载待重启生效的版本
+        private string _appliedNote;      // 本次启动刚应用了暂存更新时记一句
+        private string _stateName = "idle";
+        private string _stateMsg = "";
+        private int _percent;
+        private bool _busy;               // 正在检查/下载，避免重复触发
+        private bool _autoChecked;        // 每次启动只自动检查一次
+
         internal KioskForm()
         {
             Text = "少儿 AI 游戏乐园";
@@ -85,6 +102,13 @@ namespace KidGameKiosk
                 Close();
                 return;
             }
+
+            _wwwRoot = wwwRoot;
+
+            // 上次会话下载好的更新，趁 WebView2 还没起来（www 里的文件没被占用）先落地。
+            // 这一步必须在创建 WebView2 之前做，否则目录被占用就换不动了。
+            try { _appliedNote = UpdateService.TryApplyStagedUpdate(AppContext.BaseDirectory); }
+            catch (Exception ex) { _appliedNote = "更新失败：" + ex.Message; }
 
             try
             {
@@ -158,6 +182,25 @@ namespace KidGameKiosk
                     }
                 };
 
+                // ---- 版本更新：本地版本 + 已暂存的更新 ----
+                _core = core;
+                _localVer = UpdateService.ReadLocalVersion(wwwRoot);
+                _stagedVer = ReadStagedVersion(AppContext.BaseDirectory);
+
+                // 页面通过 window.chrome.webview.postMessage({cmd:'...'}) 发指令过来
+                core.WebMessageReceived += (_, ev) => OnPageMessage(ev.WebMessageAsJson);
+
+                // 页面（含游戏页往返）每次加载完都把状态推一遍，顺便做一次启动自动检查
+                core.NavigationCompleted += (_, __) =>
+                {
+                    SendInitialState();
+                    if (!_autoChecked)
+                    {
+                        _autoChecked = true;
+                        _ = CheckForUpdateAsync();
+                    }
+                };
+
                 core.Navigate("http://" + VHost + "/index.html");
                 Activate();
             }
@@ -196,6 +239,202 @@ namespace KidGameKiosk
             if (File.Exists(Path.Combine(www, "index.html"))) return www;
             if (File.Exists(Path.Combine(baseDir, "index.html"))) return baseDir;
             return null;
+        }
+
+        // ------------------------------------------------------------------
+        // 版本更新（页面 ↔ 宿主）
+        //
+        // 页面发过来的指令（window.chrome.webview.postMessage）：
+        //   {cmd:'get-state'}  取当前状态
+        //   {cmd:'check'}      立即检查（家长点了"检查更新"）
+        //   {cmd:'update'}     开始下载并暂存新版本
+        //   {cmd:'restart'}    立刻重启（让暂存的更新落地）
+        // 宿主推给页面的消息统一是 {type:'update', state:..., ...}：
+        //   state = idle / checking / uptodate / available / downloading
+        //           / staged / need-host / error / just-updated
+        // ------------------------------------------------------------------
+        private void OnPageMessage(string json)
+        {
+            string cmd = "";
+            try
+            {
+                using (JsonDocument doc = JsonDocument.Parse(json))
+                {
+                    JsonElement e;
+                    if (doc.RootElement.ValueKind == JsonValueKind.Object &&
+                        doc.RootElement.TryGetProperty("cmd", out e) &&
+                        e.ValueKind == JsonValueKind.String)
+                    {
+                        cmd = e.GetString() ?? "";
+                    }
+                }
+            }
+            catch { /* 不是我们认识的消息，忽略 */ }
+
+            try
+            {
+                switch (cmd)
+                {
+                    case "get-state": PostUpdateState(); break;
+                    case "check": _ = CheckForUpdateAsync(); break;
+                    case "update": _ = StartUpdateAsync(); break;
+                    case "restart": RestartNow(); break;
+                }
+            }
+            catch { /* 任何异常都不能影响孩子玩游戏 */ }
+        }
+
+        /// <summary>把状态推给页面。页面还没加载好时 WebView2 会直接丢弃，页面加载后会主动来取。</summary>
+        private void PostUpdateState()
+        {
+            if (_core == null) return;
+            try
+            {
+                string json = JsonSerializer.Serialize(new
+                {
+                    type = "update",
+                    state = _stateName,
+                    message = _stateMsg,
+                    host = UpdateService.HostVersion(),
+                    local = _localVer != null ? _localVer.Version : "",
+                    remote = _remoteVer != null ? _remoteVer.Version : "",
+                    notes = _remoteVer != null ? _remoteVer.Notes : "",
+                    date = _remoteVer != null ? _remoteVer.Date : "",
+                    minHost = _remoteVer != null ? _remoteVer.MinHost : "",
+                    staged = _stagedVer != null ? _stagedVer.Version : "",
+                    applied = _appliedNote ?? "",
+                    percent = _percent
+                });
+                _core.PostWebMessageAsJson(json);
+            }
+            catch { /* 忽略 */ }
+        }
+
+        private void SetState(string state, string message, int percent)
+        {
+            _stateName = state;
+            _stateMsg = message ?? "";
+            _percent = percent;
+            PostUpdateState();
+        }
+
+        /// <summary>页面每次加载完先报一次状态（含"刚更新完"和"有新版本待重启"）。</summary>
+        private void SendInitialState()
+        {
+            if (!string.IsNullOrEmpty(_appliedNote))
+            {
+                string note = _appliedNote;
+                _appliedNote = null;      // 只提示一次，之后从游戏页返回主页不该再弹
+                if (note.StartsWith("更新失败", StringComparison.Ordinal))
+                    SetState("error", note, 0);
+                else
+                    SetState("just-updated", "已更新到 " + (_localVer != null ? _localVer.Version : "") +
+                                             "（" + note + "）", 0);
+                return;
+            }
+            if (_stagedVer != null)
+            {
+                SetState("staged", "新版本 " + _stagedVer.Version + " 已下载好，重启后生效", 100);
+                return;
+            }
+            PostUpdateState();
+        }
+
+        /// <summary>检查 Gitee 上的版本。启动时自动跑一次，家长也可以手动点。</summary>
+        private async Task CheckForUpdateAsync()
+        {
+            if (_busy || _core == null) return;
+            _busy = true;
+            try
+            {
+                SetState("checking", "正在检查更新…", 0);
+
+                if (_localVer == null) _localVer = UpdateService.ReadLocalVersion(_wwwRoot);
+                VersionInfo remote = await UpdateService.FetchRemoteVersionAsync(15000);
+                _remoteVer = remote;
+
+                string localVer = _localVer != null ? _localVer.Version : "0.0.0";
+                if (!VersionUtil.IsNewer(remote.Version, localVer))
+                {
+                    SetState("uptodate", "已经是最新版本（" + localVer + "）", 0);
+                    return;
+                }
+                if (!string.IsNullOrEmpty(remote.MinHost) &&
+                    VersionUtil.IsNewer(remote.MinHost, UpdateService.HostVersion()))
+                {
+                    SetState("need-host",
+                        "新内容需要更新的客户端程序（需要 " + remote.MinHost +
+                        "，当前 " + UpdateService.HostVersion() + "），请到仓库下载新的 exe", 0);
+                    return;
+                }
+                if (_stagedVer != null)
+                {
+                    SetState("staged", "新版本 " + _stagedVer.Version + " 已下载好，重启后生效", 100);
+                    return;
+                }
+                SetState("available", "发现新版本 " + remote.Version, 0);
+            }
+            catch (Exception ex)
+            {
+                SetState("error", "检查更新失败：" + ex.Message, 0);
+            }
+            finally { _busy = false; }
+        }
+
+        /// <summary>下载并暂存新版本；替换 www 留到下次启动（那时目录没被占用）。</summary>
+        private async Task StartUpdateAsync()
+        {
+            if (_busy || _core == null) return;
+            _busy = true;
+            try
+            {
+                SetState("downloading", "正在下载新版本…", 0);
+
+                // Progress 在 UI 线程构造，回调会自动回到 UI 线程
+                Progress<UpdateProgress> prog = new Progress<UpdateProgress>(p =>
+                {
+                    string phase = p.Phase == "download" ? "正在下载新版本…"
+                                 : p.Phase == "extract" ? "正在解压…" : "正在校验…";
+                    SetState("downloading", phase, p.Phase == "download" ? p.Percent : 100);
+                });
+
+                VersionInfo staged = await UpdateService.StageAsync(
+                    AppContext.BaseDirectory, prog, CancellationToken.None);
+
+                _stagedVer = staged;
+                SetState("staged", "新版本 " + staged.Version + " 已下载好，重启后生效", 100);
+            }
+            catch (Exception ex)
+            {
+                SetState("error", "更新失败：" + ex.Message, 0);
+            }
+            finally { _busy = false; }
+        }
+
+        /// <summary>立刻重启程序，让暂存的更新在启动时落地。</summary>
+        private void RestartNow()
+        {
+            if (UpdateService.RestartSelf())
+            {
+                _allowExit = true;
+                Close();
+            }
+            else
+            {
+                SetState("staged", "自动重启失败，请按 Ctrl+Shift+Q 退出后重新打开", 100);
+            }
+        }
+
+        /// <summary>读 update\staged.json（上次下载好、还没重启生效的版本）。</summary>
+        private static VersionInfo ReadStagedVersion(string baseDir)
+        {
+            try
+            {
+                string marker = Path.Combine(UpdateService.UpdateRoot(baseDir), "staged.json");
+                if (!File.Exists(marker)) return null;
+                return UpdateService.Parse(File.ReadAllText(marker, Encoding.UTF8));
+            }
+            catch { return null; }
         }
 
         // ------------------------------------------------------------------

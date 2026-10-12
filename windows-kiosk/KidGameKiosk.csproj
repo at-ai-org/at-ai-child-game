@@ -8,7 +8,7 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>KidGameKiosk</AssemblyName>
     <RootNamespace>KidGameKiosk</RootNamespace>
-    <Version>1.1.1</Version>
+    <Version>1.2.0</Version>
     <Product>少儿 AI 游戏乐园</Product>
     <!-- 图标：由 make-icon.py 生成的多尺寸 .ico（16/24/32/48/64 位图 + 128/256 PNG） -->
     <ApplicationIcon>app.ico</ApplicationIcon>
