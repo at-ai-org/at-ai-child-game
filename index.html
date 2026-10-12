@@ -692,6 +692,27 @@ window.addEventListener('contextmenu', e => e.preventDefault());
   var pageVersion = '';  // 页面自己读到的内容版本（浏览器里也能显示）
   var manual = false;    // 家长手动点了「检查更新」
   var toastTimer = null;
+  var watchdog = null;   // 等宿主回话的超时保护
+
+  /* 宿主没回话时的兜底：老版本 exe（还不认识这些指令）不会有任何回应，
+   * 如果不兜住，弹窗会停在「正在检查…」且一个按钮都没有，谁也关不掉。 */
+  function clearWatchdog() { if (watchdog) { clearTimeout(watchdog); watchdog = null; } }
+  function armWatchdog(ms) {
+    if (watchdog) clearTimeout(watchdog);
+    watchdog = setTimeout(function () {
+      watchdog = null;
+      var st = S.state;
+      if (st !== 'checking' && st !== 'downloading') return;
+      manual = true;
+      S = {
+        state: 'error', local: S.local, host: S.host,
+        message: st === 'checking'
+          ? '没收到客户端回应（当前客户端程序可能还不支持检查更新，装一次新的 exe 就好）。'
+          : '下载好像卡住了，先关掉，过会儿再试。'
+      };
+      render();
+    }, ms);
+  }
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -732,6 +753,11 @@ window.addEventListener('contextmenu', e => e.preventDefault());
       var v = S.local || pageVersion;
       verText.textContent = v ? ('版本 ' + v + (S.host ? ' · 客户端 ' + S.host : '')) : '版本 —';
     }
+
+    /* 等宿主回话的两个状态要挂超时保护，其余状态立即解除 */
+    if (st === 'checking') armWatchdog(9000);
+    else if (st === 'downloading') armWatchdog(90000);
+    else clearWatchdog();
 
     if (st === 'just-updated') {
       tip(S.message || ('已经更新到 ' + (S.local || '新版本')));
@@ -816,13 +842,17 @@ window.addEventListener('contextmenu', e => e.preventDefault());
     verCheck.hidden = !wv;               // 只有 kiosk 里才谈得上更新
     verCheck.addEventListener('click', function () {
       manual = true;
-      titleEl.textContent = '检查更新';
-      bodyEl.textContent = '正在检查 Gitee 上的版本…';
-      buttons([]); show();
+      S = { state: 'checking', local: S.local, host: S.host };
+      render();                          // 走正常渲染，顺带挂上"宿主不回话"的超时保护
       send('check');
     });
   }
-  if (btnGo) btnGo.addEventListener('click', function () { manual = false; send('update'); });
+  if (btnGo) btnGo.addEventListener('click', function () {
+    manual = false;
+    S = { state: 'downloading', percent: 0, local: S.local, host: S.host, message: '正在下载新版本…' };
+    render();
+    send('update');
+  });
   if (btnLater) btnLater.addEventListener('click', function () { manual = false; hide(); });
   if (btnSkip) btnSkip.addEventListener('click', function () { addSkip(S.remote); manual = false; hide(); });
   if (btnRestart) btnRestart.addEventListener('click', function () { send('restart'); });
