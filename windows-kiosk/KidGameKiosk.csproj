@@ -8,7 +8,7 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>KidGameKiosk</AssemblyName>
     <RootNamespace>KidGameKiosk</RootNamespace>
-    <Version>1.1.1</Version>
+    <Version>1.2.0</Version>
     <Product>少儿 AI 游戏乐园</Product>
     <!-- 图标：由 make-icon.py 生成的多尺寸 .ico（16/24/32/48/64 位图 + 128/256 PNG） -->
     <ApplicationIcon>app.ico</ApplicationIcon>
@@ -31,6 +31,13 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- app.ico 同时作为嵌入资源打进程序集：csproj 的 ApplicationIcon 只管「exe 文件
+         在资源管理器里的图标」，管不到运行中窗口的图标（任务栏 / Alt-Tab），
+         窗体得自己把 Icon 设上，见 Program.cs 的 LoadAppIcon()。 -->
+    <EmbeddedResource Include="app.ico" LogicalName="KidGameKiosk.app.ico" />
   </ItemGroup>
 
 </Project>

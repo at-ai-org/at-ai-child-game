@@ -171,6 +171,62 @@
     padding: 0 24px 36px;
     color: #55628c; font-size: 12px;
   }
+  /* ---- 版本号 / 检查更新（父家长用）---- */
+  .verline {
+    margin-top: 10px;
+    display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap;
+  }
+  #verText { color: #6b7ba8; font-size: 12px; }
+  #verCheck {
+    font: inherit; font-size: 12px; color: #9fb0d8; cursor: pointer;
+    background: rgba(125, 180, 255, .10);
+    border: 1px solid rgba(125, 180, 255, .28);
+    border-radius: 999px; padding: 4px 12px;
+  }
+  #verCheck:hover { background: rgba(125, 180, 255, .2); color: #dbe6ff; }
+  #verCheck[hidden] { display: none; }
+
+  /* ---- 更新弹窗 ---- */
+  .upd-mask {
+    position: fixed; inset: 0; z-index: 99; padding: 20px;
+    background: rgba(6, 10, 26, .78); backdrop-filter: blur(3px);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .upd-mask[hidden] { display: none; }
+  .upd-card {
+    width: min(460px, 92vw);
+    background: linear-gradient(160deg, #1d2a52, #121a38);
+    border: 1px solid rgba(125, 180, 255, .35);
+    border-radius: 20px; padding: 24px 22px 18px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, .55);
+    color: #e8eeff; text-align: left;
+  }
+  .upd-card h2 { font-size: 20px; color: #ffd35c; letter-spacing: 1px; margin-bottom: 12px; }
+  .upd-card p { font-size: 14px; line-height: 1.8; color: #c3d0ee; margin-bottom: 8px; }
+  .upd-card p.upd-hint { font-size: 12px; color: #8fa3d0; margin-top: 6px; }
+  .upd-card b { color: #ffd35c; }
+  .upd-bar { height: 10px; border-radius: 999px; background: rgba(255, 255, 255, .12); overflow: hidden; margin: 14px 0 4px; }
+  .upd-bar[hidden] { display: none; }
+  .upd-bar i { display: block; height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, #4f8cff, #59d1ff); transition: width .2s; }
+  .upd-btns { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+  .upd-btns button {
+    font: inherit; font-size: 14px; padding: 9px 18px; border-radius: 999px; cursor: pointer;
+    color: #dbe6ff; background: rgba(125, 180, 255, .12);
+    border: 1px solid rgba(125, 180, 255, .35);
+  }
+  .upd-btns button.primary {
+    background: linear-gradient(90deg, #4f8cff, #59d1ff);
+    border: none; color: #fff; font-weight: 700;
+  }
+  .upd-btns button[hidden] { display: none; }
+  .upd-btns button:active { transform: scale(.97); }
+  #updToast {
+    position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 98;
+    background: rgba(20, 30, 64, .95); border: 1px solid rgba(125, 180, 255, .4);
+    color: #dbe6ff; padding: 10px 20px; border-radius: 999px; font-size: 13px;
+    opacity: 0; transition: opacity .3s; pointer-events: none;
+  }
+  #updToast.show { opacity: 1; }
   @media (max-width: 480px) {
     .wrap { padding-top: 36px; }
     .icon { font-size: 46px; }
@@ -497,7 +553,31 @@ window.addEventListener('contextmenu', e => e.preventDefault());
   <p class="more">更多游戏制作中，敬请期待 ✨</p>
 </div>
 
-<footer>at-ai-child-game · 用 AI 编写的少儿教育游戏 · MIT License</footer>
+<footer>
+  at-ai-child-game · 用 AI 编写的少儿教育游戏 · MIT License
+  <div class="verline">
+    <span id="verText">版本 —</span>
+    <button id="verCheck" type="button" hidden>检查更新</button>
+  </div>
+</footer>
+
+<!-- 版本更新弹窗（面向家长；kiosk 版由宿主推送状态，普通浏览器里不会出现） -->
+<div id="updMask" class="upd-mask" hidden>
+  <div class="upd-card" role="dialog" aria-modal="true" aria-labelledby="updTitle">
+    <h2 id="updTitle">发现新版本</h2>
+    <p id="updBody"></p>
+    <div class="upd-bar" id="updBar" hidden><i id="updFill"></i></div>
+    <p class="upd-hint">这一项是给家长用的 · 孩子可以点「以后再说」继续玩</p>
+    <div class="upd-btns">
+      <button id="updGo" class="primary" type="button">立即更新</button>
+      <button id="updLater" type="button">以后再说</button>
+      <button id="updSkip" type="button">跳过这个版本</button>
+      <button id="updRestart" class="primary" type="button" hidden>立即重启</button>
+      <button id="updClose" type="button" hidden>关闭</button>
+    </div>
+  </div>
+</div>
+<div id="updToast"></div>
 
 <script>
 /* ---- 快捷游戏目录：从卡片网格自动生成，点击展开直接跳转 ---- */
@@ -585,6 +665,210 @@ window.addEventListener('contextmenu', e => e.preventDefault());
   document.addEventListener('auxclick', function (e) { sameTab(e.target, e); }, true);
   /* 长按（触屏）或拖动可能触发浏览器「新标签打开」手势，一并屏蔽 */
   document.addEventListener('contextmenu', function (e) { sameTab(e.target, e); }, true);
+})();
+</script>
+
+<script>
+/* ---- 版本更新 ----
+ * 页面只负责「显示 + 发指令」，真正的下载和解压替换都由 kiosk 宿主（KidGameKiosk.exe）做，
+ * 因为网页没有写磁盘的权限。宿主每次启动会去 Gitee 比对 version.json：
+ *   有新版本 → 推 {type:'update', state:'available', remote:'1.2.0', ...}
+ *   点「立即更新」→ 宿主下载暂存 → state:'staged' → 点「立即重启」生效
+ * 普通浏览器里没有 window.chrome.webview，这一段只会显示版本号，不会弹任何东西。
+ */
+(function () {
+  var wv = null;
+  try { wv = (window.chrome && window.chrome.webview) ? window.chrome.webview : null; } catch (e) {}
+
+  function $(id) { return document.getElementById(id); }
+  var verText = $('verText'), verCheck = $('verCheck');
+  var mask = $('updMask'), titleEl = $('updTitle'), bodyEl = $('updBody');
+  var bar = $('updBar'), fill = $('updFill'), toast = $('updToast');
+  var btnGo = $('updGo'), btnLater = $('updLater'), btnSkip = $('updSkip');
+  var btnRestart = $('updRestart'), btnClose = $('updClose');
+
+  var SKIP_KEY = 'kiosk.skipVersion';
+  var S = {};            // 宿主推过来的最新状态
+  var pageVersion = '';  // 页面自己读到的内容版本（浏览器里也能显示）
+  var manual = false;    // 家长手动点了「检查更新」
+  var toastTimer = null;
+  var watchdog = null;   // 等宿主回话的超时保护
+
+  /* 宿主没回话时的兜底：老版本 exe（还不认识这些指令）不会有任何回应，
+   * 如果不兜住，弹窗会停在「正在检查…」且一个按钮都没有，谁也关不掉。 */
+  function clearWatchdog() { if (watchdog) { clearTimeout(watchdog); watchdog = null; } }
+  function armWatchdog(ms) {
+    if (watchdog) clearTimeout(watchdog);
+    watchdog = setTimeout(function () {
+      watchdog = null;
+      var st = S.state;
+      if (st !== 'checking' && st !== 'downloading') return;
+      manual = true;
+      S = {
+        state: 'error', local: S.local, host: S.host,
+        message: st === 'checking'
+          ? '没收到客户端回应（当前客户端程序可能还不支持检查更新，装一次新的 exe 就好）。'
+          : '下载好像卡住了，先关掉，过会儿再试。'
+      };
+      render();
+    }, ms);
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function skipList() {
+    try { return (localStorage.getItem(SKIP_KEY) || '').split(',').filter(Boolean); } catch (e) { return []; }
+  }
+  function isSkipped(v) { return !!v && skipList().indexOf(v) >= 0; }
+  function addSkip(v) {
+    if (!v) return;
+    var list = skipList();
+    if (list.indexOf(v) < 0) list.push(v);
+    try { localStorage.setItem(SKIP_KEY, list.join(',')); } catch (e) {}
+  }
+  function send(cmd) { if (wv) { try { wv.postMessage({ cmd: cmd }); } catch (e) {} } }
+  function show() { mask.hidden = false; }
+  function hide() { mask.hidden = true; }
+
+  function tip(text) {
+    if (!toast) return;
+    toast.textContent = text;
+    toast.classList.add('show');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toast.classList.remove('show'); }, 4500);
+  }
+
+  /* 只让列出来的按钮显示 */
+  function buttons(names) {
+    var all = { go: btnGo, later: btnLater, skip: btnSkip, restart: btnRestart, close: btnClose };
+    for (var k in all) if (all.hasOwnProperty(k)) all[k].hidden = names.indexOf(k) < 0;
+  }
+
+  function render() {
+    var st = S.state || 'idle';
+    if (verText) {
+      var v = S.local || pageVersion;
+      verText.textContent = v ? ('版本 ' + v + (S.host ? ' · 客户端 ' + S.host : '')) : '版本 —';
+    }
+
+    /* 等宿主回话的两个状态要挂超时保护，其余状态立即解除 */
+    if (st === 'checking') armWatchdog(9000);
+    else if (st === 'downloading') armWatchdog(90000);
+    else clearWatchdog();
+
+    if (st === 'just-updated') {
+      tip(S.message || ('已经更新到 ' + (S.local || '新版本')));
+      hide(); manual = false; return;
+    }
+
+    if (st === 'available') {
+      if (isSkipped(S.remote)) { hide(); return; }
+      titleEl.textContent = '发现新版本 ' + esc(S.remote);
+      bodyEl.innerHTML = '当前 <b>' + esc(S.local || '旧版本') + '</b> → 新版本 <b>' + esc(S.remote) + '</b>' +
+        (S.date ? '（' + esc(S.date) + '）' : '') + '<br>' + esc(S.notes || '');
+      bar.hidden = true;
+      buttons(['go', 'later', 'skip']);
+      show(); return;
+    }
+
+    if (st === 'downloading') {
+      titleEl.textContent = '正在更新…';
+      bodyEl.textContent = S.message || '正在下载新版本…';
+      bar.hidden = false;
+      fill.style.width = Math.max(0, Math.min(100, S.percent || 0)) + '%';
+      buttons([]);                       // 下载中不给按钮，避免误点
+      show(); return;
+    }
+
+    if (st === 'staged') {
+      titleEl.textContent = '新版本已就绪';
+      bodyEl.innerHTML = '新版本 <b>' + esc(S.staged || S.remote) + '</b> 已经下载好了。<br>' +
+        '重启一下就会用上新版本，游戏的存档不会丢。';
+      bar.hidden = true;
+      buttons(['restart', 'later']);
+      show(); return;
+    }
+
+    if (st === 'need-host') {
+      titleEl.textContent = '需要新的客户端程序';
+      bodyEl.innerHTML = esc(S.message || '') +
+        '<br>这不是网页内容的更新，得换一个新的 KidGameKiosk.exe。';
+      bar.hidden = true;
+      buttons(['close']);
+      show(); return;
+    }
+
+    // 以下状态只在家长手动点了「检查更新」时才弹窗，自动检查时保持安静
+    if (!manual) { hide(); return; }
+
+    if (st === 'checking') {
+      titleEl.textContent = '检查更新';
+      bodyEl.textContent = '正在检查 Gitee 上的版本…';
+      bar.hidden = true; buttons([]); show(); return;
+    }
+    if (st === 'uptodate') {
+      titleEl.textContent = '已是最新版本';
+      bodyEl.textContent = S.message || ('当前版本 ' + (S.local || pageVersion || '—'));
+      bar.hidden = true; buttons(['close']); show(); return;
+    }
+    if (st === 'error') {
+      titleEl.textContent = '更新没成功';
+      bodyEl.textContent = S.message || '检查更新失败';
+      bar.hidden = true; buttons(['close']); show(); return;
+    }
+    hide();
+  }
+
+  /* ---- 宿主消息 ---- */
+  if (wv) {
+    var onMsg = function (ev) { S = ev.data || {}; render(); };
+    if (wv.addEventListener) wv.addEventListener('message', onMsg);
+    else if ('onmessage' in wv) wv.onmessage = onMsg;   // 老版本 WebView2 的写法
+  }
+
+  /* ---- 页面自己读一次版本号（浏览器里也能显示）---- */
+  try {
+    fetch('version.json', { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { if (j && j.version) { pageVersion = j.version; render(); } })
+      .catch(function () {});
+  } catch (e) {}
+
+  /* ---- 按钮 ---- */
+  if (verCheck) {
+    verCheck.hidden = !wv;               // 只有 kiosk 里才谈得上更新
+    verCheck.addEventListener('click', function () {
+      manual = true;
+      S = { state: 'checking', local: S.local, host: S.host };
+      render();                          // 走正常渲染，顺带挂上"宿主不回话"的超时保护
+      send('check');
+    });
+  }
+  if (btnGo) btnGo.addEventListener('click', function () {
+    manual = false;
+    S = { state: 'downloading', percent: 0, local: S.local, host: S.host, message: '正在下载新版本…' };
+    render();
+    send('update');
+  });
+  if (btnLater) btnLater.addEventListener('click', function () { manual = false; hide(); });
+  if (btnSkip) btnSkip.addEventListener('click', function () { addSkip(S.remote); manual = false; hide(); });
+  if (btnRestart) btnRestart.addEventListener('click', function () { send('restart'); });
+  if (btnClose) btnClose.addEventListener('click', function () { manual = false; hide(); });
+
+  /* 点空白处 / 按 Esc 关闭（下载中不给关） */
+  if (mask) {
+    mask.addEventListener('click', function (e) {
+      if (e.target === mask && !btnLater.hidden) { manual = false; hide(); }
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !mask.hidden && !btnLater.hidden) { manual = false; hide(); }
+    });
+  }
+
+  if (wv) send('get-state');             // 页面加载完主动取一次状态
 })();
 </script>
 

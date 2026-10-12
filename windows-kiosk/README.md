@@ -102,8 +102,102 @@ publish\
 | 换成加载远程网址 | `Program.cs` 里 `core.Navigate("http://...")`，并去掉 `SetVirtualHostNameToFolderMapping` |
 | 允许 F11 / 右键 | `Program.cs` 里对应的 `Set(() => s.XXX = false)` 改成 `true` |
 | 窗口标题 | `Program.cs` 里 `Text = "..."` |
-| 图标 | 改 `make-icon.py` 里的配色（`GRAD_A/GRAD_B/PAD/DPAD/BTN`）或几何（`GEO`），重跑 `python3 make-icon.py` 重新生成 `app.ico` |
+| 图标 | 改 `make-icon.py` 里的配色（`GRAD_A/GRAD_B/PAD/DPAD/BTN`）或几何（`GEO`），重跑 `python3 make-icon.py` 重新生成 `app.ico`（exe 文件图标 + 窗口图标都取自它，见下） |
 | 换图标造型 | `make-icon.py --variants` 会把多种握把造型并排渲染成 `variants.png` 方便挑 |
+
+---
+
+## 版本更新（以后不用每次重新打包）
+
+程序**每次启动会自动去 Gitee 上比对一次版本**，发现新版就在游戏主页弹窗问要不要更新：
+
+- 比对仓库根目录的 `version.json`（`https://gitee.com/zhoul.vic/at-ai-child-game/raw/master/version.json`）
+  和本地 `www\version.json`
+- 家长点「立即更新」→ 程序下载仓库归档（`/repository/archive/master.zip`）→ 解压校验 → 暂存
+- 再点「立即重启」→ 重启时把 `www` 整个换成新内容（**`data\` 目录不动，孩子的存档不丢**）
+
+所以以后改了游戏**只要推代码 + 改一下 `version.json` 的版本号**，那台机器下次开机就自己更新了，
+不用再打包 exe。只有**改宿主程序本身**（`Program.cs` / `Updater.cs` / `.csproj`）才需要重新打包。
+
+### 发布新版本怎么做
+
+1. 改完游戏代码，把仓库根目录 `version.json` 的版本号往上加（例如 `1.2.0` → `1.3.0`），顺手写上这次的说明：
+   ```json
+   { "version": "1.3.0", "date": "2026-11-01", "notes": "新增 3 个数学游戏", "minHost": "1.2.0" }
+   ```
+2. `git push` 到 Gitee 的 `master`
+3. 完事 —— 客户端下次启动会自己看到
+
+> `minHost` 是「这份内容最低需要哪个版本的客户端」。将来新内容如果用到宿主的新能力，
+> 就把 `minHost` 提到对应版本，老客户端会提示"需要新的客户端程序"，
+> 而不是更新成一份跑不起来的内容。
+
+### 为什么是「先下载、重启才生效」
+
+运行中 WebView2 正从 `www` 目录读文件，Windows 上目录被占用时改不动。
+而程序刚启动、WebView2 还没创建的那一瞬间整个目录是空闲的，改名替换既快又能留回滚余地。
+所以更新拆成两步：**本次下载暂存 → 下次启动替换**，界面上也是这么引导的。
+
+出错时的表现（都不会影响孩子继续玩）：
+
+| 情况 | 表现 |
+|---|---|
+| 没网 / Gitee 连不上 | 静默跳过（只有家长手动点「检查更新」才会看到提示） |
+| 程序目录不可写（比如放在 Program Files） | 提示「程序目录不可写，请把整个文件夹搬到可写的位置」 |
+| 下载到一半断了 | 报错，`www` 原样不动；`update\` 里的半成品会在下次检查时清掉 |
+| 替换目录失败 | 自动把原来的 `www` 换回来 |
+| 点了「以后再说」 | 本次不打扰，下次启动还会提醒 |
+| 点了「跳过这个版本」 | 这个版本不再提醒，等更新的版本出来再提醒 |
+
+解压出来的内容会按和 `build.ps1` **完全一样的排除规则**铺进 `www`：
+跳过 `.git` / `windows-kiosk` / `tools` / `.gitee-token` / `.env` / `_draft`，
+以及 `index-3d-backup.html` 这类备份文件。
+
+### 相关文件
+
+| 文件 | 作用 |
+|---|---|
+| `version.json`（仓库根目录） | 内容版本号，客户端比对这个 |
+| `windows-kiosk/Updater.cs` | 检查 / 下载 / 解压 / 校验 / 暂存 / 启动时替换的全部逻辑（不依赖 WinForms，可单独编译测试） |
+| `windows-kiosk/Program.cs` | 页面 ↔ 宿主的消息桥：`get-state` / `check` / `update` / `restart` |
+| `index.html`（游戏主页） | 版本号、更新弹窗、进度条。普通浏览器里只显示版本号，不弹窗 |
+
+### 踩过的坑（改 Updater.cs 前一定要看）
+
+**Gitee 的两个接口对 User-Agent 的要求刚好相反**，实测记录：
+
+| 接口 | 要什么 UA | 用错会怎样 |
+|---|---|---|
+| `/raw/master/version.json` | 像浏览器 | 用 curl 那类 UA 会被拦，返回 `The content may contain violation information` |
+| `/repository/archive/master.zip` | 像 curl（UA 里带 `curl` 字样） | 用浏览器 UA 会被当成人在浏览网页，返回「预计等待时间 <3s」的**打包中网页**，而不是 zip。实测 `python-requests` / `git/2.40` / 无 UA / 浏览器 UA 都拿不到，只有 `curl`、`wget` 能直接拿到 |
+
+所以 `Updater.cs` 里给两类请求准备了两个 UA，别合并。另外归档是**按需打包**的：
+刚 push 完新提交时，即使 UA 对了也可能先拿到那个等待页，所以下载后要检查文件头是不是
+`PK`，不是就等几秒重试（最多 4 次）。Gitee 那个 `check_archive` 内部接口需要会话令牌，
+试过走不通（返回「验证信息过期」），别去逆向它。
+
+---
+
+## 图标是怎么挂上去的（两层，别只改一层）
+
+Windows 上「一个程序长什么样」其实是**两处**图标，`app.ico` 同时喂给这两处：
+
+| 看得到的地方 | 谁决定的 |
+|---|---|
+| 资源管理器 / 桌面快捷方式 / 任务栏固定图标 | csproj 的 `<ApplicationIcon>app.ico</ApplicationIcon>`（编译时嵌进 exe 的资源段） |
+| **运行中窗口**的图标：任务栏按钮、Alt-Tab 切换器 | `Program.cs` 里 `KioskForm` 构造函数的 `Icon = LoadAppIcon()` |
+
+第二处很容易漏：`<ApplicationIcon>` 只管 exe 文件本身，**管不到运行起来的窗口**。
+WinForms 窗体如果没显式设 `Form.Icon`，它会用自己程序集里带的那个通用窗体图标
+（`System.Windows.Forms.wfc`），任务栏和 Alt-Tab 上就是一个灰底小方块——和 exe 文件图标不一样。
+所以 `app.ico` 还作为 `<EmbeddedResource>` 打进程序集，窗体构造时读出来设上：
+
+```xml
+<EmbeddedResource Include="app.ico" LogicalName="KidGameKiosk.app.ico" />
+```
+
+这样 16/24/32/48/64/128/256 七个尺寸都在，任务栏小图标和高 DPI 下的 Alt-Tab 大图标都清楚。
+取不到嵌入资源时会退回 `Icon.ExtractAssociatedIcon(exe)`，再不行就用系统默认图标，不影响运行。
 
 ---
 
