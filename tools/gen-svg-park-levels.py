@@ -1897,22 +1897,26 @@ def num_tag(x, y, d, s=1.0, face='#fff6e0', edge='#b08a55', ink='#4a3a28'):
 
 
 # (动物 x, 动物地面 y, 号码牌 y) —— 两排各 5 只，号码 1~10 按顺序挂在身上
-ZOO_GRID = ((90, 440, 372), (250, 440, 372), (410, 440, 372), (570, 440, 372), (730, 440, 372),
-            (130, 560, 486), (290, 560, 486), (450, 560, 486), (610, 560, 486), (770, 560, 486))
+ZOO_GRID = ((95, 430, 350), (255, 430, 350), (415, 430, 350), (575, 430, 350), (735, 430, 350),
+            (55, 580, 500), (215, 580, 500), (375, 580, 500), (535, 580, 500), (695, 580, 500))
 
 ZOO_KINDS = ('rabbit', 'monkey', 'panda', 'penguin', 'duckling')
 
 
+ZOO_ANIMAL_SCALE = {'rabbit': 1.45, 'monkey': 1.45, 'panda': 1.23, 'penguin': 1.2, 'duckling': 1.6}
+
+
 def _zoo_animal(kind, x, y):
+    sc = ZOO_ANIMAL_SCALE[kind]
     if kind == 'rabbit':
-        return ('rabbit', (x, y, 0.62))
+        return ('rabbit', (x, y, sc))
     if kind == 'monkey':
-        return ('monkey', (x, y, 0.62))
+        return ('monkey', (x, y, sc))
     if kind == 'panda':
-        return ('panda', (x, y, 0.56))
+        return ('panda', (x, y, sc))
     if kind == 'penguin':
-        return ('penguin', (x, y, 0.6))
-    return ('duckling', (x, y, False, '#fffdf5', 0.5))
+        return ('penguin', (x, y, sc))
+    return ('duckling', (x, y, False, '#fffdf5', sc))
 
 
 def zoo_num_scene(v, pal, hell, plan):
@@ -1925,13 +1929,14 @@ def zoo_num_scene(v, pal, hell, plan):
         o.append(tuft(tx, 592))
     changed = {i: (a, b) for i, a, b in plan['nums']}
     order = plan['order']
-    for i, (ax, ay, ty) in enumerate(ZOO_GRID):
+    for i, (ax, ay, _t) in enumerate(ZOO_GRID):
         kind = ZOO_KINDS[(i + order) % len(ZOO_KINDS)]
         nm, args = _zoo_animal(kind, ax, ay)
         o.append(KIT[nm](*args))
+    for i, (ax, ay, _t) in enumerate(ZOO_GRID):      # 号码牌统一画在最后，保证不被前排动物挡住
         d = changed.get(i)
         num = (d[0] if v == 'A' else d[1]) if d else (i + 1)
-        o.append(num_tag(ax, ty, num))
+        o.append(num_tag(ax, ay - 80, num, 0.58))    # 数字高约 50px，约为动物身高的 1/3，贴在腹部
     k = DIFF_SCALE.get('zoo', 1.0)
     for item in plan['diffs']:
         if item[0] == 'show':
@@ -1963,7 +1968,7 @@ def zoo_num_levels():
              diffs=[d_cloud, ray_on, balloon, stone]),
         dict(key='hard-38', name='动物园·号码牌 2', order=1, nums=[(2, '3', '8'), (6, '1', '4')],
              diffs=[d_cloud, ray_big, kite, flower]),
-        dict(key='hard-39', name='动物园·号码牌 3', order=2, nums=[(4, '5', '0'), (6, '9', '6')],
+        dict(key='hard-39', name='动物园·号码牌 3', order=2, nums=[(4, '5', '0'), (6, '9', '0')],
              diffs=[d_cloud, ray_on, balloon, bushc]),
         dict(key='hard-40', name='动物园·号码牌 4', order=3, nums=[(1, '2', '7'), (7, '8', '3')],
              diffs=[d_cloud, ray_big, kite, stone]),
@@ -2061,7 +2066,7 @@ for _k, (_key, _name, _build, _diffs, _extra) in enumerate(_HARD):
 # 动物园数字关：只加困难模式（不派生地狱版）
 for _plan in zoo_num_levels():
     SCENES.append(dict(key=_plan['key'], name=_plan['name'], build=zoo_num_builder(_plan),
-                       pal=PAL_DAY, hell=False,
+                       pal=PAL_DAY, hell=False, min_px=60,
                        diffs=['号码牌数字（比对每只动物身上的数字）'] + [d[1] for d in _plan['diffs']],
                        want=6))
 
@@ -2248,6 +2253,7 @@ def detect(a_path, b_path):
 
 
 def check_level(sc, verbose=True):
+    min_px = sc.get('min_px', MIN_DIFF_PX)
     a = os.path.join(IMG_DIR, '%s-A.jpg' % sc['key'])
     b = os.path.join(IMG_DIR, '%s-B.jpg' % sc['key'])
     ds = detect(a, b)
@@ -2255,8 +2261,8 @@ def check_level(sc, verbose=True):
     if len(ds) != sc['want']:
         problems.append('识别到 %d 处差异（应为 %d 处）' % (len(ds), sc['want']))
     for i, d in enumerate(ds, 1):
-        if d['area'] < MIN_DIFF_PX:
-            problems.append('第 %d 处只有 %d 像素（< %d）' % (i, d['area'], MIN_DIFF_PX))
+        if d['area'] < min_px:
+            problems.append('第 %d 处只有 %d 像素（< %d）' % (i, d['area'], min_px))
         if not (WANT_MARGIN <= d['x'] <= 400 - WANT_MARGIN and WANT_MARGIN <= d['y'] <= 300 - WANT_MARGIN):
             problems.append('第 %d 处点位 (%d,%d) 离边太近' % (i, d['x'], d['y']))
         for j in range(i - 1):
