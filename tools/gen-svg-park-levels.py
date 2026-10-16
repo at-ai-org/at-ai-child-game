@@ -1885,16 +1885,18 @@ def site2_levels():
 # ==========================================================================
 # 动物园数字关：每只动物身上挂一个号码牌，找不同的关键是比对号码
 # ==========================================================================
-def num_tag(x, y, d, h=48, face='#f7e7c6', edge='#a8804c', ink='#4a3a28', cord=True):
-    """动物脖子上挂的小皮牌：h = 数字高度（按这只动物的体型给），牌子本身两版一致"""
+def num_tag(x, y, d, h=34, face='#f8efdd', edge='#b99a6b', ink='#4a3a28', cord=True):
+    """动物脖子上的小号码牌：h = 数字高度（按这只动物的体型给）；边框很淡，避免抢戏"""
     w = h * 0.72
     total = len(str(d)) * w + (len(str(d)) - 1) * h * 0.16
-    pw, ph = max(h * 0.9, total + h * 0.5), h + h * 0.44
-    rope = (f'<path d="M{x - pw * 0.28:.1f},{y - ph / 2:.1f} L{x - pw * 0.18:.1f},{y - ph * 1.5:.1f} '
-            f'M{x + pw * 0.28:.1f},{y - ph / 2:.1f} L{x + pw * 0.18:.1f},{y - ph * 1.5:.1f}" '
-            f'stroke="{edge}" stroke-width="{max(2, h * 0.06):.1f}" fill="none"/>') if cord else ''
+    pw, ph = max(h * 0.9, total + h * 0.44), h + h * 0.36
+    rope = (f'<path d="M{x - pw * 0.26:.1f},{y - ph / 2:.1f} L{x - pw * 0.16:.1f},{y - ph * 1.7:.1f} '
+            f'M{x + pw * 0.26:.1f},{y - ph / 2:.1f} L{x + pw * 0.16:.1f},{y - ph * 1.7:.1f}" '
+            f'stroke="{edge}" stroke-width="{max(1.4, h * 0.05):.1f}" stroke-opacity="0.5" fill="none"/>'
+            ) if cord else ''
     return (rope + f'<rect x="{x - pw / 2:.1f}" y="{y - ph / 2:.1f}" width="{pw:.1f}" height="{ph:.1f}" '
-            f'rx="{h * 0.22:.0f}" fill="{face}" stroke="{edge}" stroke-width="{max(2, round(h * 0.07))}"/>'
+            f'rx="{h * 0.26:.0f}" fill="{face}" fill-opacity="0.94" stroke="{edge}" '
+            f'stroke-width="{max(1, h * 0.045):.1f}" stroke-opacity="0.4"/>'
             + digit(x - total / 2, y - h / 2, d, h, ink))
 
 
@@ -1946,7 +1948,7 @@ def zoo_num_scene(v, pal, hell, plan):
         hgt = ZOO_ANIMAL_H[kind] * ZOO_ANIMAL_SCALE[kind] * 1.15            # 这只动物实际身高
         d = changed[(i,)]
         num = d[0] if v == 'A' else d[1]
-        o.append(num_tag(ax, ay - hgt * 0.44, num, h=min(56.0, max(44.0, hgt * 0.30))))
+        o.append(num_tag(ax, ay - hgt * 0.44, num, h=min(36.0, max(30.0, hgt * 0.21))))
     k = DIFF_SCALE.get('zoo', 1.0)
     for item in plan['diffs']:
         if item[0] == 'show':
@@ -1974,15 +1976,15 @@ def zoo_num_levels():
     flower = ('swap', 'flower', (70, 545, '#ff6fa5', 1.1), (70, 545, '#ff8f3c', 1.1))
     bushc = ('swap', 'bush', (762, 528, 0.7, '#4fb84f'), (762, 528, 0.7, '#c9d94a'))
     plans = [
-        dict(key='hard-37', name='动物园·号码牌 1', order=0, numbered=[0, 6], nums=[(0, '1', '4'), (6, '5', '0')],
+        dict(key='hard-37', name='动物园·号码牌 1', order=0, numbered=[0, 6], nums=[(0, '1', '8'), (6, '5', '0')],
              diffs=[d_cloud, ray_on, balloon, stone]),
         dict(key='hard-38', name='动物园·号码牌 2', order=1, numbered=[0, 6], nums=[(0, '1', '8'), (6, '7', '0')],
              diffs=[d_cloud, ray_big, kite, flower]),
-        dict(key='hard-39', name='动物园·号码牌 3', order=2, numbered=[1, 6], nums=[(1, '5', '0'), (6, '9', '0')],
+        dict(key='hard-39', name='动物园·号码牌 3', order=2, numbered=[1, 6], nums=[(1, '5', '0'), (6, '7', '0')],
              diffs=[d_cloud, ray_on, balloon, bushc]),
         dict(key='hard-40', name='动物园·号码牌 4', order=3, numbered=[0, 6], nums=[(0, '1', '8'), (6, '7', '0')],
              diffs=[d_cloud, ray_big, kite, stone]),
-        dict(key='hard-41', name='动物园·号码牌 5', order=4, numbered=[1, 6], nums=[(1, '4', '1'), (6, '0', '6')],
+        dict(key='hard-41', name='动物园·号码牌 5', order=4, numbered=[1, 6], nums=[(1, '3', '0'), (6, '0', '5')],
              diffs=[d_cloud, ray_on, balloon, flower]),
         dict(key='hard-42', name='动物园·号码牌 6', order=0, numbered=[0, 6], nums=[(0, '1', '8'), (6, '3', '0')],
              diffs=[d_cloud, ray_big, kite, bushc]),
