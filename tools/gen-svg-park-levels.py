@@ -149,7 +149,7 @@ def tree(x, base, r, apples=(), canopy='#4fb84f', trunk='#a06a3c', side=True):
         out += '<circle cx="%s" cy="%s" r="%s" fill="%s"/>' % (x + r * 0.7, cy + r * 0.5, r * 0.72, canopy)
         out += '<circle cx="%s" cy="%s" r="%s" fill="%s"/>' % (x, cy - r * 0.7, r * 0.66, canopy)
     for ax, ay in apples:
-        out += '<circle cx="%s" cy="%s" r="22" fill="#e5453a"/>' % (ax, ay)
+        out += '<circle cx="%s" cy="%s" r="27" fill="#e5453a"/>' % (ax, ay)
         out += '<path d="M%s,%s q4,-10 8,-12" fill="none" stroke="#3f9c37" stroke-width="4"/>' % (ax, ay - 18)
     return out
 
@@ -829,6 +829,874 @@ def scene_crane_truck(v, pal, hell):
                       '#2f7fd0', '#ffd93b')
 
 
+# ==========================================================================
+# 数字教学：七段式数字（不依赖字体，任何机器渲染都一样）
+# ==========================================================================
+SEG = dict(
+    A=((0.12, 0.06), (0.88, 0.06)), B=((0.88, 0.06), (0.88, 0.50)),
+    C=((0.88, 0.50), (0.88, 0.94)), D=((0.12, 0.94), (0.88, 0.94)),
+    E=((0.12, 0.50), (0.12, 0.94)), F=((0.12, 0.06), (0.12, 0.50)),
+    G=((0.12, 0.50), (0.88, 0.50)),
+)
+DIGIT_SEGS = {
+    '0': 'ABCDEF', '1': 'BC', '2': 'ABGED', '3': 'ABGCD', '4': 'FGBC',
+    '5': 'AFGCD', '6': 'AFGEDC', '7': 'ABC', '8': 'ABCDEFG', '9': 'ABCDFG',
+}
+
+
+def digit(x, y, d, h=130, ink='#2f3b4a'):
+    """七段式数字：(x,y) 是数字框左上角，h 是字高；10 会画成两位"""
+    w = h * 0.72
+    sw = max(6, round(h * 0.24))
+    out = ''
+    for ch in str(d):
+        for seg in DIGIT_SEGS.get(ch, ''):
+            (u1, v1), (u2, v2) = SEG[seg]
+            out += ('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f"/>'
+                    % (x + u1 * w, y + v1 * h, x + u2 * w, y + v2 * h))
+        x += w + h * 0.16
+    return ('<g stroke="%s" stroke-width="%d" stroke-linecap="round" fill="none">%s</g>'
+            % (ink, sw, out))
+
+
+def plaque(cx, cy, d, s=0.9, face='#fff6e5', edge='#c9a06a', ink='#2f3b4a'):
+    """数字牌（差异就是牌上的数字；两版传不同 digit）"""
+    h = 130 * s
+    w = h * 0.72
+    total = len(str(d)) * w + (len(str(d)) - 1) * h * 0.16
+    pw, ph = max(120 * s, total + 56 * s), h + 44 * s
+    return ('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="%.1f" fill="%s" stroke="%s" stroke-width="%d"/>'
+            % (cx - pw / 2, cy - ph / 2, pw, ph, 16 * s, face, edge, max(3, round(6 * s)))
+            + digit(cx - total / 2, cy - h / 2, d, h, ink))
+
+
+# ==========================================================================
+# 通用场景装配：关卡用数据描述（deco 两版一致，diffs 才是差异）
+# ==========================================================================
+def build_spec(v, pal, hell, spec):
+    o = [defs(pal)]
+    o.extend(THEME_BG[spec['theme']](pal, v, hell))
+    for name, args in spec.get('deco', []):
+        o.append(KIT[name](*args))
+    for item in spec['diffs']:
+        if item[0] == 'show':                       # 只在 A 出现（有无差异）
+            if v == 'A':
+                o.append(KIT[item[1]](*item[2]))
+        elif item[0] == 'swap':                     # 两版都画，换参数（颜色/大小/光芒）
+            o.append(KIT[item[1]](*(item[2] if v == 'A' else item[3])))
+        elif item[0] == 'digit':                    # 数字牌：数字本身是差异
+            _, cx, cy, da, db, s = item
+            o.append(plaque(cx, cy, da if v == 'A' else db, s))
+    if hell and v == 'A':                           # 地狱第 7 处
+        o.append(KIT[spec['extra'][0]](*spec['extra'][1]))
+    return o
+
+
+def spec_builder(spec):
+    return lambda v, pal, hell: build_spec(v, pal, hell, spec)
+
+
+# ==========================================================================
+# 动物园
+# ==========================================================================
+def zoo_bg(pal, v, hell):
+    return [sky(), hills((180, 420, 260, 90, pal['hill1']), (620, 430, 300, 100, pal['hill2'])), grass(400)]
+
+
+def pen(x, base, w=320, color='#d8b382', rail='#c9a06a'):
+    """笼舍围栏"""
+    out = ''
+    n = max(3, int(w / 76))
+    for i in range(n + 1):
+        out += ('<rect x="%.0f" y="%.0f" width="16" height="88" rx="6" fill="%s"/>'
+                % (x - w / 2 + i * w / n, base - 88, color))
+    out += '<rect x="%.0f" y="%.0f" width="%.0f" height="14" rx="6" fill="%s"/>' % (x - w / 2 - 8, base - 66, w + 16, rail)
+    out += '<rect x="%.0f" y="%.0f" width="%.0f" height="14" rx="6" fill="%s"/>' % (x - w / 2 - 8, base - 30, w + 16, rail)
+    return out
+
+
+def elephant(x, y, s=1.0, body='#b9b4c4'):
+    return ('<g transform="translate(%(x)s,%(y)s) scale(%(s)s)">'
+            '<ellipse cx="0" cy="-72" rx="118" ry="70" fill="%(c)s"/>'
+            '<circle cx="-116" cy="-100" r="50" fill="%(c)s"/>'
+            '<ellipse cx="-146" cy="-104" rx="26" ry="34" fill="%(c)s"/>'
+            '<path d="M-146,-74 q-26,52 -8,84" fill="none" stroke="%(c)s" stroke-width="26" stroke-linecap="round"/>'
+            '<circle cx="-132" cy="-112" r="6" fill="#3b3b3b"/>'
+            '<rect x="-74" y="-26" width="28" height="30" rx="9" fill="%(c)s"/>'
+            '<rect x="6" y="-26" width="28" height="30" rx="9" fill="%(c)s"/>'
+            '<rect x="58" y="-26" width="28" height="30" rx="9" fill="%(c)s"/>'
+            '</g>' % dict(x=x, y=y, s=s, c=body))
+
+
+def giraffe(x, y, s=1.0, body='#e8b53c'):
+    return ('<g transform="translate(%(x)s,%(y)s) scale(%(s)s)">'
+            '<ellipse cx="0" cy="-88" rx="62" ry="46" fill="%(c)s"/>'
+            '<rect x="-96" y="-286" width="34" height="204" rx="14" fill="%(c)s" transform="rotate(8 -79 -184)"/>'
+            '<ellipse cx="-108" cy="-300" rx="44" ry="34" fill="%(c)s"/>'
+            '<circle cx="-124" cy="-310" r="6" fill="#3b3b3b"/>'
+            '<circle cx="-96" cy="-330" r="7" fill="%(c)s"/><circle cx="-134" cy="-330" r="7" fill="%(c)s"/>'
+            '<rect x="-40" y="-30" width="20" height="34" rx="8" fill="%(c)s"/>'
+            '<rect x="8" y="-30" width="20" height="34" rx="8" fill="%(c)s"/>'
+            '<circle cx="-22" cy="-104" r="9" fill="#a8762a"/><circle cx="18" cy="-72" r="9" fill="#a8762a"/>'
+            '</g>' % dict(x=x, y=y, s=s, c=body))
+
+
+def monkey(x, y, s=1.0, fur='#b07a4a'):
+    return ('<g transform="translate(%(x)s,%(y)s) scale(%(s)s)">'
+            '<ellipse cx="0" cy="-34" rx="42" ry="34" fill="%(c)s"/>'
+            '<circle cx="0" cy="-80" r="30" fill="%(c)s"/>'
+            '<circle cx="-30" cy="-84" r="13" fill="%(c)s"/><circle cx="30" cy="-84" r="13" fill="%(c)s"/>'
+            '<ellipse cx="0" cy="-74" rx="18" ry="15" fill="#f0d3b4"/>'
+            '<circle cx="-9" cy="-84" r="4" fill="#3b3b3b"/><circle cx="9" cy="-84" r="4" fill="#3b3b3b"/>'
+            '<path d="M34,-40 q40,10 26,-40" fill="none" stroke="%(c)s" stroke-width="14" stroke-linecap="round"/>'
+            '</g>' % dict(x=x, y=y, s=s, c=fur))
+
+
+def rabbit(x, y, s=1.0, fur='#f2efe6'):
+    return ('<g transform="translate(%(x)s,%(y)s) scale(%(s)s)">'
+            '<ellipse cx="0" cy="-26" rx="38" ry="28" fill="%(c)s"/>'
+            '<circle cx="-26" cy="-56" r="24" fill="%(c)s"/>'
+            '<ellipse cx="-34" cy="-92" rx="9" ry="26" fill="%(c)s" transform="rotate(-12 -34 -92)"/>'
+            '<ellipse cx="-16" cy="-94" rx="9" ry="26" fill="%(c)s" transform="rotate(8 -16 -94)"/>'
+            '<circle cx="-34" cy="-58" r="4" fill="#3b3b3b"/>'
+            '<circle cx="26" cy="-34" r="14" fill="#ffffff"/>'
+            '</g>' % dict(x=x, y=y, s=s, c=fur))
+
+
+def penguin(x, y, s=1.0, body='#3f4a5a'):
+    return ('<g transform="translate(%(x)s,%(y)s) scale(%(s)s)">'
+            '<ellipse cx="0" cy="-56" rx="42" ry="56" fill="%(c)s"/>'
+            '<ellipse cx="0" cy="-46" rx="26" ry="38" fill="#ffffff"/>'
+            '<circle cx="0" cy="-104" r="28" fill="%(c)s"/>'
+            '<circle cx="-10" cy="-110" r="4" fill="#ffffff"/><circle cx="10" cy="-110" r="4" fill="#ffffff"/>'
+            '<path d="M0,-100 l16,8 l-16,8 Z" fill="#ff9f2e"/>'
+            '<ellipse cx="-44" cy="-40" rx="14" ry="30" fill="%(c)s"/>'
+            '<ellipse cx="44" cy="-40" rx="14" ry="30" fill="%(c)s"/>'
+            '</g>' % dict(x=x, y=y, s=s, c=body))
+
+
+def panda(x, y, s=1.0):
+    return ('<g transform="translate(%(x)s,%(y)s) scale(%(s)s)">'
+            '<ellipse cx="0" cy="-40" rx="52" ry="42" fill="#fdfcf8"/>'
+            '<circle cx="-34" cy="-40" r="15" fill="#3b3b3b"/><circle cx="30" cy="-58" r="13" fill="#3b3b3b"/>'
+            '<circle cx="0" cy="-92" r="38" fill="#fdfcf8"/>'
+            '<circle cx="-34" cy="-124" r="16" fill="#3b3b3b"/><circle cx="34" cy="-124" r="16" fill="#3b3b3b"/>'
+            '<ellipse cx="-15" cy="-96" rx="11" ry="13" fill="#3b3b3b" transform="rotate(-18 -15 -96)"/>'
+            '<ellipse cx="15" cy="-96" rx="11" ry="13" fill="#3b3b3b" transform="rotate(18 15 -96)"/>'
+            '<ellipse cx="0" cy="-84" rx="12" ry="9" fill="#3b3b3b"/>'
+            '</g>' % dict(x=x, y=y, s=s))
+
+
+def bamboo(x, base, h=250, color='#4fb84f'):
+    out = ''
+    for i, dx in enumerate((-16, 0, 16)):
+        out += ('<rect x="%s" y="%s" width="13" height="%s" rx="6" fill="%s"/>'
+                % (x + dx, base - h + i * 26, h - i * 26, color))
+        out += ('<ellipse cx="%s" cy="%s" rx="34" ry="11" fill="%s" transform="rotate(-20 %s %s)"/>'
+                % (x + dx - 26, base - h + 40 + i * 60, color, x + dx - 26, base - h + 40 + i * 60))
+    return out
+
+
+def bowl(x, y, color='#4aa8e0'):
+    """喂食盆"""
+    return ('<path d="M%s,%s q62,52 124,0 Z" fill="%s"/>'
+            '<ellipse cx="%s" cy="%s" rx="62" ry="16" fill="#ffffff" opacity="0.25"/>'
+            % (x - 62, y - 34, color, x, y - 38))
+
+
+def zoo_levels():
+    gate = lambda: [('gate', (400, '#e5533f')), ('path_center', ())]
+    spec = []
+    # hard-13 动物园大门
+    spec.append(dict(key='hard-13', name='动物园大门', theme='zoo',
+        deco=[('gate', (400, '#e5533f')), ('path_center', ()),
+              ('tree', (90, 470, 52, ((60, 430),))), ('bush', (740, 520, 0.9)),
+              ('tuft', (300, 570)), ('stone', (700, 560, 24, 14))],
+        diffs=[('show', 'cloud', (150, 130)),
+               ('digit', 400, 130, '8', '3', 0.85),
+               ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None)),
+               ('show', 'rabbit', (150, 505, 1.0)),
+               ('show', 'bowl', (370, 505)),
+               ('swap', 'flower', (600, 480, '#ff6fa5', 1.8), (600, 480, '#b06ff0', 1.8))],
+        extra=('bee', (400, 300, 1.0))))
+    # hard-14 大象馆
+    spec.append(dict(key='hard-14', name='大象馆', theme='zoo',
+        deco=[('pen', (560, 500, 300)), ('elephant', (560, 500, 1.0)),
+              ('tree', (110, 470, 56, ((80, 425), (140, 450)))), ('pond', (760, 520, 90, 40)),
+              ('tuft', (330, 580)), ('stone', (200, 570, 22, 13))],
+        diffs=[('show', 'cloud', (150, 130)),
+               ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None)),
+               ('show', 'balloon', (400, 110, '#ef5350')),
+               ('digit', 150, 500, '2', '7', 0.85),
+               ('show', 'monkey', (370, 505, 1.0)),
+               ('swap', 'ball', (600, 400, 34, '#ffd93b'), (600, 400, 34, '#4aa8e0'))],
+        extra=('bee', (400, 300, 1.0))))
+    # hard-15 长颈鹿
+    spec.append(dict(key='hard-15', name='长颈鹿', theme='zoo',
+        deco=[('giraffe', (600, 500, 1.0)), ('tree', (110, 470, 60, ((85, 430), (135, 445)))),
+              ('pen', (600, 500, 280)), ('bush', (300, 480, 0.9)), ('tuft', (430, 580))],
+        diffs=[('show', 'cloud', (150, 130)),
+               ('swap', 'sun', (650, 130, 30), (650, 130, 44)),
+               ('show', 'kite', (400, 110, '#8b5cf6', False)),
+               ('digit', 150, 505, '1', '4', 0.85),
+               ('show', 'penguin', (370, 510, 1.0)),
+               ('swap', 'tree', (760, 470, 46, ((730, 410), (770, 440))), (760, 470, 46, ((730, 410),)))],
+        extra=('bee', (400, 300, 1.0))))
+    # hard-16 猴山
+    spec.append(dict(key='hard-16', name='猴山', theme='zoo',
+        deco=[('hillrock', (600, 500)), ('monkey', (600, 470, 1.1)), ('tree', (110, 470, 54, ())),
+              ('bush', (300, 500, 0.9)), ('tuft', (180, 580)), ('stone', (740, 560, 24, 14))],
+        diffs=[('show', 'cloud', (150, 130)),
+               ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None)),
+               ('show', 'balloon', (400, 110, '#ffd93b')),
+               ('digit', 150, 505, '5', '0', 0.85),
+               ('show', 'banana', (370, 500)),
+               ('swap', 'ball', (600, 470, 34, '#ffd93b'), (600, 470, 34, '#4aa8e0'))],
+        extra=('bee', (400, 300, 1.0))))
+    # hard-17 熊猫馆
+    spec.append(dict(key='hard-17', name='熊猫馆', theme='zoo',
+        deco=[('bamboo', (680, 500, 250)), ('panda', (560, 500, 1.1)), ('tree', (110, 470, 52, ())),
+              ('bowl', (330, 500)), ('tuft', (430, 570)), ('stone', (200, 580, 22, 13))],
+        diffs=[('show', 'cloud', (150, 130)),
+               ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None)),
+               ('show', 'balloon', (400, 110, '#ef5350')),
+               ('digit', 150, 500, '0', '9', 0.85),
+               ('show', 'panda', (370, 505, 0.7)),
+               ('swap', 'bamboo', (680, 500, 250, '#4fb84f'), (680, 500, 250, '#c9d94a'))],
+        extra=('bee', (400, 300, 1.0))))
+    # hard-18 百鸟园
+    spec.append(dict(key='hard-18', name='百鸟园', theme='zoo',
+        deco=[('tree', (110, 470, 58, ())), ('tree', (760, 470, 50, ())), ('bush', (600, 490, 0.9)),
+              ('birds', ((300, 200), (362, 234))), ('tuft', (200, 580)), ('stone', (430, 570, 22, 13))],
+        diffs=[('show', 'cloud', (150, 130)),
+               ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None)),
+               ('show', 'balloon', (400, 110, '#ef5350')),
+               ('digit', 150, 505, '10', '4', 0.8),
+               ('show', 'penguin', (370, 510, 0.9)),
+               ('swap', 'flower', (620, 480, '#ff9f4a', 1.8), (620, 480, '#ff6fa5', 1.8))],
+        extra=('bee', (400, 300, 1.0))))
+    return spec
+
+
+def hillrock(x, base, color='#b9b4c4'):
+    """猴山的石头山"""
+    return ('<ellipse cx="%s" cy="%s" rx="150" ry="86" fill="%s"/>'
+            '<ellipse cx="%s" cy="%s" rx="80" ry="46" fill="#a8a2b2"/>'
+            % (x, base - 40, color, x - 40, base - 90))
+
+
+def banana(x, y):
+    """一串香蕉"""
+    return ('<path d="M%s,%s q60,10 84,46 q-46,10 -92,-14 Z" fill="#ffd93b"/>'
+            '<path d="M%s,%s q10,26 34,38" fill="none" stroke="#c9a06a" stroke-width="8"/>'
+            % (x - 60, y - 40, x + 40, y - 40))
+
+
+# ==========================================================================
+# 海底世界
+# ==========================================================================
+def sea_bg(pal, v, hell):
+    top = _blend(pal['water1'], pal['sky_top'], 0.25)
+    mid = _blend(pal['water2'], pal['sky_bottom'], 0.18)
+    deep = _blend(pal['water2'], '#062033', 0.55)
+    out = ('<defs><linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">'
+           '<stop offset="0" stop-color="%s"/><stop offset="0.5" stop-color="%s"/>'
+           '<stop offset="1" stop-color="%s"/></linearGradient></defs>'
+           '<rect x="0" y="0" width="800" height="600" fill="url(#sea)"/>'
+           % (top, mid, deep))
+    # 水面透下来的光柱
+    for i, x in enumerate((120, 380, 640)):
+        out += ('<path d="M%s,0 L%s,0 L%s,420 L%s,420 Z" fill="#ffffff" opacity="0.10"/>'
+                % (x - 40, x + 40, x + 150, x - 10))
+    # 沙底
+    out += ('<path d="M0,520 q200,-46 400,-6 q200,40 400,-14 L800,600 L0,600 Z" fill="#e8d5a8"/>'
+            '<path d="M0,552 q220,-34 420,-2 q190,30 380,-12 L800,600 L0,600 Z" fill="#dcc596"/>')
+    return [out]
+
+
+def sand_patch(x, y, rx=90, ry=26, color='#efe0b8'):
+    return '<ellipse cx="%s" cy="%s" rx="%s" ry="%s" fill="%s"/>' % (x, y, rx, ry, color)
+
+
+def bubbles(x, y, n=5, s=1.0, color='#ffffff'):
+    out = ''
+    for i in range(n):
+        r = (10 + (i % 3) * 6) * s
+        out += ('<circle cx="%.0f" cy="%.0f" r="%.0f" fill="%s" opacity="0.35"/>'
+                % (x + (i % 2) * 26 * s - 14 * s, y - i * 34 * s, r, color))
+    return out
+
+
+def fish(x, y, color, s=1.0, mirror=False):
+    f = ' scale(-1,1)' if mirror else ''
+    return ('<g transform="translate(%s,%s) scale(%s)%s">'
+            '<ellipse cx="0" cy="0" rx="46" ry="30" fill="%s"/>'
+            '<path d="M40,0 L82,-26 L82,26 Z" fill="%s"/>'
+            '<circle cx="-24" cy="-6" r="7" fill="#ffffff"/><circle cx="-26" cy="-6" r="3.4" fill="#20303c"/>'
+            '<path d="M-6,-28 q14,-20 30,-6" fill="%s"/></g>'
+            % (x, y, s, f, color, color, color))
+
+
+def clownfish(x, y, s=1.0, mirror=False):
+    f = ' scale(-1,1)' if mirror else ''
+    return ('<g transform="translate(%s,%s) scale(%s)%s">'
+            '<ellipse cx="0" cy="0" rx="44" ry="28" fill="#ff8f3c"/>'
+            '<path d="M-14,-24 q6,24 0,48" stroke="#ffffff" stroke-width="10" fill="none"/>'
+            '<path d="M14,-22 q6,22 0,44" stroke="#ffffff" stroke-width="10" fill="none"/>'
+            '<path d="M38,0 L78,-24 L78,24 Z" fill="#ff8f3c"/>'
+            '<circle cx="-24" cy="-6" r="7" fill="#ffffff"/><circle cx="-26" cy="-6" r="3.4" fill="#20303c"/>'
+            '</g>' % (x, y, s, f))
+
+
+def butterfly_fish(x, y, color, s=1.0):
+    return ('<g transform="translate(%s,%s) scale(%s)">'
+            '<ellipse cx="0" cy="0" rx="42" ry="42" fill="%s"/>'
+            '<path d="M36,0 L74,-20 L74,20 Z" fill="%s"/>'
+            '<path d="M-30,-30 q30,30 0,60" stroke="#ffffff" stroke-width="8" fill="none"/>'
+            '<circle cx="-22" cy="-8" r="7" fill="#ffffff"/><circle cx="-24" cy="-8" r="3.4" fill="#20303c"/>'
+            '</g>' % (x, y, s, color, color))
+
+
+def octopus(x, y, color, s=1.0):
+    return ('<g transform="translate(%s,%s) scale(%s)">'
+            '<ellipse cx="0" cy="-30" rx="54" ry="48" fill="%s"/>'
+            '<circle cx="-18" cy="-40" r="8" fill="#ffffff"/><circle cx="18" cy="-40" r="8" fill="#ffffff"/>'
+            '<circle cx="-18" cy="-40" r="4" fill="#20303c"/><circle cx="18" cy="-40" r="4" fill="#20303c"/>'
+            '<path d="M-40,6 q-14,30 -30,42 M-14,10 q-6,34 -14,48 M14,10 q6,34 16,46 M40,6 q16,28 30,40" '
+            'stroke="%s" stroke-width="14" fill="none" stroke-linecap="round"/></g>' % (x, y, s, color, color))
+
+
+def turtle(x, y, color, s=1.0):
+    return ('<g transform="translate(%s,%s) scale(%s)">'
+            '<ellipse cx="0" cy="0" rx="66" ry="48" fill="%s"/>'
+            '<path d="M-40,-18 q40,-18 80,0 q-40,14 -80,0 Z" fill="#ffffff" opacity="0.3"/>'
+            '<circle cx="-72" cy="6" r="20" fill="%s"/>'
+            '<path d="M-88,16 q-16,12 -30,8" stroke="%s" stroke-width="10" fill="none" stroke-linecap="round"/>'
+            '<ellipse cx="-60" cy="-34" rx="22" ry="11" fill="%s" transform="rotate(-24 -60 -34)"/>'
+            '<ellipse cx="50" cy="36" rx="20" ry="10" fill="%s" transform="rotate(24 50 36)"/>'
+            '<circle cx="-80" cy="2" r="4" fill="#20303c"/></g>'
+            % (x, y, s, color, color, color, color, color))
+
+
+def jellyfish(x, y, color, s=1.0):
+    return ('<g transform="translate(%s,%s) scale(%s)">'
+            '<path d="M-52,10 q52,-72 104,0 Z" fill="%s"/>'
+            '<path d="M-34,12 q-8,36 -16,52 M-8,14 q-4,40 -8,56 M18,14 q4,40 10,54 M40,10 q10,32 20,48" '
+            'stroke="%s" stroke-width="10" fill="none" stroke-linecap="round"/>'
+            '<circle cx="-18" cy="-14" r="6" fill="#ffffff" opacity="0.5"/>'
+            '<circle cx="16" cy="-20" r="5" fill="#ffffff" opacity="0.5"/></g>' % (x, y, s, color, color))
+
+
+def starfish(x, y, color, s=1.0):
+    return ('<g transform="translate(%s,%s) scale(%s)">'
+            '<path d="M0,-52 L16,-16 L54,-14 L24,10 L34,48 L0,26 L-34,48 L-24,10 L-54,-14 L-16,-16 Z" fill="%s"/>'
+            '<circle cx="0" cy="0" r="9" fill="#ffffff" opacity="0.55"/></g>' % (x, y, s, color))
+
+
+def crab(x, y, color, s=1.0):
+    return ('<g transform="translate(%s,%s) scale(%s)">'
+            '<ellipse cx="0" cy="0" rx="52" ry="38" fill="%s"/>'
+            '<circle cx="-20" cy="-24" r="7" fill="#20303c"/><circle cx="20" cy="-24" r="7" fill="#20303c"/>'
+            '<path d="M-48,-8 q-26,-16 -34,-34 M48,-8 q26,-16 34,-34" stroke="%s" stroke-width="12" fill="none" '
+            'stroke-linecap="round"/>'
+            '<path d="M-40,26 l-22,20 M-14,34 l-10,24 M14,34 l10,24 M40,26 l22,20" stroke="%s" '
+            'stroke-width="10" fill="none" stroke-linecap="round"/></g>' % (x, y, s, color, color, color))
+
+
+def seahorse(x, y, color, s=1.0):
+    return ('<g transform="translate(%s,%s) scale(%s)">'
+            '<path d="M0,-60 q34,10 22,44 q-8,24 -22,30 q22,6 18,30 q-22,-8 -34,-26 q-18,-26 0,-48 '
+            'q10,-14 16,-30 Z" fill="%s"/>'
+            '<circle cx="8" cy="-52" r="5" fill="#20303c"/>'
+            '<path d="M-6,-66 q6,-14 18,-16" stroke="%s" stroke-width="7" fill="none" stroke-linecap="round"/>'
+            '</g>' % (x, y, s, color, color))
+
+
+def coral(x, base, color, s=1.0):
+    return ('<g transform="translate(%s,%s) scale(%s)">'
+            '<path d="M-34,0 q-6,-46 6,-72 q14,22 4,72 Z" fill="%s"/>'
+            '<path d="M-2,0 q-4,-56 12,-88 q18,26 6,88 Z" fill="%s"/>'
+            '<path d="M30,0 q0,-40 16,-62 q16,22 6,62 Z" fill="%s"/></g>'
+            % (x, base, s, color, color, color))
+
+
+def seaweed(x, base, color='#4fb84f', s=1.0):
+    out = ''
+    for i, dx in enumerate((-26, 0, 26)):
+        out += ('<path d="M%s,%s q%g,-60 %g,-112 q%g,52 %g,112 Z" fill="%s"/>'
+                % (x + dx, base, 16 - i * 6, 8, -14 + i * 8, 10, color))
+    return out
+
+
+def shell(x, y, color, s=1.0):
+    return ('<g transform="translate(%s,%s) scale(%s)">'
+            '<path d="M-40,0 a40,34 0 0 1 80,0 Z" fill="%s"/>'
+            '<path d="M-40,0 a40,34 0 0 1 80,0" fill="none" stroke="#ffffff" stroke-width="4" opacity="0.6"/>'
+            '<path d="M-20,0 q20,-34 40,0" fill="none" stroke="#ffffff" stroke-width="3" opacity="0.6"/>'
+            '</g>' % (x, y, s, color))
+
+
+def treasure(x, base):
+    """宝箱（有无是差异）"""
+    return ('<rect x="%s" y="%s" width="150" height="86" rx="10" fill="#a8762a"/>'
+            '<path d="M%s,%s a75,44 0 0 1 150,0 Z" fill="#c9a06a"/>'
+            '<rect x="%s" y="%s" width="150" height="14" fill="#8b5a2b"/>'
+            '<rect x="%s" y="%s" width="26" height="30" rx="6" fill="#ffd93b"/>'
+            % (x - 75, base - 86, x - 75, base - 86, x - 75, base - 46, x - 13, base - 60))
+
+
+def anchor(x, y, color='#8b949e', s=1.0):
+    return ('<g transform="translate(%s,%s) scale(%s)">'
+            '<circle cx="0" cy="-70" r="15" fill="none" stroke="%s" stroke-width="11"/>'
+            '<rect x="-7" y="-58" width="14" height="92" fill="%s"/>'
+            '<rect x="-34" y="-42" width="68" height="12" rx="6" fill="%s"/>'
+            '<path d="M-46,10 q0,42 46,42 q46,0 46,-42" fill="none" stroke="%s" stroke-width="13" '
+            'stroke-linecap="round"/></g>' % (x, y, s, color, color, color, color))
+
+
+def submarine(x, y, color, d=None, s=1.0):
+    """潜水艇；舷窗里的数字是差异（d=None 就不写数字）"""
+    out = ('<g transform="translate(%s,%s) scale(%s)">'
+           '<ellipse cx="0" cy="0" rx="150" ry="62" fill="%s"/>'
+           '<path d="M-20,-62 L10,-110 L40,-62 Z" fill="%s"/>'
+           '<rect x="118" y="-16" width="52" height="32" rx="10" fill="%s"/>'
+           '<path d="M-150,-10 L-196,-38 L-196,18 L-150,10 Z" fill="%s"/>'
+           '<circle cx="-70" cy="4" r="26" fill="#cdeafc" stroke="#ffffff" stroke-width="6"/>'
+           '<circle cx="0" cy="4" r="26" fill="#cdeafc" stroke="#ffffff" stroke-width="6"/>'
+           '<circle cx="70" cy="4" r="26" fill="#cdeafc" stroke="#ffffff" stroke-width="6"/>'
+           '</g>' % (x, y, s, color, color, color, color))
+    out += ('<circle cx="%s" cy="%s" r="30" fill="#cdeafc" stroke="#ffffff" stroke-width="6"/>' % (x, y + 4 * s))
+    if d is not None:
+        out += digit(x - 22 * s, y - 20 * s, d, 42 * s, '#1f4f6b')
+    return out
+
+
+def bubble_num(cx, cy, d, s=0.9):
+    """数字泡泡：泡泡本身两版一致，只有里面的数字是差异"""
+    h = 92 * s
+    w = h * 0.72
+    total = len(str(d)) * w + (len(str(d)) - 1) * h * 0.16
+    return ('<circle cx="%s" cy="%s" r="%s" fill="#dff4ff" opacity="0.92" stroke="#ffffff" stroke-width="5"/>'
+            % (cx, cy, max(78 * s, total * 0.62 + 40 * s))
+            + digit(cx - total / 2, cy - h / 2, d, h, '#1f5f86'))
+
+
+def dolphin(x, y, color, s=1.0, mirror=False):
+    f = ' scale(-1,1)' if mirror else ''
+    return ('<g transform="translate(%s,%s) scale(%s)%s">'
+            '<path d="M-90,10 q60,-70 150,-30 q-40,74 -150,30 Z" fill="%s"/>'
+            '<path d="M20,-56 q18,-30 40,-14 q-14,20 -30,20 Z" fill="%s"/>'
+            '<path d="M-90,10 q-30,-6 -46,-28 q34,4 50,20 Z" fill="%s"/>'
+            '<circle cx="-34" cy="-12" r="6" fill="#20303c"/></g>' % (x, y, s, f, color, color, color))
+
+
+def sea_levels():
+    spec = []
+    # hard-19 珊瑚礁
+    spec.append(dict(key='hard-19', name='珊瑚礁', theme='sea',
+        deco=[('coral', (620, 560, '#ff6fa5')), ('seaweed', (740, 580, '#4fb84f')),
+              ('sand_patch', (200, 570)), ('shell', (100, 560, '#f2c9a0')), ('bubbles', (700, 250, 4))],
+        diffs=[('show', 'fish', (150, 130, '#ffd93b', 1.0)),
+               ('digit', 400, 140, '3', '8', 0.9),
+               ('show', 'jellyfish', (650, 130, '#b06ff0', 1.0)),
+               ('swap', 'starfish', (110, 505, '#ff8f3c', 0.8), (110, 505, '#ff6fa5', 0.8)),
+               ('show', 'turtle', (400, 505, '#ff8f3c', 0.85)),
+               ('swap', 'coral', (620, 560, '#ff6fa5'), (620, 560, '#ffd93b'))],
+        extra=('fish', (400, 300, '#ff6fa5', 0.7))))
+    # hard-20 沉船宝藏
+    spec.append(dict(key='hard-20', name='沉船宝藏', theme='sea',
+        deco=[('treasure', (620, 560)), ('seaweed', (120, 580, '#4fb84f')), ('anchor', (740, 500)),
+              ('sand_patch', (300, 575)), ('bubbles', (200, 300, 5))],
+        diffs=[('show', 'fish', (150, 130, '#ff6fa5', 1.0)),
+               ('show', 'clownfish', (400, 130, 1.0)),
+               ('show', 'jellyfish', (650, 130, '#ffd93b', 1.0)),
+               ('digit', 128, 505, '5', '2', 0.9),
+               ('swap', 'octopus', (370, 505, '#b06ff0'), (370, 505, '#ff8f3c')),
+               ('swap', 'seaweed', (620, 560, '#4fb84f'), (620, 560, '#ff6fa5'))],
+        extra=('fish', (400, 300, '#ffd93b', 0.7))))
+    # hard-21 潜水艇
+    spec.append(dict(key='hard-21', name='潜水艇', theme='sea',
+        deco=[('submarine', (420, 330, '#e8b53c')), ('coral', (120, 570, '#ff8f3c')),
+              ('seaweed', (740, 580, '#4fb84f')), ('bubbles', (640, 200, 4)), ('sand_patch', (400, 580))],
+        diffs=[('show', 'fish', (150, 120, '#ffd93b', 0.9)),
+               ('show', 'jellyfish', (650, 120, '#ff6fa5', 0.9)),
+               ('show', 'bubble_num', (400, 140, '4', 1.0)),
+               ('swap', 'starfish', (150, 505, '#b06ff0', 0.8), (150, 505, '#7fce8a', 0.8)),
+               ('show', 'crab', (370, 505, '#ff8f3c', 1.0)),
+               ('show', 'shell', (600, 545, '#8b5cf6', 1.2))],
+        extra=('fish', (400, 300, '#ff8f3c', 1.0))))
+    # hard-22 海豚湾
+    spec.append(dict(key='hard-22', name='海豚湾', theme='sea',
+        deco=[('dolphin', (600, 330, '#5aa9e6')), ('seaweed', (140, 580, '#4fb84f')),
+              ('sand_patch', (300, 575)), ('shell', (500, 565, '#f2c9a0')), ('bubbles', (720, 260, 4))],
+        diffs=[('show', 'fish', (150, 130, '#ff8f3c', 1.0)),
+               ('show', 'clownfish', (400, 130, 1.0)),
+               ('swap', 'jellyfish', (650, 130, '#ff6fa5'), (650, 130, '#7fce8a')),
+               ('digit', 128, 505, '9', '6', 0.9),
+               ('swap', 'turtle', (400, 505, '#7fce8a', 0.85), (400, 505, '#8b5cf6', 0.85)),
+               ('show', 'starfish', (620, 520, '#8b5cf6', 1.0))],
+        extra=('fish', (400, 300, '#ff6fa5', 0.7))))
+    # hard-23 深海奇观
+    spec.append(dict(key='hard-23', name='深海奇观', theme='sea',
+        deco=[('fish', (620, 300, '#5aa9e6', 0.9)), ('seaweed', (120, 580, '#4fb84f')),
+              ('coral', (720, 570, '#b06ff0')), ('sand_patch', (400, 580)), ('bubbles', (300, 220, 5))],
+        diffs=[('show', 'jellyfish', (150, 130, '#ff6fa5', 1.0)),
+               ('digit', 400, 140, '10', '4', 0.85),
+               ('swap', 'fish', (650, 130, '#ffd93b', 1.0), (650, 130, '#7fce8a', 1.0)),
+               ('show', 'octopus', (150, 505, '#ff8f3c', 1.0)),
+               ('swap', 'starfish', (440, 505, '#ff8f3c', 0.8), (440, 505, '#8b5cf6', 0.8)),
+               ('show', 'shell', (640, 545, '#8b5cf6', 1.2))],
+        extra=('fish', (300, 330, '#ff6fa5', 1.0))))
+    # hard-24 海底花园
+    spec.append(dict(key='hard-24', name='海底花园', theme='sea',
+        deco=[('coral', (620, 570, '#ff8f3c')), ('seaweed', (740, 580, '#4fb84f')),
+              ('sand_patch', (300, 578)), ('bubbles', (200, 260, 4)), ('shell', (480, 570, '#f2c9a0'))],
+        diffs=[('show', 'clownfish', (150, 130, 1.0)),
+               ('show', 'fish', (400, 130, '#ffd93b', 1.0)),
+               ('show', 'seahorse', (650, 130, '#ff6fa5', 1.0)),
+               ('digit', 128, 505, '0', '5', 0.9),
+               ('swap', 'coral', (620, 570, '#ff8f3c'), (620, 570, '#7fce8a')),
+               ('show', 'crab', (370, 505, '#b06ff0', 1.0))],
+        extra=('fish', (400, 300, '#ff8f3c', 1.0))))
+    return spec
+
+# ==========================================================================
+# 游乐园
+# ==========================================================================
+def fun_bg(pal, v, hell):
+    o = [sky(), hills((180, 420, 260, 90, pal['hill1']), (620, 430, 300, 100, pal['hill2'])), grass(400)]
+    o.append('<path d="M0,430 q200,-24 400,-4 q200,20 400,-8 L800,470 L0,470 Z" fill="#f3e3bb"/>')
+    return o
+
+
+def tent(x, base, color, s=1.0, stripe='#ffffff'):
+    """条纹帐篷：帐篷布颜色是差异"""
+    w, h = 300 * s, 230 * s
+    out = ('<path d="M%.0f,%.0f L%.0f,%.0f L%.0f,%.0f Z" fill="%s"/>'
+           % (x, base - h, x - w / 2, base, x + w / 2, base, color))
+    for i, k in enumerate((0.30, 0.58)):
+        out += ('<path d="M%.0f,%.0f L%.0f,%.0f L%.0f,%.0f Z" fill="%s"/>'
+                % (x - w * k * 0.5 - 26 * s, base - h * 0.62, x - w * k * 0.5 + 26 * s, base,
+                   x - w * k * 0.5 - 30 * s, base, stripe))
+    out += ('<path d="M%.0f,%.0f L%.0f,%.0f L%.0f,%.0f Z" fill="#3f4a5a"/>'
+            % (x - 44 * s, base, x + 44 * s, base, x, base - 96 * s))
+    return out
+
+
+def flag(x, y, color, s=1.0):
+    return ('<rect x="%s" y="%s" width="10" height="%s" fill="#9aa3ad"/>'
+            '<path d="M%s,%s L%s,%s L%s,%s Z" fill="%s"/>'
+            % (x - 5, y, 160 * s, x + 5, y + 6, x + 92 * s, y + 30 * s, x + 5, y + 58 * s, color))
+
+
+def ferris(x, y, color, gondola, s=1.0):
+    """摩天轮：45° 那个吊舱的颜色是差异"""
+    r = 170 * s
+    out = '<circle cx="%s" cy="%s" r="%.0f" fill="none" stroke="%s" stroke-width="13"/>' % (x, y, r, color)
+    for k in range(8):
+        a = math.radians(k * 22.5)
+        out += ('<line x1="%s" y1="%s" x2="%.0f" y2="%.0f" stroke="%s" stroke-width="6"/>'
+                % (x, y, x + r * math.cos(a), y + r * math.sin(a), color))
+    out += ('<circle cx="%s" cy="%s" r="20" fill="%s"/>'
+            '<path d="M%s,%.0f L%s,520 M%s,%.0f L%s,520" stroke="#8b949e" stroke-width="12"/>'
+            % (x, y, color, x - 62, y + r, x - 46, x + 62, y + r, x + 46))
+    for k in range(8):
+        a = math.radians(k * 45)
+        gx, gy = x + r * math.cos(a), y + r * math.sin(a)
+        c = gondola if k == 1 else '#ffd93b'
+        out += '<rect x="%.0f" y="%.0f" width="46" height="34" rx="9" fill="%s"/>' % (gx - 23, gy + 6, c)
+    return out
+
+
+def carousel(x, y, color, horse, s=1.0):
+    """旋转木马：正前方那匹马的颜色是差异"""
+    out = ('<ellipse cx="%s" cy="%s" rx="150" ry="34" fill="#c9a06a"/>'
+           '<rect x="%s" y="%s" width="16" height="86" fill="#8b949e"/>'
+           '<path d="M%s,%s L%s,%s L%s,%s Z" fill="%s"/>'
+           % (x, y + 40, x - 8, y - 46, x, y - 150, x - 160, y - 46, x + 160, y - 46, color))
+    for k in range(4):
+        hx = x - 120 + k * 80
+        c = horse if k == 2 else '#ffffff'
+        out += ('<rect x="%s" y="%s" width="10" height="96" fill="#e8c07a"/>'
+                '<ellipse cx="%s" cy="%s" rx="42" ry="24" fill="%s"/>'
+                '<circle cx="%s" cy="%s" r="14" fill="%s"/>'
+                '<rect x="%s" y="%s" width="12" height="30" rx="5" fill="%s"/>'
+                % (hx, y - 60, hx, y - 10, c, hx - 34, y - 24, c, hx - 44, y - 46, c))
+    return out
+
+
+def coaster(x, y, color, cart, s=1.0):
+    """过山车：小车颜色是差异"""
+    return ('<path d="M%s,%s q90,-160 190,-40 q80,96 170,-10 q70,-80 150,20" fill="none" '
+            'stroke="%s" stroke-width="16" stroke-linecap="round"/>'
+            '<path d="M%s,%s L%s,%s M%s,%s L%s,%s M%s,%s L%s,%s" stroke="#9aa3ad" stroke-width="10"/>'
+            % (x - 300, y, color,
+               x - 240, y + 20, x - 250, y + 90, x - 60, y - 40, x - 70, y + 70,
+               x + 120, y - 30, x + 110, y + 80)
+            + '<rect x="%s" y="%s" width="96" height="46" rx="12" fill="%s"/>' % (x + 60, y - 76, cart)
+            + '<rect x="%s" y="%s" width="20" height="20" rx="6" fill="#3f4a5a"/>' % (x + 96, y - 96))
+
+
+def bumper(x, y, color, s=1.0):
+    """碰碰车：车身颜色是差异"""
+    return ('<ellipse cx="%s" cy="%s" rx="86" ry="26" fill="#8b949e" opacity="0.5"/>'
+            '<rect x="%s" y="%s" width="150" height="52" rx="18" fill="%s"/>'
+            '<rect x="%s" y="%s" width="86" height="46" rx="14" fill="%s"/>'
+            '<rect x="%s" y="%s" width="64" height="34" rx="8" fill="#cdeafc"/>'
+            '<circle cx="%s" cy="%s" r="20" fill="#3f4a5a"/><circle cx="%s" cy="%s" r="26" fill="#3f4a5a"/>'
+            % (x, y, x - 78, y - 46, color, x - 60, y - 92, color, x - 50, y - 82, x + 40, y - 40, x - 40, y - 20))
+
+
+def target(x, y, color, s=1.0):
+    """靶心：最里圈颜色是差异"""
+    return ('<circle cx="%s" cy="%s" r="86" fill="#ffffff" stroke="#c9a06a" stroke-width="8"/>'
+            '<circle cx="%s" cy="%s" r="62" fill="#ff6fa5"/>'
+            '<circle cx="%s" cy="%s" r="38" fill="#ffffff"/>'
+            '<circle cx="%s" cy="%s" r="27" fill="%s"/>' % (x, y, x, y, x, y, x, y, color)
+            + '<rect x="%s" y="%s" width="14" height="%s" fill="#c9a06a"/>' % (x - 7, y + 80, 90))
+
+
+def candy(x, y, color='#ff6fa5', s=1.0):
+    """棉花糖（有无是差异）"""
+    return ('<rect x="%s" y="%s" width="12" height="%s" rx="6" fill="#e8c07a"/>'
+            '<circle cx="%s" cy="%s" r="%s" fill="%s"/>'
+            '<circle cx="%s" cy="%s" r="%s" fill="#ffffff" opacity="0.25"/>'
+            % (x - 6, y - 96, 96, x, y - 116, 46 * s, color, x - 14 * s, y - 128 * s, 20 * s))
+
+
+def fun_levels():
+    spec = []
+    # hard-25 游乐园大门
+    spec.append(dict(key='hard-25', name='游乐园大门', theme='fun',
+        deco=[('flag', (120, 300, '#ff6fa5')), ('flag', (700, 300, '#4aa8e0')),
+              ('tent', (300, 560, '#ff8f3c')), ('tuft', (200, 580)), ('stone', (620, 575, 22, 13))],
+        diffs=[('show', 'cloud', (150, 130)),
+               ('show', 'balloon', (400, 110, '#ffd93b')),
+               ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None)),
+               ('digit', 128, 505, '6', '9', 0.9),
+               ('show', 'candy', (370, 505, '#ff6fa5', 1.0)),
+               ('swap', 'tent', (680, 545, '#ff8f3c', 0.75), (680, 545, '#8b5cf6', 0.75))],
+        extra=('bee', (150, 300, 1.0))))
+    # hard-26 摩天轮
+    spec.append(dict(key='hard-26', name='摩天轮', theme='fun',
+        deco=[('ferris', (570, 320, '#ff6fa5', '#ff6fa5')), ('tuft', (120, 580)), ('stone', (240, 575, 22, 13))],
+        diffs=[('show', 'cloud', (150, 130)),
+               ('show', 'kite', (400, 110, '#ff6fa5', False)),
+               ('swap', 'sun', (650, 130, 30), (650, 130, 44)),
+               ('digit', 128, 505, '2', '8', 0.9),
+               ('show', 'candy', (370, 505, '#ffd93b', 1.0)),
+               ('swap', 'ferris', (570, 320, '#ff6fa5', '#ff6fa5'), (570, 320, '#ff6fa5', '#4aa8e0'))],
+        extra=('bee', (150, 300, 1.0))))
+    # hard-27 旋转木马
+    spec.append(dict(key='hard-27', name='旋转木马', theme='fun',
+        deco=[('carousel', (560, 470, '#ff8f3c', '#ffffff')), ('tuft', (140, 580)),
+              ('stone', (250, 575, 22, 13)), ('bush', (740, 540, 0.8))],
+        diffs=[('show', 'cloud', (150, 130)),
+               ('show', 'balloon', (400, 110, '#ffd93b')),
+               ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None)),
+               ('digit', 128, 505, '7', '9', 0.9),
+               ('show', 'candy', (370, 505, '#ff8f3c', 1.0)),
+               ('swap', 'carousel', (560, 470, '#ff8f3c', '#ffffff'), (560, 470, '#ff8f3c', '#4aa8e0'))],
+        extra=('bee', (150, 300, 1.0))))
+    # hard-28 过山车
+    spec.append(dict(key='hard-28', name='过山车', theme='fun',
+        deco=[('coaster', (620, 470, '#4aa8e0', '#ffd93b')), ('tuft', (120, 580)),
+              ('stone', (250, 575, 22, 13)), ('flag', (740, 300, '#ff6fa5'))],
+        diffs=[('show', 'cloud', (150, 130)),
+               ('show', 'balloon', (400, 110, '#ffd93b')),
+               ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None)),
+               ('digit', 128, 505, '3', '5', 0.9),
+               ('show', 'candy', (370, 505, '#ff8f3c', 1.0)),
+               ('swap', 'coaster', (620, 470, '#4aa8e0', '#ffd93b'), (620, 470, '#4aa8e0', '#ff6fa5'))],
+        extra=('bee', (150, 300, 1.0))))
+    # hard-29 碰碰车
+    spec.append(dict(key='hard-29', name='碰碰车', theme='fun',
+        deco=[('bumper', (660, 470, '#4aa8e0')), ('tuft', (120, 580)), ('stone', (250, 575, 22, 13)),
+              ('flag', (700, 300, '#ffd93b'))],
+        diffs=[('show', 'cloud', (150, 130)),
+               ('show', 'kite', (400, 110, '#ff6fa5', False)),
+               ('swap', 'sun', (650, 130, 30), (650, 130, 44)),
+               ('digit', 128, 505, '4', '6', 0.9),
+               ('show', 'candy', (370, 505, '#b06ff0', 1.0)),
+               ('swap', 'bumper', (660, 470, '#4aa8e0'), (660, 470, '#ff8f3c'))],
+        extra=('bee', (150, 300, 1.0))))
+    # hard-30 靶心游戏
+    spec.append(dict(key='hard-30', name='靶心游戏', theme='fun',
+        deco=[('target', (660, 470, '#ffd93b')), ('tuft', (120, 580)), ('stone', (250, 575, 22, 13)),
+              ('ball', (200, 545, 30, '#4aa8e0'))],
+        diffs=[('show', 'cloud', (150, 130)),
+               ('show', 'balloon', (400, 110, '#ff6fa5')),
+               ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None)),
+               ('digit', 128, 505, '0', '6', 0.9),
+               ('show', 'candy', (370, 505, '#ffd93b', 1.0)),
+               ('swap', 'target', (660, 470, '#ffd93b'), (660, 470, '#4aa8e0'))],
+        extra=('bee', (150, 300, 1.0))))
+    return spec
+
+# ==========================================================================
+# 工地（第二批：塔吊/脚手架/建材/泵车/叉车/装载机）
+# ==========================================================================
+def site_bg(pal, v, hell):
+    return [sky(), hills((180, 420, 260, 90, pal['hill1']), (620, 430, 300, 100, pal['hill2'])),
+            grass(400), dirt(500, 520, 360, 96)]
+
+
+def cement_bags(x, base, color='#e8e4da', n=3):
+    """水泥袋堆（有无是差异）"""
+    out = ''
+    for r in range(n):
+        for c in range(n - r):
+            bx = x - (n - r) * 36 + c * 74
+            out += (f'<rect x="{bx}" y="{base - 34 * (r + 1)}" width="72" height="34" rx="10" fill="{color}"/>'
+                    f'<rect x="{bx + 10}" y="{base - 22 * (r + 1)}" width="52" height="6" rx="3" fill="#b39b74"/>')
+    return out
+
+
+def rebar(x, base, color='#9aa3ad'):
+    """钢筋捆（颜色是差异）"""
+    out = ''
+    for i in range(4):
+        out += f'<rect x="{x - 75}" y="{base - 16 - i * 16}" width="150" height="17" rx="6" fill="{color}"/>'
+    return out
+
+
+def tower_crane(x, base, color, part):
+    """塔吊：配重块颜色是差异"""
+    out = (
+        f'<rect x="{x - 19}" y="{base - 300}" width="38" height="300" fill="{color}"/>'
+        f'<rect x="{x - 210}" y="{base - 318}" width="420" height="24" rx="6" fill="{color}"/>'
+        f'<path d="M{x - 200},{base - 296} L{x - 140},{base - 296} L{x - 140},{base - 356} '
+        f'L{x - 200},{base - 356} Z" fill="{part}"/>'
+        f'<rect x="{x - 70}" y="{base - 280}" width="60" height="56" rx="8" fill="{color}"/>'
+        f'<rect x="{x - 62}" y="{base - 270}" width="56" height="42" rx="6" fill="#8fd9f5"/>'
+        f'<path d="M{x + 60},{base - 312} L{x + 60},{base - 210}" stroke="#6b7280" stroke-width="6"/>'
+        f'<rect x="{x + 38}" y="{base - 210}" width="46" height="30" rx="6" fill="#8b6b4a"/>')
+    return out
+
+
+def scaffold(x, base, color, plank):
+    """脚手架：最上层踏板颜色是差异"""
+    out = ''
+    for dx in (-120, 0, 120):
+        out += f'<rect x="{x + dx - 7}" y="{base - 170}" width="14" height="170" fill="{color}"/>'
+    for y in (base - 170, base - 110, base - 50):
+        out += f'<rect x="{x - 130}" y="{y}" width="260" height="12" rx="5" fill="{color}"/>'
+    return out + f'<rect x="{x - 133}" y="{base - 186}" width="266" height="20" rx="6" fill="{plank}"/>'
+
+
+def pump_truck(x, y, color, boom):
+    """水泥泵车：泵管颜色是差异"""
+    return (_wheel(x - 100, y - 28) + _wheel(x + 30, y - 28) + _wheel(x + 116, y - 28)
+            + f'<rect x="{x - 150}" y="{y - 92}" width="300" height="48" rx="12" fill="#6b7280"/>'
+            + f'<rect x="{x - 156}" y="{y - 170}" width="96" height="78" rx="12" fill="{color}"/>'
+            + f'<rect x="{x - 144}" y="{y - 160}" width="66" height="44" rx="7" fill="#8fd9f5"/>'
+            + f'<path d="M{x - 30},{y - 104} L{x + 120},{y - 196} L{x + 134},{y - 166} '
+              f'L{x - 16},{y - 74} Z" fill="{boom}"/>'
+            + f'<path d="M{x + 128},{y - 182} q26,34 6,64" fill="none" stroke="{boom}" '
+              f'stroke-width="20" stroke-linecap="round"/>')
+
+
+def forklift(x, y, color, part):
+    """叉车：货叉颜色是差异"""
+    return (_wheel(x - 96, y - 34, 32) + _wheel(x + 6, y - 34, 32)
+            + f'<rect x="{x - 150}" y="{y - 150}" width="190" height="86" rx="16" fill="{color}"/>'
+            + f'<rect x="{x - 142}" y="{y - 230}" width="90" height="80" rx="12" fill="{color}"/>'
+            + f'<rect x="{x - 128}" y="{y - 220}" width="62" height="46" rx="7" fill="#8fd9f5"/>'
+            + f'<rect x="{x + 42}" y="{y - 240}" width="18" height="150" fill="#8b949e"/>'
+            + f'<rect x="{x + 74}" y="{y - 240}" width="16" height="150" fill="#8b949e"/>'
+            + f'<rect x="{x + 90}" y="{y - 30}" width="96" height="18" rx="4" fill="{part}"/>'
+            + f'<rect x="{x + 90}" y="{y - 6}" width="96" height="14" rx="4" fill="{part}"/>')
+
+
+def loader(x, y, color, part):
+    """装载机：铲斗颜色是差异"""
+    return (_wheel(x - 96, y - 40, 40) + _wheel(x + 26, y - 40, 40)
+            + f'<rect x="{x - 150}" y="{y - 156}" width="200" height="92" rx="18" fill="{color}"/>'
+            + f'<rect x="{x - 142}" y="{y - 240}" width="96" height="84" rx="12" fill="{color}"/>'
+            + f'<rect x="{x - 128}" y="{y - 230}" width="66" height="48" rx="7" fill="#8fd9f5"/>'
+            + f'<path d="M{x + 40},{y - 150} L{x + 150},{y - 110} L{x + 150},{y - 20} '
+              f'L{x + 40},{y - 40} Z" fill="{part}"/>')
+
+
+def site2_levels():
+    spec = []
+    # hard-31 塔吊作业
+    spec.append(dict(key='hard-31', name='塔吊作业', theme='site',
+        deco=[('building', (140, 400)), ('barrier', (600, 400, 3)), ('windsock', (260, 560)),
+              ('tuft', (420, 580)), ('stone', (760, 560, 24, 14))],
+        diffs=[('show', 'cloud', (150, 130)),
+               ('swap', 'tower_crane', (640, 560, '#e8b53c', '#ff8f3c'), (640, 560, '#e8b53c', '#3f7ff0')),
+               ('swap', 'sun', (325 * 2, 130, 34, (46, 66, 14)), (325 * 2, 130, 34, None)),
+               ('digit', 140, 505, '10', '7', 0.85),
+               ('show', 'cement_bags', (400, 505, '#e8e4da', 2)),
+               ('show', 'rebar', (700, 520, '#9aa3ad'))],
+        extra=('bee', (150, 300, 1.0))))
+    # hard-32 脚手架
+    spec.append(dict(key='hard-32', name='脚手架', theme='site',
+        deco=[('building', (150, 400)), ('scaffold', (560, 560, '#9aa3ad', '#c98b52')),
+              ('tuft', (240, 580)), ('stone', (760, 560, 24, 14))],
+        diffs=[('show', 'cloud', (150, 130)),
+               ('show', 'balloon', (400, 110, '#ffd93b')),
+               ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None)),
+               ('digit', 140, 505, '8', '5', 0.9),
+               ('show', 'cement_bags', (400, 505, '#e8e4da', 2)),
+               ('show', 'cone', (700, 520))],
+        extra=('bee', (150, 300, 1.0))))
+    # hard-33 建材堆场
+    spec.append(dict(key='hard-33', name='建材堆场', theme='site',
+        deco=[('building', (140, 400)), ('barrier', (620, 400, 3)), ('stone', (560, 565, 26, 15)),
+              ('tuft', (240, 580)), ('stone', (760, 560, 24, 14))],
+        diffs=[('show', 'cloud', (150, 130)),
+               ('show', 'balloon', (400, 110, '#ffd93b')),
+               ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None)),
+               ('digit', 140, 505, '3', '8', 0.9),
+               ('show', 'cement_bags', (400, 505, '#e8e4da', 2)),
+               ('show', 'cone', (700, 545))],
+        extra=('bee', (150, 300, 1.0))))
+    # hard-34 水泥泵车
+    spec.append(dict(key='hard-34', name='水泥泵车', theme='site',
+        deco=[('building', (140, 400)), ('barrier', (620, 400, 3)), ('rebar', (250, 570, '#9aa3ad')),
+              ('tuft', (760, 580)), ('stone', (760, 600, 22, 13))],
+        diffs=[('show', 'cloud', (150, 130)),
+               ('show', 'balloon', (400, 110, '#ffd93b')),
+               ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None)),
+               ('digit', 140, 505, '6', '9', 0.9),
+               ('show', 'cement_bags', (400, 505, '#e8e4da', 2)),
+               ('swap', 'pump_truck', (640, 520, '#2f7fd0', '#ffd93b'), (640, 520, '#2f7fd0', '#3f7ff0'))],
+        extra=('bee', (150, 300, 1.0))))
+    # hard-35 叉车搬运
+    spec.append(dict(key='hard-35', name='叉车搬运', theme='site',
+        deco=[('building', (140, 400)), ('barrier', (620, 400, 3)), ('cement_bags', (280, 570, '#e8e4da')),
+              ('tuft', (760, 580)), ('stone', (200, 600, 22, 13))],
+        diffs=[('show', 'cloud', (150, 130)),
+               ('show', 'balloon', (400, 110, '#ffd93b')),
+               ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None)),
+               ('digit', 140, 505, '2', '3', 0.9),
+               ('show', 'rebar', (370, 500, '#9aa3ad')),
+               ('swap', 'forklift', (520, 520, '#e8b53c', '#ff8f3c'), (520, 520, '#e8b53c', '#3f7ff0'))],
+        extra=('bee', (150, 300, 1.0))))
+    # hard-36 装载机
+    spec.append(dict(key='hard-36', name='装载机', theme='site',
+        deco=[('building', (140, 400)), ('barrier', (620, 400, 3)), ('pipes', (250, 570, 3)),
+              ('tuft', (760, 580)), ('stone', (200, 600, 22, 13))],
+        diffs=[('show', 'cloud', (150, 130)),
+               ('show', 'balloon', (400, 110, '#ffd93b')),
+               ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None)),
+               ('digit', 140, 505, '1', '8', 0.9),
+               ('show', 'cement_bags', (400, 505, '#e8e4da', 2)),
+               ('show', 'cone', (700, 520))],
+        extra=('bee', (150, 300, 1.0))))
+    return spec
+
+# 数据化关卡用的元素表：关卡的 deco/diffs 里只写名字，这里解析成真正画图函数
+KIT = dict((n, globals()[n]) for n in (
+    'cloud sun birds tree bush flower tuft stone fence bench lamp pond path_center duck swan lily '
+    'dragonfly butterfly bee balloon gate booth slide swing seesaw ball kite arch watering basket '
+    'blanket mushroom squirrel boat reeds dirt cone pipes bricks windsock barrier building excavator '
+    'bulldozer mixer_truck dump_truck road_roller crane_truck pen elephant giraffe monkey rabbit '
+    'penguin panda bamboo bowl banana hillrock digit plaque sand_patch bubbles fish clownfish butterfly_fish octopus turtle jellyfish starfish crab seahorse coral seaweed shell treasure anchor submarine bubble_num dolphin tent flag ferris carousel coaster bumper target candy cement_bags rebar tower_crane scaffold pump_truck forklift loader').split())
+THEME_BG = {'zoo': zoo_bg, 'sea': sea_bg, 'fun': fun_bg, 'site': site_bg}
+
 PAL_DAY = dict(sky_top='#7fc4ee', sky_bottom='#d8f1ff', grass_top='#8ed86e', grass_bottom='#5fbf52',
                hill1='#a9dd8d', hill2='#9ad47f', water1='#8fdcf7', water2='#33a6dd',
                sand='#f0dfae', sun='#ffd93b', sun_edge='#f5b721')
@@ -878,6 +1746,22 @@ _HARD = [
     ('hard-12', '汽车吊', scene_crane_truck,
      ['云朵数量', '太阳光芒', '吊臂颜色', '水泥管', '锥筒', '风向袋'], '风筝'),
 ]
+# 动物园 6 关：用数据表描述，A/B 只差在 diffs 上
+def _spec_names(spec):
+    out = []
+    for item in spec['diffs']:
+        if item[0] == 'show':
+            out.append('%s（有无）' % item[1])
+        elif item[0] == 'swap':
+            out.append('%s（颜色/大小）' % item[1])
+        else:
+            out.append('数字 %s→%s' % (item[3], item[4]))
+    return out
+
+
+for _sp in zoo_levels() + sea_levels() + fun_levels() + site2_levels():
+    _HARD.append((_sp['key'], _sp['name'], spec_builder(_sp), _spec_names(_sp), _sp['extra'][0]))
+
 _HELL_SUFFIX = ['黄昏', '清晨', '午后', '春日', '秋日', '夜晚']
 for _k, (_key, _name, _build, _diffs, _extra) in enumerate(_HARD):
     SCENES.append(dict(key=_key, name=_name, build=_build, pal=PAL_DAY, hell=False,

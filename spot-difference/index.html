@@ -710,9 +710,9 @@ const DIFFICULTY = {
   easy: { key: 'easy', name: '简单', spots: 5, clutter: 0,  photo: false,
           blurb: '48 个手绘场景，每局随机出题' },
   hard: { key: 'hard', name: '困难', spots: 6, clutter: 24, photo: true,
-          blurb: '12 个手绘场景（6 个公园 + 6 个工地工程车），每关 6 处不同，还有飘动干扰' },
+          blurb: '36 个手绘场景（公园 6 + 工程车 6 + 动物园 6 + 海底 6 + 游乐园 6 + 工地 6），每关 6 处不同，含数字认知' },
   hell: { key: 'hell', name: '地狱', spots: 7, clutter: 40, photo: true,
-          blurb: '同 12 个场景换成黄昏/清晨/春日/秋日/夜晚，每关 7 处不同，干扰更多更花' },
+          blurb: '同 36 个场景换成黄昏/清晨/午后/春日/秋日/夜晚，每关 7 处不同，干扰更多更花' },
 };
 const DIFF_ORDER = ['easy', 'hard', 'hell'];
 let difficulty = 'easy';
@@ -732,7 +732,8 @@ function scenePool() { return difficulty === 'easy' ? SCENES : PHOTO_SCENES[diff
 function totalLevels() { return LEVELS.length; }
 
 /* =========================================================================
- * 真图关卡（困难 / 地狱 = 公园手绘 SVG 场景：困难 6 处、地狱换天色 7 处）
+ * 真图关卡（困难 / 地狱 = 代码画出来的 SVG 手绘场景，六大主题各 6 关；
+ *   困难 6 处、地狱换天色 7 处，每关含一处 0~10 的数字差异）
  *   SVG 源与 400×300 出图见 tools/gen-svg-park-levels.py；
  *   出图后跑 tools/embed-photo-levels.py 内嵌成 photos-data.js
  *
@@ -765,10 +766,16 @@ const PHOTO_PAD = 18;         // 判定区域外扩。除了给小朋友容差�
 const PHOTO_SCENES = { hard: [], hell: [] };
 (function buildPhotoScenes() {
   const order = {
-    hard: ['hard-1', 'hard-2', 'hard-3', 'hard-4', 'hard-5', 'hard-6',
-           'hard-7', 'hard-8', 'hard-9', 'hard-10', 'hard-11', 'hard-12'],
-    hell: ['hell-1', 'hell-2', 'hell-3', 'hell-4', 'hell-5', 'hell-6',
-           'hell-7', 'hell-8', 'hell-9', 'hell-10', 'hell-11', 'hell-12'],
+    hard: [          'hard-1', 'hard-2', 'hard-3', 'hard-4', 'hard-5', 'hard-6', 'hard-7', 'hard-8',
+           'hard-9', 'hard-10', 'hard-11', 'hard-12', 'hard-13', 'hard-14', 'hard-15',
+           'hard-16', 'hard-17', 'hard-18', 'hard-19', 'hard-20', 'hard-21', 'hard-22',
+           'hard-23', 'hard-24', 'hard-25', 'hard-26', 'hard-27', 'hard-28', 'hard-29',
+           'hard-30', 'hard-31', 'hard-32', 'hard-33', 'hard-34', 'hard-35', 'hard-36'],
+    hell: [          'hell-1', 'hell-2', 'hell-3', 'hell-4', 'hell-5', 'hell-6', 'hell-7', 'hell-8',
+           'hell-9', 'hell-10', 'hell-11', 'hell-12', 'hell-13', 'hell-14', 'hell-15',
+           'hell-16', 'hell-17', 'hell-18', 'hell-19', 'hell-20', 'hell-21', 'hell-22',
+           'hell-23', 'hell-24', 'hell-25', 'hell-26', 'hell-27', 'hell-28', 'hell-29',
+           'hell-30', 'hell-31', 'hell-32', 'hell-33', 'hell-34', 'hell-35', 'hell-36'],
   };
   for (const group of ['hard', 'hell']) {
     for (const key of order[group]) {
