@@ -1189,13 +1189,15 @@ def zoo_levels():
         extra=('bee', (400, 300, 1.0))))
     # hard-14 大象馆
     spec.append(dict(key='hard-14', name='大象馆', theme='zoo',
+        puzzle_sign=(150, 500, '3', 0.9),
+        puzzle_deco=[('rabbit', (620, 500, 1.0)), ('rabbit', (700, 545, 0.9))],
         deco=[('pen', (560, 500, 300)), ('elephant', (560, 500, 1.0)),
               ('tree', (110, 470, 56, ((80, 425), (140, 450)))), ('pond', (760, 520, 90, 40)),
               ('tuft', (330, 580)), ('stone', (200, 570, 22, 13))],
         diffs=[('show', 'cloud', (150, 130)),
                ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None)),
                ('show', 'balloon', (400, 110, '#ef5350')),
-               ('digit', 150, 500, '2', '7', 0.85),
+               ('show', 'rabbit', (110, 500, 1.0)),
                ('show', 'monkey', (370, 505, 1.0)),
                ('swap', 'ball', (600, 400, 34, '#ffd93b'), (600, 400, 34, '#4aa8e0'))],
         extra=('bee', (400, 300, 1.0))))
@@ -1213,13 +1215,13 @@ def zoo_levels():
     # hard-16 猴山
     spec.append(dict(key='hard-16', name='猴山', theme='zoo',
         puzzle_sign=(150, 505, '3', 0.9),
-        puzzle_deco=[('rabbit', (620, 500, 1.35)), ('rabbit', (700, 545, 1.2))],
+        puzzle_deco=[('rabbit', (620, 500, 1.0)), ('rabbit', (700, 545, 0.9))],
         deco=[('hillrock', (600, 500)), ('monkey', (600, 470, 1.1)), ('tree', (110, 470, 54, ())),
               ('bush', (300, 500, 0.9)), ('tuft', (180, 580)), ('stone', (740, 560, 24, 14))],
         diffs=[('show', 'cloud', (150, 130)),
                ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None)),
                ('show', 'balloon', (400, 110, '#ffd93b')),
-               ('show', 'rabbit', (110, 500, 1.35)),
+               ('show', 'rabbit', (110, 500, 1.0)),
                ('show', 'banana', (370, 500)),
                ('swap', 'ball', (600, 470, 34, '#ffd93b'), (600, 470, 34, '#4aa8e0'))],
         extra=('bee', (400, 300, 1.0))))
