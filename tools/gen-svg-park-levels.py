@@ -1882,13 +1882,106 @@ def site2_levels():
         extra=('bee', (150, 300, 1.0))))
     return spec
 
+# ==========================================================================
+# 动物园数字关：每只动物身上挂一个号码牌，找不同的关键是比对号码
+# ==========================================================================
+def num_tag(x, y, d, s=1.0, face='#fff6e0', edge='#b08a55', ink='#4a3a28'):
+    """动物身上的号码牌（挂脖子/身上），数字是差异所在；牌子本身两版一致"""
+    h = 86 * s
+    w = h * 0.72
+    total = len(str(d)) * w + (len(str(d)) - 1) * h * 0.16
+    pw, ph = max(52 * s, total + 24 * s), h + 22 * s
+    return (f'<rect x="{x - pw / 2:.1f}" y="{y - ph / 2:.1f}" width="{pw:.1f}" height="{ph:.1f}" '
+            f'rx="{8 * s:.0f}" fill="{face}" stroke="{edge}" stroke-width="{max(2, round(3 * s))}"/>'
+            + digit(x - total / 2, y - h / 2, d, h, ink))
+
+
+# (动物 x, 动物地面 y, 号码牌 y) —— 两排各 5 只，号码 1~10 按顺序挂在身上
+ZOO_GRID = ((90, 440, 372), (250, 440, 372), (410, 440, 372), (570, 440, 372), (730, 440, 372),
+            (130, 560, 486), (290, 560, 486), (450, 560, 486), (610, 560, 486), (770, 560, 486))
+
+ZOO_KINDS = ('rabbit', 'monkey', 'panda', 'penguin', 'duckling')
+
+
+def _zoo_animal(kind, x, y):
+    if kind == 'rabbit':
+        return ('rabbit', (x, y, 0.62))
+    if kind == 'monkey':
+        return ('monkey', (x, y, 0.62))
+    if kind == 'panda':
+        return ('panda', (x, y, 0.56))
+    if kind == 'penguin':
+        return ('penguin', (x, y, 0.6))
+    return ('duckling', (x, y, False, '#fffdf5', 0.5))
+
+
+def zoo_num_scene(v, pal, hell, plan):
+    """动物园数字关：10 只动物 + 10 个号码牌；号码差异之外再放 4 处普通差异"""
+    o = [defs(pal), sky(), hills((180, 420, 260, 90, pal['hill1']),
+                                  (620, 430, 300, 100, pal['hill2'])), grass(400)]
+    o.append('<ellipse cx="400" cy="512" rx="390" ry="118" fill="#e9dcb6"/>')          # 场地
+    o.append(fence(30, 430, 9, step=88, bw=22, bh=72))                                # 后围栏
+    for tx in (60, 180, 300, 420, 540, 660, 780):
+        o.append(tuft(tx, 592))
+    changed = {i: (a, b) for i, a, b in plan['nums']}
+    order = plan['order']
+    for i, (ax, ay, ty) in enumerate(ZOO_GRID):
+        kind = ZOO_KINDS[(i + order) % len(ZOO_KINDS)]
+        nm, args = _zoo_animal(kind, ax, ay)
+        o.append(KIT[nm](*args))
+        d = changed.get(i)
+        num = (d[0] if v == 'A' else d[1]) if d else (i + 1)
+        o.append(num_tag(ax, ty, num))
+    k = DIFF_SCALE.get('zoo', 1.0)
+    for item in plan['diffs']:
+        if item[0] == 'show':
+            if v == 'A':
+                a = item[2]
+                o.append(_shrink(KIT[item[1]](*a), a[0], a[1], k))
+        elif item[0] == 'swap':
+            a = item[2] if v == 'A' else item[3]
+            o.append(_shrink(KIT[item[1]](*a), a[0], a[1], k))
+    return o
+
+
+def zoo_num_builder(plan):
+    return lambda v, pal, hell: zoo_num_scene(v, pal, hell, plan)
+
+
+def zoo_num_levels():
+    """6 关：号码变化的位置/数字对、动物顺序、其余 4 处普通差异各不相同"""
+    d_cloud = ('show', 'cloud', (150, 130))
+    ray_on = ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None))
+    ray_big = ('swap', 'sun', (650, 130, 30), (650, 130, 44))
+    balloon = ('show', 'balloon', (400, 110, '#ffd93b'))
+    kite = ('show', 'kite', (400, 110, '#ff6fa5', False))
+    stone = ('show', 'ball', (730, 520, 22, '#ff8f3c'))
+    flower = ('swap', 'flower', (70, 545, '#ff6fa5', 1.1), (70, 545, '#ff8f3c', 1.1))
+    bushc = ('swap', 'bush', (762, 528, 0.7, '#4fb84f'), (762, 528, 0.7, '#c9d94a'))
+    plans = [
+        dict(key='hard-37', name='动物园·号码牌 1', order=0, nums=[(0, '1', '4'), (6, '5', '0')],
+             diffs=[d_cloud, ray_on, balloon, stone]),
+        dict(key='hard-38', name='动物园·号码牌 2', order=1, nums=[(2, '3', '8'), (6, '1', '4')],
+             diffs=[d_cloud, ray_big, kite, flower]),
+        dict(key='hard-39', name='动物园·号码牌 3', order=2, nums=[(4, '5', '0'), (6, '9', '6')],
+             diffs=[d_cloud, ray_on, balloon, bushc]),
+        dict(key='hard-40', name='动物园·号码牌 4', order=3, nums=[(1, '2', '7'), (7, '8', '3')],
+             diffs=[d_cloud, ray_big, kite, stone]),
+        dict(key='hard-41', name='动物园·号码牌 5', order=4, nums=[(3, '4', '1'), (6, '0', '6')],
+             diffs=[d_cloud, ray_on, balloon, flower]),
+        dict(key='hard-42', name='动物园·号码牌 6', order=0, nums=[(0, '8', '3'), (8, '3', '8')],
+             diffs=[d_cloud, ray_big, kite, bushc]),
+    ]
+    return plans
+
+
 # 数据化关卡用的元素表：关卡的 deco/diffs 里只写名字，这里解析成真正画图函数
 KIT = dict((n, globals()[n]) for n in (
     'cloud sun birds tree bush flower tuft stone fence bench lamp pond path_center duck swan lily '
     'dragonfly butterfly bee balloon gate booth slide swing seesaw ball kite arch watering basket '
     'blanket mushroom squirrel boat reeds dirt cone pipes bricks windsock barrier building excavator '
     'bulldozer mixer_truck dump_truck road_roller crane_truck pen elephant giraffe monkey rabbit '
-    'penguin panda bamboo bowl banana hillrock digit plaque sand_patch bubbles fish clownfish butterfly_fish octopus turtle jellyfish starfish crab seahorse coral seaweed shell treasure anchor submarine bubble_num dolphin tent flag ferris carousel coaster bumper target candy cement_bags rebar tower_crane scaffold pump_truck forklift loader').split())
+    'penguin panda bamboo bowl banana hillrock digit plaque sand_patch bubbles fish clownfish butterfly_fish octopus turtle jellyfish starfish crab seahorse coral seaweed shell treasure anchor submarine bubble_num dolphin tent flag ferris carousel coaster bumper target candy cement_bags rebar tower_crane scaffold pump_truck forklift loader duckling').split())
 THEME_BG = {'zoo': zoo_bg, 'sea': sea_bg, 'fun': fun_bg, 'site': site_bg}
 
 PAL_DAY = dict(sky_top='#7fc4ee', sky_bottom='#d8f1ff', grass_top='#8ed86e', grass_bottom='#5fbf52',
@@ -1963,6 +2056,14 @@ for _k, (_key, _name, _build, _diffs, _extra) in enumerate(_HARD):
     SCENES.append(dict(key='hell-%d' % (_k + 1), name=_name + '·' + _HELL_SUFFIX[_k % len(_HELL_SUFFIX)],
                        build=_build, pal=PALETTES[_k % len(PALETTES)], hell=True,
                        diffs=_diffs + [_extra], want=7))
+
+
+# 动物园数字关：只加困难模式（不派生地狱版）
+for _plan in zoo_num_levels():
+    SCENES.append(dict(key=_plan['key'], name=_plan['name'], build=zoo_num_builder(_plan),
+                       pal=PAL_DAY, hell=False,
+                       diffs=['号码牌数字（比对每只动物身上的数字）'] + [d[1] for d in _plan['diffs']],
+                       want=6))
 
 
 # ==========================================================================
