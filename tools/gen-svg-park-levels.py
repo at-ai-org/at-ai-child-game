@@ -507,7 +507,8 @@ def scene_gate(v, pal, hell):
     for tx in (150, 230, 310, 390, 470, 550, 630, 710):
         o.append(tuft(tx, 590))
     o.append(cloud(200, 100) + cloud(620, 90) + birds((300, 180), (360, 205), (420, 182)))
-    o.append(gate(400, '#e5533f' if v == 'A' else '#3f7ff0'))                  # 门牌颜色
+    o.append(gate(400, '#e5533f'))                                             # 门体固定
+    o.append(_shrink(flag(400, 250, '#ffd93b' if v == 'A' else '#4aa8e0'), 400, 250, 0.7))  # 门顶小旗颜色
     if v == 'A':
         o.append(_shrink(balloon(150, 140, '#ffd93b'), 150, 140, 0.75))  # 气球数量
     o.append(balloon(660, 380, '#ef5350'))
@@ -515,8 +516,9 @@ def scene_gate(v, pal, hell):
         o.append(_shrink(cloud(400, 140), 400, 140, 0.75))  # 云朵数量
     o.append(_shrink(sun(650, 140, 34, rays=(46, 66, 14) if v == 'A' else None), 650, 140, 0.75))  # 太阳光芒
     o.append(booth(650, 559, window=(v == 'A')))                              # 售票亭窗户
-    fc = '#ff6fa5' if v == 'A' else '#b06ff0'                                  # 花丛颜色
-    o.append(flower(120, 470, fc, 1.8) + flower(160, 495, fc, 1.8) + flower(190, 465, fc, 1.8))
+    fc = '#ff6fa5'                                                # 花丛底色固定
+    o.append(flower(120, 470, fc, 1.2) + flower(160, 495, fc, 1.2)
+             + flower(190, 465, '#ff6fa5' if v == 'A' else '#b06ff0', 1.2))  # 三朵里有一朵不同色
     if hell and v == 'A':                                                      # 地狱第 7 处
         o.append(butterfly(400, 480, '#8b5cf6', 1.0))
     return o
@@ -646,8 +648,9 @@ def scene_garden(v, pal, hell):
     o.append(_shrink(butterfly(400, 140, '#ff6fa5' if v == 'A' else '#7f6ff0', 1.0), 400, 140, 0.75))  # 蝴蝶颜色
     if v == 'A':
         o.append(_shrink(cloud(150, 120), 150, 120, 0.75))  # 云朵数量
-    fc = '#ff6fa5' if v == 'A' else '#ffb703'                                  # 花坛颜色
-    o.append(flower(120, 470, fc, 1.8) + flower(160, 495, fc, 1.8) + flower(190, 465, fc, 1.8))
+    fc = '#ff6fa5'                                                # 花坛底色固定
+    o.append(flower(120, 470, fc, 1.2) + flower(160, 495, fc, 1.2)
+             + flower(190, 465, '#ff6fa5' if v == 'A' else '#b06ff0', 1.2))  # 三朵里有一朵不同色
     if v == 'A':
         o.append(_shrink(watering(400, 500, '#4aa8e0'), 400, 500, 0.75))  # 喷壶
     if v == 'A':
@@ -883,7 +886,7 @@ def site_scene(v, pal, hell, machine, mcolor, pcolor, extra_prop=None):
     o.append(cloud(300, 90) + cloud(560, 210) + cloud(240, 250))
     o.append(tree(760, 470, 44, apples=()))
     o.append(cloud(760, 250) + birds((360, 210), (422, 244)))
-    o.append(_shrink(machine(500, 500), 500, 500, 0.9))  # 挖斗/铲/筒 颜色是差异
+    o.append(_shrink(machine(500, 500), 500, 500, 0.75))  # 挖斗/铲/筒 颜色是差异
     if hell and v == 'A':
         o.append(_shrink(balloon(400, 140, '#ffd93b'), 400, 140, 0.75))  # 地狱第 7 处
     if v == 'A':
