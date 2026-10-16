@@ -587,8 +587,6 @@ def scene_pond(v, pal, hell):
     for fx, fy in ((210, 470), (250, 492), (290, 466), (330, 490), (370, 468)):
         o.append(flower(fx, fy, '#ff6fa5', 1.1))
     o.append(flower(150, 476, '#ff6fa5' if v == 'A' else '#ff8f3c', 1.1))   # ← 颜色不同
-    # 池边木牌：写 3（两版都是 3；A 图正好 3 只小鸭，B 图有 4 只）
-    o.append(pond_sign(180, 552, '3', 0.9))
     o.append(duckling(430, 470, mirror=True))
     o.append(duckling(520, 500))
     o.append(duckling(600, 466, mirror=True))
@@ -1181,7 +1179,7 @@ def zoo_levels():
               ('tree', (90, 470, 52, ((60, 430),))), ('bush', (740, 520, 0.9)),
               ('tuft', (300, 570)), ('stone', (700, 560, 24, 14))],
         diffs=[('show', 'cloud', (150, 130)),
-               ('digit', 400, 130, '8', '3', 0.85),
+               ('show', 'balloon', (400, 130, '#ffd93b')),
                ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None)),
                ('show', 'rabbit', (150, 505, 1.0)),
                ('show', 'bowl', (370, 505)),
@@ -1189,7 +1187,6 @@ def zoo_levels():
         extra=('bee', (400, 300, 1.0))))
     # hard-14 大象馆
     spec.append(dict(key='hard-14', name='大象馆', theme='zoo',
-        puzzle_sign=(150, 500, '3', 0.9),
         puzzle_deco=[('rabbit', (620, 500, 1.0)), ('rabbit', (700, 545, 0.9))],
         deco=[('pen', (560, 500, 300)), ('elephant', (560, 500, 1.0)),
               ('tree', (110, 470, 56, ((80, 425), (140, 450)))), ('pond', (760, 520, 90, 40)),
@@ -1208,13 +1205,12 @@ def zoo_levels():
         diffs=[('show', 'cloud', (150, 130)),
                ('swap', 'sun', (650, 130, 30), (650, 130, 44)),
                ('show', 'kite', (400, 110, '#8b5cf6', False)),
-               ('digit', 150, 505, '1', '4', 0.85),
+               ('show', 'rabbit', (150, 505, 0.7)),
                ('show', 'penguin', (370, 510, 1.0)),
                ('swap', 'tree', (760, 470, 46, ((730, 410), (770, 440))), (760, 470, 46, ((730, 410),)))],
         extra=('bee', (400, 300, 1.0))))
     # hard-16 猴山
     spec.append(dict(key='hard-16', name='猴山', theme='zoo',
-        puzzle_sign=(150, 505, '3', 0.9),
         puzzle_deco=[('rabbit', (620, 500, 1.0)), ('rabbit', (700, 545, 0.9))],
         deco=[('hillrock', (600, 500)), ('monkey', (600, 470, 1.1)), ('tree', (110, 470, 54, ())),
               ('bush', (300, 500, 0.9)), ('tuft', (180, 580)), ('stone', (740, 560, 24, 14))],
@@ -1232,7 +1228,7 @@ def zoo_levels():
         diffs=[('show', 'cloud', (150, 130)),
                ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None)),
                ('show', 'balloon', (400, 110, '#ef5350')),
-               ('digit', 150, 500, '0', '9', 0.85),
+               ('show', 'rabbit', (150, 500, 0.7)),
                ('show', 'panda', (370, 505, 0.7)),
                ('swap', 'bamboo', (680, 500, 250, '#4fb84f'), (680, 500, 250, '#c9d94a'))],
         extra=('bee', (400, 300, 1.0))))
@@ -1243,7 +1239,7 @@ def zoo_levels():
         diffs=[('show', 'cloud', (150, 130)),
                ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None)),
                ('show', 'balloon', (400, 110, '#ef5350')),
-               ('digit', 150, 505, '10', '4', 0.8),
+               ('show', 'rabbit', (150, 505, 0.7)),
                ('show', 'penguin', (370, 510, 0.9)),
                ('swap', 'flower', (620, 480, '#ff9f4a', 1.8), (620, 480, '#ff6fa5', 1.8))],
         extra=('bee', (400, 300, 1.0))))
@@ -1476,7 +1472,7 @@ def sea_levels():
         deco=[('coral', (620, 560, '#ff6fa5')), ('seaweed', (740, 580, '#4fb84f')),
               ('sand_patch', (200, 570)), ('shell', (100, 560, '#f2c9a0')), ('bubbles', (700, 250, 4))],
         diffs=[('show', 'fish', (150, 130, '#ffd93b', 1.0)),
-               ('digit', 400, 140, '3', '8', 0.9),
+               ('show', 'fish', (400, 140, '#ffd93b', 0.8)),
                ('show', 'jellyfish', (650, 130, '#b06ff0', 1.0)),
                ('swap', 'starfish', (110, 505, '#ff8f3c', 0.8), (110, 505, '#ff6fa5', 0.8)),
                ('show', 'turtle', (400, 505, '#ff8f3c', 0.62)),
@@ -1489,7 +1485,7 @@ def sea_levels():
         diffs=[('show', 'fish', (150, 130, '#ff6fa5', 1.0)),
                ('show', 'clownfish', (400, 130, 1.0)),
                ('show', 'jellyfish', (650, 130, '#ffd93b', 1.0)),
-               ('digit', 128, 505, '5', '2', 0.9),
+               ('show', 'shell', (128, 505, '#8b5cf6', 0.9)),
                ('swap', 'octopus', (370, 505, '#b06ff0'), (370, 505, '#ff8f3c')),
                ('swap', 'seaweed', (620, 560, '#4fb84f'), (620, 560, '#ff6fa5'))],
         extra=('fish', (400, 300, '#ffd93b', 0.7))))
@@ -1511,7 +1507,7 @@ def sea_levels():
         diffs=[('show', 'fish', (150, 130, '#ff8f3c', 1.0)),
                ('show', 'clownfish', (400, 130, 1.0)),
                ('swap', 'jellyfish', (650, 130, '#ff6fa5'), (650, 130, '#7fce8a')),
-               ('digit', 128, 505, '9', '6', 0.9),
+               ('show', 'shell', (128, 505, '#8b5cf6', 0.9)),
                ('swap', 'turtle', (400, 505, '#7fce8a', 0.62), (400, 505, '#8b5cf6', 0.62)),
                ('show', 'starfish', (620, 520, '#8b5cf6', 1.0))],
         extra=('fish', (400, 300, '#ff6fa5', 0.7))))
@@ -1520,7 +1516,7 @@ def sea_levels():
         deco=[('fish', (620, 300, '#5aa9e6', 0.9)), ('seaweed', (120, 580, '#4fb84f')),
               ('coral', (720, 570, '#b06ff0')), ('sand_patch', (400, 580)), ('bubbles', (300, 220, 5))],
         diffs=[('show', 'jellyfish', (150, 130, '#ff6fa5', 1.0)),
-               ('digit', 400, 140, '10', '4', 0.85),
+               ('show', 'fish', (400, 140, '#ffd93b', 0.8)),
                ('swap', 'fish', (650, 130, '#ffd93b', 1.0), (650, 130, '#7fce8a', 1.0)),
                ('show', 'octopus', (150, 505, '#ff8f3c', 1.0)),
                ('swap', 'starfish', (440, 505, '#ff8f3c', 0.8), (440, 505, '#8b5cf6', 0.8)),
@@ -1533,7 +1529,7 @@ def sea_levels():
         diffs=[('show', 'clownfish', (150, 130, 1.0)),
                ('show', 'fish', (400, 130, '#ffd93b', 1.0)),
                ('show', 'seahorse', (650, 130, '#ff6fa5', 1.0)),
-               ('digit', 128, 505, '0', '5', 0.9),
+               ('show', 'shell', (128, 505, '#8b5cf6', 0.9)),
                ('swap', 'coral', (620, 570, '#ff8f3c'), (620, 570, '#7fce8a')),
                ('show', 'crab', (370, 505, '#b06ff0', 1.0))],
         extra=('fish', (400, 300, '#ff8f3c', 1.0))))
@@ -1653,14 +1649,13 @@ def fun_levels():
     spec = []
     # hard-25 游乐园大门
     spec.append(dict(key='hard-25', name='游乐园大门', theme='fun',
-        puzzle_sign=(500, 560, '2', 0.8),
         puzzle_deco=[('candy', (560, 540, '#8b5cf6', 1.0))],
         deco=[('flag', (120, 300, '#ff6fa5')), ('flag', (700, 300, '#4aa8e0')),
               ('tent', (300, 560, '#ff8f3c')), ('tuft', (200, 580)), ('stone', (620, 575, 22, 13))],
         diffs=[('show', 'cloud', (150, 130)),
                ('show', 'balloon', (400, 110, '#ffd93b')),
                ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None)),
-               ('digit', 128, 505, '6', '9', 0.9),
+               ('show', 'candy', (128, 505, '#ff8f3c', 0.9)),
                ('show', 'candy', (370, 505, '#ff6fa5', 1.0)),
                ('swap', 'tent', (680, 545, '#ff8f3c', 0.45), (680, 545, '#8b5cf6', 0.45))],
         extra=('bee', (150, 300, 1.0))))
@@ -1670,7 +1665,7 @@ def fun_levels():
         diffs=[('show', 'cloud', (150, 130)),
                ('show', 'kite', (400, 110, '#ff6fa5', False)),
                ('swap', 'sun', (650, 130, 30), (650, 130, 44)),
-               ('digit', 128, 505, '2', '8', 0.9),
+               ('show', 'candy', (128, 505, '#ff8f3c', 0.9)),
                ('show', 'candy', (370, 505, '#ffd93b', 1.0)),
                ('swap', 'ferris', (570, 320, '#ff6fa5', '#ff6fa5'), (570, 320, '#ff6fa5', '#4aa8e0'))],
         extra=('bee', (150, 300, 1.0))))
@@ -1681,7 +1676,7 @@ def fun_levels():
         diffs=[('show', 'cloud', (150, 130)),
                ('show', 'balloon', (400, 110, '#ffd93b')),
                ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None)),
-               ('digit', 128, 505, '7', '9', 0.9),
+               ('show', 'candy', (128, 505, '#ff8f3c', 0.9)),
                ('show', 'candy', (370, 505, '#ff8f3c', 1.0)),
                ('swap', 'carousel', (560, 470, '#ff8f3c', '#ffffff'), (560, 470, '#ff8f3c', '#4aa8e0'))],
         extra=('bee', (150, 300, 1.0))))
@@ -1692,7 +1687,7 @@ def fun_levels():
         diffs=[('show', 'cloud', (150, 130)),
                ('show', 'balloon', (400, 110, '#ffd93b')),
                ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None)),
-               ('digit', 128, 505, '3', '5', 0.9),
+               ('show', 'candy', (128, 505, '#ff8f3c', 0.9)),
                ('show', 'candy', (370, 505, '#ff8f3c', 1.0)),
                ('swap', 'coaster', (620, 470, '#4aa8e0', '#ffd93b'), (620, 470, '#4aa8e0', '#ff6fa5'))],
         extra=('bee', (150, 300, 1.0))))
@@ -1703,7 +1698,7 @@ def fun_levels():
         diffs=[('show', 'cloud', (150, 130)),
                ('show', 'kite', (400, 110, '#ff6fa5', False)),
                ('swap', 'sun', (650, 130, 30), (650, 130, 44)),
-               ('digit', 128, 505, '4', '6', 0.9),
+               ('show', 'candy', (128, 505, '#ff8f3c', 0.9)),
                ('show', 'candy', (370, 505, '#b06ff0', 1.0)),
                ('swap', 'bumper', (660, 470, '#4aa8e0'), (660, 470, '#ff8f3c'))],
         extra=('bee', (150, 300, 1.0))))
@@ -1714,7 +1709,7 @@ def fun_levels():
         diffs=[('show', 'cloud', (150, 130)),
                ('show', 'balloon', (400, 110, '#ff6fa5')),
                ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None)),
-               ('digit', 128, 505, '0', '6', 0.9),
+               ('show', 'candy', (128, 505, '#ff8f3c', 0.9)),
                ('show', 'candy', (370, 505, '#ffd93b', 1.0)),
                ('swap', 'target', (660, 470, '#ffd93b'), (660, 470, '#4aa8e0'))],
         extra=('bee', (150, 300, 1.0))))
@@ -1825,7 +1820,7 @@ def site2_levels():
         diffs=[('show', 'cloud', (150, 130)),
                ('swap', 'tower_crane', (640, 560, '#e8b53c', '#ff8f3c'), (640, 560, '#e8b53c', '#3f7ff0')),
                ('swap', 'sun', (325 * 2, 130, 34, (46, 66, 14)), (325 * 2, 130, 34, None)),
-               ('digit', 140, 505, '10', '7', 0.85),
+               ('show', 'cone', (140, 505)),
                ('show', 'cement_bags', (400, 505, '#e8e4da', 2)),
                ('show', 'rebar', (700, 520, '#9aa3ad'))],
         extra=('bee', (150, 300, 1.0))))
@@ -1836,7 +1831,7 @@ def site2_levels():
         diffs=[('show', 'cloud', (150, 130)),
                ('show', 'balloon', (400, 110, '#ffd93b')),
                ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None)),
-               ('digit', 140, 505, '8', '5', 0.9),
+               ('show', 'cone', (140, 505)),
                ('show', 'cement_bags', (400, 505, '#e8e4da', 2)),
                ('show', 'cone', (700, 520))],
         extra=('bee', (150, 300, 1.0))))
@@ -1847,7 +1842,7 @@ def site2_levels():
         diffs=[('show', 'cloud', (150, 130)),
                ('show', 'balloon', (400, 110, '#ffd93b')),
                ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None)),
-               ('digit', 140, 505, '3', '8', 0.9),
+               ('show', 'cone', (140, 505)),
                ('show', 'cement_bags', (400, 505, '#e8e4da', 2)),
                ('show', 'cone', (700, 545))],
         extra=('bee', (150, 300, 1.0))))
@@ -1858,7 +1853,7 @@ def site2_levels():
         diffs=[('show', 'cloud', (150, 130)),
                ('show', 'balloon', (400, 110, '#ffd93b')),
                ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None)),
-               ('digit', 140, 505, '6', '9', 0.9),
+               ('show', 'cone', (140, 505)),
                ('show', 'cement_bags', (400, 505, '#e8e4da', 2)),
                ('swap', 'pump_truck', (640, 520, '#2f7fd0', '#ffd93b'), (640, 520, '#2f7fd0', '#3f7ff0'))],
         extra=('bee', (150, 300, 1.0))))
@@ -1869,7 +1864,7 @@ def site2_levels():
         diffs=[('show', 'cloud', (150, 130)),
                ('show', 'balloon', (400, 110, '#ffd93b')),
                ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None)),
-               ('digit', 140, 505, '2', '3', 0.9),
+               ('show', 'cone', (140, 505)),
                ('show', 'rebar', (370, 500, '#9aa3ad')),
                ('swap', 'forklift', (520, 520, '#e8b53c', '#ff8f3c'), (520, 520, '#e8b53c', '#3f7ff0'))],
         extra=('bee', (150, 300, 1.0))))
@@ -1880,7 +1875,7 @@ def site2_levels():
         diffs=[('show', 'cloud', (150, 130)),
                ('show', 'balloon', (400, 110, '#ffd93b')),
                ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None)),
-               ('digit', 140, 505, '1', '8', 0.9),
+               ('show', 'cone', (140, 505)),
                ('show', 'cement_bags', (400, 505, '#e8e4da', 2)),
                ('show', 'cone', (700, 520))],
         extra=('bee', (150, 300, 1.0))))
