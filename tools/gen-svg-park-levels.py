@@ -1198,7 +1198,7 @@ def zoo_levels():
                ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None)),
                ('show', 'balloon', (400, 110, '#ef5350')),
                ('show', 'rabbit', (110, 500, 1.0)),
-               ('show', 'monkey', (370, 505, 1.0)),
+               ('show', 'monkey', (370, 505, 0.7)),
                ('swap', 'ball', (600, 400, 34, '#ffd93b'), (600, 400, 34, '#4aa8e0'))],
         extra=('bee', (400, 300, 1.0))))
     # hard-15 长颈鹿
@@ -1653,6 +1653,8 @@ def fun_levels():
     spec = []
     # hard-25 游乐园大门
     spec.append(dict(key='hard-25', name='游乐园大门', theme='fun',
+        puzzle_sign=(500, 560, '2', 0.8),
+        puzzle_deco=[('candy', (560, 540, '#8b5cf6', 1.0))],
         deco=[('flag', (120, 300, '#ff6fa5')), ('flag', (700, 300, '#4aa8e0')),
               ('tent', (300, 560, '#ff8f3c')), ('tuft', (200, 580)), ('stone', (620, 575, 22, 13))],
         diffs=[('show', 'cloud', (150, 130)),
@@ -1660,7 +1662,7 @@ def fun_levels():
                ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None)),
                ('digit', 128, 505, '6', '9', 0.9),
                ('show', 'candy', (370, 505, '#ff6fa5', 1.0)),
-               ('swap', 'tent', (680, 545, '#ff8f3c', 0.75), (680, 545, '#8b5cf6', 0.75))],
+               ('swap', 'tent', (680, 545, '#ff8f3c', 0.45), (680, 545, '#8b5cf6', 0.45))],
         extra=('bee', (150, 300, 1.0))))
     # hard-26 摩天轮
     spec.append(dict(key='hard-26', name='摩天轮', theme='fun',
