@@ -61,7 +61,8 @@ PHOTO_MIN_GAP = 34
 PHOTO_PAD = 18
 
 # ---- 本次的自定门槛（比游戏更严，留富余量） ----
-MIN_DIFF_PX = 300      # 每处差异至少这么多像素（400×300 系）
+MIN_DIFF_PX = 110      # 每处差异至少这么多像素（400×300 系）：游戏下限 45，
+                       # 之前卡 300 是过度保守 —— 差异又大又均匀，反而比简单模式还好找
 WANT_GAP = 56          # 点位两两至少这么远
 WANT_MARGIN = 34       # 点位离四边至少这么远
 
@@ -511,30 +512,83 @@ def scene_gate(v, pal, hell):
     return o
 
 
+def duckling(x, y, mirror=False, body='#fffdf5', s=0.75):
+    """小鸭子（比 duck 小一半，用于"数一数"或藏在同类里）"""
+    f = ' scale(-1,1)' if mirror else ''
+    return (f'<g transform="translate({x},{y}) scale({s}){f}">'
+            f'<ellipse cx="0" cy="0" rx="26" ry="15" fill="{body}"/>'
+            f'<path d="M-20,-2 L-36,-10 L-22,6 Z" fill="#f2ecdc"/>'
+            f'<circle cx="18" cy="-16" r="12" fill="{body}"/>'
+            f'<path d="M28,-20 L44,-15 L28,-10 Z" fill="#ff9f2e"/>'
+            f'<circle cx="21" cy="-18" r="2.4" fill="#3b3b3b"/></g>')
+
+
+def lily_pad(x, y, r=22, color='#57bf5a'):
+    """睡莲叶（小片；数量差藏在几片相似的叶子里）"""
+    return f'<ellipse cx="{x}" cy="{y}" rx="{r}" ry="{r * 0.54:.0f}" fill="{color}"/>'
+
+
+def reed_one(x, base, h=96, color='#4aa83f'):
+    """单根芦苇（细，整根消失也只有一两百像素）"""
+    return (f'<path d="M{x},{base} q-6,-{h * 0.6:.0f} 2,-{h}" fill="none" stroke="{color}" '
+            f'stroke-width="9" stroke-linecap="round"/>'
+            f'<ellipse cx="{x + 2}" cy="{base - h - 16}" rx="11" ry="26" fill="#8b6b4a"/>')
+
+
+def pond_sign(x, base, d, s=1.0):
+    """池边木牌：数字是场景的一部分（不是天上飘的大牌子）"""
+    return (f'<rect x="{x - 8 * s:.0f}" y="{base - 150 * s:.0f}" width="{16 * s:.0f}" '
+            f'height="{150 * s:.0f}" fill="#8b6b4a"/>'
+            f'<rect x="{x - 54 * s:.0f}" y="{base - 240 * s:.0f}" width="{108 * s:.0f}" '
+            f'height="{88 * s:.0f}" rx="{10 * s:.0f}" fill="#f0dcae" stroke="#c9a06a" '
+            f'stroke-width="{5 * s:.0f}"/>'
+            + digit(x - 20 * s, base - 226 * s, d, 58 * s, '#5b4632'))
+
+
 def scene_pond(v, pal, hell):
-    """池塘边"""
-    o = _base(pal)
-    o.append(cloud(760, 200) + birds((300, 190), (362, 224)))
+    """池塘边（改版：差异变小、藏在同类物里；牌子写 3，鸭子在 B 图多一只 —— 数一数）"""
+    o = [defs(pal), sky(), hills((200, 425, 250, 85, pal['hill1']),
+                                  (640, 435, 280, 95, pal['hill2'])), grass(400)]
+    o.append(cloud(160, 90) + cloud(520, 60) + cloud(700, 170))
+    o.append(birds((300, 200), (350, 226), (410, 205)))
+    o.append(pond(390, 480, 300, 86))
+    # 岸边：两棵树 + 两丛灌木 + 一排草丛（同类重复，差异才藏得住）
+    o.append(tree(760, 470, 46, apples=()))
+    o.append(tree(70, 430, 40, apples=()))
+    o.append(bush(300, 430, 0.5) + bush(430, 420, 0.45))
+    for tx in (450, 520, 590, 660, 720):
+        o.append(tuft(tx, 580))
+    # 睡莲叶 5 片（B 少一片小的）
+    for px, py, pr in ((520, 470, 26), (612, 506, 30), (468, 524, 22), (600, 452, 20)):
+        o.append(lily_pad(px, py, pr))
     if v == 'A':
-        o.append(cloud(400, 120))                                          # 云朵数量
-    o.append(pond(450, 480, 250, 80))
-    o.append(tree(760, 470, 50, apples=()))
-    o.append(reeds(560, 440, 3, step=30) + tuft(150, 580) + stone(90, 570, 24, 14))
-    o.append(duck(560, 430))                                                   # 干扰：一直在
+        o.append(lily_pad(660, 500, 22))                    # ← 少一片
+    # 小石子 6 块（B 少一块小的）
+    for sx, sy, sr in ((110, 500, 20), (170, 522, 17), (60, 546, 18), (300, 526, 15), (352, 556, 17)):
+        o.append(stone(sx, sy, sr, round(sr * 0.6)))
+    # 芦苇 6 根（B 少一根）
+    for rx in (430, 456, 482, 534, 560, 586):
+        o.append(reed_one(rx, 540))
     if v == 'A':
-        o.append(duck(400, 480))                                               # 鸭子数量
+        o.append(reed_one(500, 540))                        # ← 少一根
+    # 岸边小花 6 朵（其中一朵颜色不同）
+    for fx, fy in ((210, 470), (250, 492), (290, 466), (330, 490), (370, 468)):
+        o.append(flower(fx, fy, '#ff6fa5', 1.1))
+    o.append(flower(150, 476, '#ff6fa5' if v == 'A' else '#ff8f3c', 1.1))   # ← 颜色不同
+    # 池边木牌：写 3（两版都是 3；A 图正好 3 只小鸭，B 图有 4 只）
+    o.append(pond_sign(180, 552, '3', 0.9))
+    o.append(duckling(430, 470, mirror=True))
+    o.append(duckling(520, 500))
+    o.append(duckling(600, 466, mirror=True))
     if v == 'A':
-        o.append(lily(650, 480, 32, flower_color='#ff6fa5'))                   # 荷叶
+        o.append(duckling(300, 430))                        # ← 数一数：A 是 3 只
+    # 天上：小云一朵（B 少一朵） + 蜻蜓一只（B 少一只）
     if v == 'A':
-        o.append(dragonfly(650, 180))                                          # 蜻蜓
-    stones = [(140, 500), (70, 545)]
+        o.append(cloud(640, 240, 0.7))
     if v == 'A':
-        stones.append((240, 560))                                              # 石头数量
-    for sx, sy in stones:
-        o.append(stone(sx, sy, 30, 18))
-    o.append(tree(150, 439, 70, canopy='#4fb84f' if v == 'A' else '#c9d94a'))  # 柳树颜色
+        o.append(dragonfly(150, 300))
     if hell and v == 'A':
-        o.append(balloon(400, 300, '#ffd93b'))
+        o.append(balloon(400, 110, '#ffd93b'))
     return o
 
 
