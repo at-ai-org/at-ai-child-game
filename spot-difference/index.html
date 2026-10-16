@@ -35,6 +35,20 @@ body{background: #0b1026;font-family: "PingFang SC", "Microsoft YaHei", system-u
 /* ---- 返回主页按钮 + 确认弹窗 ---- */
 #btnHome { position: absolute; top: 12px; left: 12px; z-index: 60; font-size: 20px; line-height: 1; padding: 9px 13px; border-radius: 12px; cursor: pointer; background: rgba(10, 16, 40, .72); border: 1px solid rgba(120, 200, 255, .35); color: #dff2ff; font-family: inherit; }
 #btnHome:active { transform: scale(.94); }
+/* ---- 难度选择（紧挨着返回主页按钮）---- */
+.diff-bar { position: absolute; top: 12px; left: 66px; z-index: 60; display: flex; gap: 3px;
+  background: rgba(10, 16, 40, .72); border: 1px solid rgba(120, 200, 255, .35);
+  border-radius: 12px; padding: 4px; backdrop-filter: blur(6px); }
+.diff-btn { font-family: inherit; font-size: 15px; line-height: 1; padding: 7px 13px; border-radius: 9px;
+  border: none; cursor: pointer; background: transparent; color: #9db4d8; font-weight: 600; letter-spacing: 1px; }
+.diff-btn:hover { color: #dff2ff; }
+.diff-btn.on { color: #3a2200; background: linear-gradient(90deg, #ff9c5c, #ffd35c); box-shadow: 0 2px 10px rgba(255,180,70,.4); }
+.diff-btn.on[data-diff="hard"] { color: #fff; background: linear-gradient(90deg, #ff7a5c, #ff4d6d); box-shadow: 0 2px 10px rgba(255,90,110,.45); }
+.diff-btn.on[data-diff="hell"] { color: #fff; background: linear-gradient(90deg, #8a4dff, #d84dff); box-shadow: 0 2px 10px rgba(180,80,255,.45); }
+.diff-bar.hidden { display: none; }
+.diff-bar.locked .diff-btn { opacity: .45; }
+.diff-bar.locked .diff-btn.on { opacity: 1; }
+@media (max-width: 620px) { .diff-bar { left: 60px; } .diff-btn { font-size: 13px; padding: 6px 9px; letter-spacing: 0; } }
 #homeConfirm { position: absolute; inset: 0; z-index: 90; background: rgba(4, 8, 22, .62); display: none; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
 #homeConfirm.show { display: flex; }
 #homeConfirm .hc-card { text-align: center; background: linear-gradient(160deg, #16224a, #0d1330); border: 2px solid #4f8cff; border-radius: 22px; padding: 26px 34px; box-shadow: 0 18px 50px rgba(0,0,0,.5); max-width: 84vw; }
@@ -49,6 +63,13 @@ body{background: #0b1026;font-family: "PingFang SC", "Microsoft YaHei", system-u
 </head>
 <body>
 <button id="btnHome" title="返回主页">🏠</button>
+
+<!-- 难度选择：只在开始界面出现，进入游戏后自动隐藏 -->
+<div id="diffBar" class="diff-bar" title="选择难度">
+  <button class="diff-btn" type="button" data-diff="easy">简单</button>
+  <button class="diff-btn" type="button" data-diff="hard">困难</button>
+  <button class="diff-btn" type="button" data-diff="hell">地狱</button>
+</div>
 <div id="homeConfirm">
   <div class="hc-card">
     <h2>🏠 返回游戏主页？</h2>
@@ -88,14 +109,16 @@ body{background: #0b1026;font-family: "PingFang SC", "Microsoft YaHei", system-u
 <div id="start">
   <h1>找不同小侦探</h1>
   <p class="rules">
-    左右两幅画看起来一样，其实藏着 5 处小秘密：<br>
+    左右两幅画看起来一样，其实藏着 <b id="startSpots">5</b> 处小秘密：<br>
     🔍 点击<b>任意一幅图</b>里不一样的地方 → 放大镜圈出它！<br>
     💡 实在找不到就点"提示"，一处不同会闪闪发光<br>
-    🚜 48 大场景<b>每局随机出题</b>：公园、海底、太空、水果摊、图书馆……还有挖掘机、压路机、塔吊等 12 种工程车！
+    <span id="startDiff">🎨 当前难度：<b>简单</b> · 48 个手绘场景，每局随机出题</span>
   </p>
   <button id="btnStart">开始侦探之旅</button>
 </div>
 
+<!-- 真图关卡的图片数据（base64 内嵌，见 tools/embed-photo-levels.py） -->
+<script src="photos-data.js"></script>
 <script>
 /* 屏蔽右键菜单：防止游戏中误触（触屏板双指/鼠标右键弹出系统菜单打断游戏） */
 window.addEventListener('contextmenu', e => e.preventDefault());
@@ -681,6 +704,366 @@ const SCENES = [
   }
 ];
 
+
+/* ---------------- 难度 ---------------- */
+const DIFFICULTY = {
+  easy: { key: 'easy', name: '简单', spots: 5, clutter: 0,  photo: false,
+          blurb: '48 个手绘场景，每局随机出题' },
+  hard: { key: 'hard', name: '困难', spots: 6, clutter: 24, photo: true,
+          blurb: '12 个手绘场景（6 个公园 + 6 个工地工程车），每关 6 处不同，还有飘动干扰' },
+  hell: { key: 'hell', name: '地狱', spots: 7, clutter: 40, photo: true,
+          blurb: '同 12 个场景换成黄昏/清晨/春日/秋日/夜晚，每关 7 处不同，干扰更多更花' },
+};
+const DIFF_ORDER = ['easy', 'hard', 'hell'];
+let difficulty = 'easy';
+try {
+  const saved = localStorage.getItem('spotdiff.difficulty');
+  if (saved && DIFFICULTY[saved]) difficulty = saved;
+} catch (e) { /* 隐私模式下 localStorage 可能抛异常，忽略 */ }
+
+function diffCfg() { return DIFFICULTY[difficulty]; }
+/* 每关要找几处：真图关卡由检测出的实际差异数决定，手绘关卡固定 5 处 */
+function spotsOf() {
+  const sc = curScene();
+  if (sc && sc.diffs && sc.diffs.length) return sc.diffs.length;
+  return diffCfg().spots;
+}
+function scenePool() { return difficulty === 'easy' ? SCENES : PHOTO_SCENES[difficulty]; }
+function totalLevels() { return LEVELS.length; }
+
+/* =========================================================================
+ * 真图关卡（困难 / 地狱 = 公园手绘 SVG 场景：困难 6 处、地狱换天色 7 处）
+ *   SVG 源与 400×300 出图见 tools/gen-svg-park-levels.py；
+ *   出图后跑 tools/embed-photo-levels.py 内嵌成 photos-data.js
+ *
+ * 每关有 A/B 两张模型画的图，差异由**游戏自己比对出来**（computePhotoDiffs）：
+ * 把两张图画到离屏画布，逐像素比色差，连通域就是一处变化。
+ *
+ * 为什么不在离线阶段把差异坐标写死？
+ *   写死的话，只要检测漏掉一处（阈值高了一点、边缘没圈住），那一处就成了陷阱 ——
+ *   孩子看得见、点上去却判错。运行时比对则天然自洽：凡是两张图真不一样的地方，
+ *   一定在判定区域里；数量、位置、提示区域全部跟着图走，不会对不上。
+ *
+ * 图片以 base64 内嵌在 photos-data.js 里（不是 images/*.jpg 相对路径），
+ * 因为 file:// 下按路径加载的本地图片会污染画布，读像素会抛 SecurityError。
+ * ========================================================================= */
+const PHOTO_DATA = window.PHOTO_DATA || {};
+const PHOTO_IMAGES = {};      // key -> { A: Image, B: Image }
+const PHOTO_FAILED = {};      // 加载失败的，避免反复重试
+let frameTime = 0;            // 同一帧内 A/B 共用同一个时间，干扰要素才不会变成"差异"
+
+/* 差异判定参数（和离线生成脚本里的取值保持一致） */
+const PHOTO_DIFF_TH = 110;    // 单像素色差阈值（RGB 之和）
+const PHOTO_MIN_AREA = 45;    // 一处变化至少覆盖这么多像素才算"看得见"
+const PHOTO_MERGE = 30;       // 碎块合并距离
+const PHOTO_MAX_W = 220;      // 一组变化的最大包围盒（防止连锁合并吞掉整幅图）
+const PHOTO_MAX_H = 180;
+const PHOTO_MIN_GAP = 34;     // 点位两两至少这么远
+const PHOTO_PAD = 18;         // 判定区域外扩。除了给小朋友容差，
+                              // 也把差异边缘那些肉眼看不见的一两个像素碎点一起圈进来
+
+const PHOTO_SCENES = { hard: [], hell: [] };
+(function buildPhotoScenes() {
+  const order = {
+    hard: ['hard-1', 'hard-2', 'hard-3', 'hard-4', 'hard-5', 'hard-6',
+           'hard-7', 'hard-8', 'hard-9', 'hard-10', 'hard-11', 'hard-12'],
+    hell: ['hell-1', 'hell-2', 'hell-3', 'hell-4', 'hell-5', 'hell-6',
+           'hell-7', 'hell-8', 'hell-9', 'hell-10', 'hell-11', 'hell-12'],
+  };
+  for (const group of ['hard', 'hell']) {
+    for (const key of order[group]) {
+      const d = PHOTO_DATA[key];
+      if (!d) continue;
+      const sc = {
+        key: key, name: d.name, group: group,
+        imgA: d.A, imgB: d.B, seed: (key.charCodeAt(key.length - 1) || 1) * 7919,
+      };
+      sc.draw = function (g, v) { photoDraw(sc, g, v); };
+      PHOTO_SCENES[group].push(sc);
+    }
+  }
+})();
+
+/* 预加载（浏览器里是异步的；测试环境里 Image 会同步回调）。
+ * ⚠ 每关有 A、B 两张图，两张都要加载 —— 只加载 A 会让右图一直显示"照片加载中"。 */
+function preloadPhotos(list, onReady) {
+  const todo = [];
+  for (const sc of (list || [])) {
+    if (!sc || !sc.key) continue;
+    if (PHOTO_IMAGES[sc.key]) continue;
+    if (PHOTO_FAILED[sc.key]) continue;
+    todo.push(sc);
+  }
+  let left = todo.length, done = false;
+  const finish = function () {
+    if (!done && left <= 0) { done = true; if (onReady) onReady(); }
+  };
+  if (!left) { finish(); return 0; }
+  for (const sc of todo) {
+    const box = { A: null, B: null };
+    let got = 0;
+    const one = function () {
+      got++;
+      if (got >= 2) {
+        if (box.A && box.B) PHOTO_IMAGES[sc.key] = box;
+        else PHOTO_FAILED[sc.key] = 1;
+        left--; finish();
+      }
+    };
+    for (const which of ['A', 'B']) {
+      const img = new Image();
+      img.onload = function () { box[which] = img; one(); };
+      img.onerror = function () { one(); };
+      img.src = sc['img' + which];
+    }
+  }
+  finish();                  // 同步回调的情况（测试桩）在这里收口
+  return left;
+}
+
+/* ---------------- 差异检测：游戏自己比对 A/B 两张图 ---------------- */
+function computePhotoDiffs(sc) {
+  if (sc._diffs) return sc._diffs;
+  const imgs = PHOTO_IMAGES[sc.key];
+  if (!imgs || !imgs.A || !imgs.B) return null;
+  const W = IMG_W, H = IMG_H;
+  const ca = document.createElement('canvas'); ca.width = W; ca.height = H;
+  const cb = document.createElement('canvas'); cb.width = W; cb.height = H;
+  const ga = ca.getContext('2d'), gb = cb.getContext('2d');
+  ga.drawImage(imgs.A, 0, 0, W, H);
+  gb.drawImage(imgs.B, 0, 0, W, H);
+  let da, db;
+  try {
+    da = ga.getImageData(0, 0, W, H).data;
+    db = gb.getImageData(0, 0, W, H).data;
+  } catch (e) {
+    return null;               // 画布被污染（data URI 理论上不会），交给上层兜底
+  }
+  const mask = new Uint8Array(W * H);
+  for (let i = 0, p = 0; i < mask.length; i++, p += 4) {
+    const d = Math.abs(da[p] - db[p]) + Math.abs(da[p + 1] - db[p + 1]) +
+              Math.abs(da[p + 2] - db[p + 2]);
+    if (d > PHOTO_DIFF_TH) mask[i] = 1;
+  }
+  /* 连通域：每一块连通的差异像素 */
+  const seen = new Uint8Array(W * H);
+  const clusters = [];
+  for (let i = 0; i < mask.length; i++) {
+    if (!mask[i] || seen[i]) continue;
+    const stack = [i]; seen[i] = 1;
+    let area = 0, minX = W, minY = H, maxX = -1, maxY = -1, sx = 0, sy = 0, dsum = 0;
+    while (stack.length) {
+      const q = stack.pop();
+      const x = q % W, y = (q - x) / W;
+      area++; sx += x; sy += y;
+      const p = q * 4;
+      dsum += Math.abs(da[p] - db[p]) + Math.abs(da[p + 1] - db[p + 1]) +
+              Math.abs(da[p + 2] - db[p + 2]);
+      if (x < minX) minX = x; if (x > maxX) maxX = x;
+      if (y < minY) minY = y; if (y > maxY) maxY = y;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = x + dx, ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+          const r = ny * W + nx;
+          if (mask[r] && !seen[r]) { seen[r] = 1; stack.push(r); }
+        }
+      }
+    }
+    clusters.push({ area: area, minX: minX, minY: minY, maxX: maxX, maxY: maxY,
+                    cx: sx / area, cy: sy / area, strength: dsum / area });
+  }
+  /* 合并成"一处变化"：同一处常被拆成好几块（描边、阴影分开）；
+   * 中心离得比判定间距还近的也必须并成一处，否则第二处没有点位/区域，
+   * 孩子点它会判错。 */
+  const groups = [];
+  const near = function (a, b) {
+    const nx0 = Math.min(a[0], b[0]), ny0 = Math.min(a[1], b[1]);
+    const nx1 = Math.max(a[2], b[2]), ny1 = Math.max(a[3], b[3]);
+    return (a[0] <= b[2] + PHOTO_MERGE && a[2] >= b[0] - PHOTO_MERGE &&
+            a[1] <= b[3] + PHOTO_MERGE && a[3] >= b[1] - PHOTO_MERGE &&
+            nx1 - nx0 <= PHOTO_MAX_W && ny1 - ny0 <= PHOTO_MAX_H);
+  };
+  for (const c of clusters) {
+    if (c.area < PHOTO_MIN_AREA) continue;
+    const box = [c.minX, c.minY, c.maxX, c.maxY];
+    let hit = null;
+    for (const g of groups) {
+      const tooClose = Math.hypot(c.cx - g.cx, c.cy - g.cy) < PHOTO_MIN_GAP;
+      if (near(box, g.bbox) || tooClose) { hit = g; break; }
+    }
+    if (hit) {
+      hit.members.push(c);
+      hit.bbox = [Math.min(hit.bbox[0], box[0]), Math.min(hit.bbox[1], box[1]),
+                  Math.max(hit.bbox[2], box[2]), Math.max(hit.bbox[3], box[3])];
+      hit.area += c.area;
+    } else {
+      groups.push({ members: [c], bbox: box, area: c.area, cx: c.cx, cy: c.cy });
+    }
+  }
+  /* 合并后可能又能连上，再迭代两轮 */
+  for (let pass = 0; pass < 2; pass++) {
+    for (let i = 0; i < groups.length; i++) {
+      for (let j = i + 1; j < groups.length; j++) {
+        const a = groups[i], b = groups[j];
+        if (near(a.bbox, b.bbox) ||
+            Math.hypot(a.cx - b.cx, a.cy - b.cy) < PHOTO_MIN_GAP) {
+          a.members = a.members.concat(b.members);
+          a.bbox = [Math.min(a.bbox[0], b.bbox[0]), Math.min(a.bbox[1], b.bbox[1]),
+                    Math.max(a.bbox[2], b.bbox[2]), Math.max(a.bbox[3], b.bbox[3])];
+          a.area += b.area;
+          groups.splice(j, 1);
+          j--;
+        }
+      }
+    }
+  }
+  /* 生成游戏要的差异结构：x/y 是提示圈位置（差异最密处），boxes 是判定区域 */
+  const diffs = [];
+  const density = function (cx, cy) {
+    let n = 0;
+    for (let y = Math.max(0, cy - 12); y < Math.min(H, cy + 12); y++) {
+      for (let x = Math.max(0, cx - 12); x < Math.min(W, cx + 12); x++) {
+        if (mask[y * W + x]) n++;
+      }
+    }
+    return n;
+  };
+  for (const g of groups) {
+    const members = g.members.slice().sort(function (a, b) {
+      return (b.area * b.strength) - (a.area * a.strength);
+    });
+    let px = null, py = null, best = -1;
+    for (const c of members) {
+      const cx = Math.min(Math.max(Math.round(c.cx), 40), W - 40);
+      const cy = Math.min(Math.max(Math.round(c.cy), 40), H - 40);
+      const v = density(cx, cy);
+      if (v > best) { best = v; px = cx; py = cy; }
+    }
+    if (px === null) { px = 40; py = 40; }
+    /* 点位太近的就挪一挪，避免两个提示圈叠在一起 */
+    if (diffs.some(function (d) { return Math.hypot(d.x - px, d.y - py) < PHOTO_MIN_GAP; })) {
+      let moved = false;
+      for (const c of members) {
+        const qx = Math.min(Math.max(Math.round(c.cx), 40), W - 40);
+        const qy = Math.min(Math.max(Math.round(c.cy), 40), H - 40);
+        if (!diffs.some(function (d) { return Math.hypot(d.x - qx, d.y - qy) < PHOTO_MIN_GAP; })) {
+          px = qx; py = qy; moved = true; break;
+        }
+      }
+      if (!moved) { continue; }   // 实在放不下才会走到这（极少）
+    }
+    const boxes = members.map(function (c) {
+      return [Math.max(0, c.minX - PHOTO_PAD), Math.max(0, c.minY - PHOTO_PAD),
+              Math.min(W - 1, c.maxX + PHOTO_PAD), Math.min(H - 1, c.maxY + PHOTO_PAD)];
+    });
+    diffs.push({ x: px, y: py, boxes: boxes, area: g.area,
+                 desc: photoKind(g), core: best });
+  }
+
+  /* 把邻近的小碎点并进最近的差异区域。
+   * JPEG 压缩和抗锯齿会在差异边缘留下一两个像素的碎点，肉眼看不见，
+   * 但孩子点到那里会被判"错"，体验很糟。这里把离某处差异较近的碎点
+   * 一并算进那处差异的判定区域（不会增加差异数量）。 */
+  for (const c of clusters) {
+    if (c.area >= PHOTO_MIN_AREA) continue;      // 大块已经在上面分组了
+    let best = -1, bestD = Infinity;
+    for (let i = 0; i < diffs.length; i++) {
+      for (const b of diffs[i].boxes) {
+        const dx = Math.max(b[0] - c.cx, 0, c.cx - b[2]);
+        const dy = Math.max(b[1] - c.cy, 0, c.cy - b[3]);
+        const dist = Math.hypot(dx, dy);
+        if (dist < bestD) { bestD = dist; best = i; }
+      }
+    }
+    if (best >= 0 && bestD <= 80) {
+      diffs[best].boxes.push([Math.max(0, c.minX - PHOTO_PAD), Math.max(0, c.minY - PHOTO_PAD),
+                              Math.min(W - 1, c.maxX + PHOTO_PAD), Math.min(H - 1, c.maxY + PHOTO_PAD)]);
+    }
+  }
+
+  sc._diffs = diffs;
+  return diffs;
+}
+
+/* 粗判这处差异是哪一类，提示语用（"注意看XX的位置"） */
+function photoKind(g) {
+  const w = g.bbox[2] - g.bbox[0] + 1, h = g.bbox[3] - g.bbox[1] + 1;
+  const fill = g.area / Math.max(1, w * h);
+  let strength = 0;
+  for (const c of g.members) strength += c.strength * c.area;
+  strength = strength / Math.max(1, g.area);
+  if (strength > 150) return '颜色不一样';
+  if (fill > 0.55 && g.area > 900) return '有东西不见了';
+  if (fill < 0.30) return '多了或少了个小东西';
+  return '形状不一样';
+}
+
+/* 难度越高干扰越多：飘动的碎屑 + 暗角（地狱再加几团飘过的雾光）。
+ * 注意 A/B 两版必须逐像素一致，否则它们自己会变成"差异"。 */
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function drawClutter(g, scene) {
+  const n = diffCfg().clutter;
+  if (!n) return;
+  const rnd = mulberry32(((scene && scene.seed) || 1) * 7919 + 13);
+  const t = frameTime;                       // A/B 同一帧同一个 t
+  const heavy = n >= 20;
+  const vig = g.createRadialGradient(IMG_W / 2, IMG_H / 2, IMG_H * 0.30,
+                                     IMG_W / 2, IMG_H / 2, IMG_W * 0.72);
+  vig.addColorStop(0, 'rgba(0,0,0,0)');
+  vig.addColorStop(1, 'rgba(0,0,0,' + (heavy ? 0.30 : 0.16) + ')');
+  g.fillStyle = vig;
+  g.fillRect(0, 0, IMG_W, IMG_H);
+  for (let i = 0; i < n; i++) {
+    const x0 = rnd() * IMG_W, y0 = rnd() * IMG_H;
+    const r = 2 + rnd() * (heavy ? 7 : 4.5);
+    const speed = 5 + rnd() * 12;
+    const sway = 10 + rnd() * 16;
+    const warm = rnd() < 0.45;
+    const x = (x0 + Math.sin(t * 0.6 + i) * sway + IMG_W) % IMG_W;
+    const y = (y0 + t * speed) % (IMG_H + 30) - 15;
+    g.fillStyle = warm ? 'rgba(255,214,140,.34)' : 'rgba(226,240,255,.30)';
+    g.beginPath();
+    g.ellipse(x, y, r, r * (warm ? 0.62 : 0.82), (i % 6) * 0.5, 0, Math.PI * 2);
+    g.fill();
+  }
+  if (heavy) {
+    for (let i = 0; i < 3; i++) {
+      const rr = 70 + i * 18;
+      const x = (i * 150 + t * (10 + i * 4)) % (IMG_W + rr * 2) - rr;
+      const y = 40 + i * 90 + Math.sin(t * 0.4 + i) * 16;
+      const grd = g.createRadialGradient(x, y, 2, x, y, rr);
+      grd.addColorStop(0, 'rgba(255,255,255,.16)');
+      grd.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = grd;
+      g.beginPath(); g.arc(x, y, rr, 0, Math.PI * 2); g.fill();
+    }
+  }
+}
+
+/* 真图场景的绘制入口（签名与手绘场景一致） */
+function photoDraw(scene, g, v) {
+  const imgs = PHOTO_IMAGES[scene.key];
+  const img = imgs ? (v === 'B' ? imgs.B : imgs.A) : null;
+  if (img) {
+    g.drawImage(img, 0, 0, IMG_W, IMG_H);
+  } else {
+    g.fillStyle = '#1b2450'; g.fillRect(0, 0, IMG_W, IMG_H);
+    g.fillStyle = '#9db4d8';
+    g.font = '600 20px system-ui, sans-serif';
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(PHOTO_FAILED[scene.key] ? '图片加载失败' : '图片加载中…', IMG_W / 2, IMG_H / 2);
+  }
+  drawClutter(g, scene);
+}
+
 /* ---------------- 关卡顺序（每局随机） ----------------
  * 以前 48 个场景永远按固定顺序出题，孩子玩两遍就记住了"下一关是哪个"，
  * 靠记忆而不是靠观察，难度直线下降。现在改成：每次开局（含"再玩一次"）
@@ -688,13 +1071,13 @@ const SCENES = [
  * 游戏逻辑一律通过 curScene() 取当前关卡场景，不要再直接按下标取 SCENES。 */
 let LEVELS = SCENES.slice();
 function shuffleLevels() {
+  LEVELS = scenePool().slice();          // 换难度 = 换整个关卡池
   for (let i = LEVELS.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     const t = LEVELS[i]; LEVELS[i] = LEVELS[j]; LEVELS[j] = t;
   }
 }
 function curScene() { return LEVELS[level - 1]; }
-const TOTAL_LEVELS = SCENES.length;      // 关卡总数 = 场景数
 
 /* ---------------- 状态 ---------------- */
 let state = STATE.START;
@@ -797,9 +1180,9 @@ $('btnMute').addEventListener('click', () => {
 /* ---------------- HUD / Toast ---------------- */
 function updateHUD() {
   $('hudLevel').textContent = String(level);
-  $('hudTotalLevel').textContent = String(TOTAL_LEVELS);
+  $('hudTotalLevel').textContent = String(totalLevels());
   $('hudFound').textContent = String(foundCount);
-  $('hudTotal').textContent = String(5);
+  $('hudTotal').textContent = String(spotsOf());
   $('hudHints').textContent = String(hintTotal);
 }
 let toastTimer = null;
@@ -816,8 +1199,14 @@ function toast(text, good) {
 const PRAISES = ['太棒了', '好厉害', '真不错', '顶呱呱', '火眼金睛'];
 
 function startLevel() {
+  /* 真图关卡：开局先让游戏自己比对 A/B 两张图，算出差异在哪 */
+  const sc0 = curScene();
+  if (diffCfg().photo && sc0 && !sc0._diffs) {
+    const d = computePhotoDiffs(sc0);
+    if (d) sc0.diffs = d;
+  }
   foundCount = 0;
-  foundFlags = [0,0,0,0,0];
+  foundFlags = new Array(spotsOf()).fill(0);
   marks = [];
   fireworks = [];
   hintFlash = -1;
@@ -826,7 +1215,8 @@ function startLevel() {
   cheerTimer = -1;
   state = STATE.RUNNING;
   updateHUD();
-  say(`第 ${level} 关 ${curScene().name}，找出 5 处不同吧！`);
+  updateDiffBar();          // 进游戏就收起难度按钮
+  say(`第 ${level} 关 ${curScene().name}，找出 ${spotsOf()} 处不同吧！`);
 }
 
 function hitDiff(i) {
@@ -841,14 +1231,14 @@ function hitDiff(i) {
   toast(`${praise}！找到${d.desc}`, true);
   say(`${praise}！找到了${d.desc}`);
   updateHUD();
-  if (foundCount >= 5) {
+  if (foundCount >= spotsOf()) {
     cheerTimer = CHEER_TIME;
     state = STATE.LEVEL_UP;
     sfxCheer();
     spawnFireworks();
-    const last = level >= TOTAL_LEVELS;
+    const last = level >= totalLevels();
     toast(last ? '🎉 全部通关啦！' : '🎉 本关找齐啦！', true);
-    say(last ? `太厉害了！${TOTAL_LEVELS} 关全部通关！` : `${curScene().name}找齐啦！真棒！`);
+    say(last ? `太厉害了！${totalLevels()} 关全部通关！` : `${curScene().name}找齐啦！真棒！`);
   }
   return true;
 }
@@ -868,7 +1258,29 @@ function clickStage(gx, gy) {
   /* gx/gy 是 400×300 图内坐标 */
   if (state !== STATE.RUNNING) return false;
   const scene = curScene();
-  /* 在所有未找到的差异里，挑"点击点落在判定圈内、且离点击最近"的那一个。
+
+  /* ① 区域判定：真图关卡的一处变化往往占很大一片（比如整栋楼换了颜色、
+   *    一堆木板变了色），点在这块区域里的任何位置都应该算找到，
+   *    不能只认一个点 —— 否则孩子明明点对了却判错。
+   *    多块区域重叠时，取中心离点击最近的那一处。 */
+  let regionBest = -1, regionDist = Infinity;
+  for (let i = 0; i < scene.diffs.length; i++) {
+    if (foundFlags[i]) continue;
+    const d = scene.diffs[i];
+    if (!d.boxes) continue;
+    /* 容差 14px：小朋友瞄不准，点在物体边上一点也该算对。
+     * 差异区域本身是离线按像素检测出来的，放宽这点不会误判别的地方。 */
+    for (const b of d.boxes) {
+      if (gx >= b[0] - 14 && gx <= b[2] + 14 && gy >= b[1] - 14 && gy <= b[3] + 14) {
+        const cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2;
+        const dist = (gx - cx) * (gx - cx) + (gy - cy) * (gy - cy);
+        if (dist < regionDist) { regionDist = dist; regionBest = i; }
+      }
+    }
+  }
+  if (regionBest >= 0) return hitDiff(regionBest);
+
+  /* ② 点位判定：在所有未找到的差异里，挑"点击点落在判定圈内、且离点击最近"的那一个。
    * 用归一化距离（d²/r²）比较，判定圈大的点不会被判定圈小的点抢走。 */
   let best = -1, bestScore = Infinity;
   for (let i = 0; i < scene.diffs.length; i++) {
@@ -5264,10 +5676,22 @@ function drawPileDriver(g, v) {
 
 /* ---------------- 舞台渲染 ---------------- */
 function drawStage(scene) {
+  /* 单幅绘制失败也不能让整帧中断：否则后面的放大镜、提示圈全都画不出来，
+   * 表现就是"点对了没反应、提示没用"，很难查 */
+  const safeDraw = function (g, v) {
+    try {
+      scene.draw(g, v);
+    } catch (err) {
+      if (!drawStage.warned) {
+        drawStage.warned = true;
+        console.warn('场景绘制失败（' + scene.name + ' ' + v + '）：', err);
+      }
+    }
+  };
   ctx.save();
   ctx.translate(stageTop.x, stageTop.y);
   ctx.scale(stageTop.w / IMG_W, stageTop.h / IMG_H);
-  scene.draw(ctx, 'A');
+  safeDraw(ctx, 'A');
   ctx.restore();
 
   ctx.save();
@@ -5277,7 +5701,7 @@ function drawStage(scene) {
   }
   ctx.translate(stageBot.x + ox, stageBot.y + oy);
   ctx.scale(stageBot.w / IMG_W, stageBot.h / IMG_H);
-  scene.draw(ctx, 'B');
+  safeDraw(ctx, 'B');
   ctx.restore();
 }
 
@@ -5321,15 +5745,28 @@ function drawHintFlash(now) {
   const blink = 0.5 + 0.5 * Math.sin(now * 14);
   ctx.save();
   ctx.globalAlpha = blink;
+  ctx.strokeStyle = '#5cc8ff';
+  ctx.lineWidth = 5;
+  ctx.setLineDash([10, 8]);
   for (const s of [stageTop, stageBot]) {
-    const cx = s.x + d.x / IMG_W * s.w;
-    const cy = s.y + d.y / IMG_H * s.h;
-    ctx.strokeStyle = '#5cc8ff';
-    ctx.lineWidth = 5;
-    ctx.setLineDash([10, 8]);
-    ctx.beginPath(); ctx.arc(cx, cy, 34 * (s.w / IMG_W), 0, Math.PI*2); ctx.stroke();
-    ctx.setLineDash([]);
+    const kx = s.w / IMG_W, ky = s.h / IMG_H;
+    /* 真图关卡的一处变化常常占一大片（比如整栋楼换了颜色）。
+     * 只画一个小圈会让人以为"提示的位置不对"，所以按区域框整块高亮。 */
+    if (d.boxes && d.boxes.length) {
+      for (const b of d.boxes) {
+        const x0 = s.x + b[0] * kx, y0 = s.y + b[1] * ky;
+        const w0 = (b[2] - b[0]) * kx, h0 = (b[3] - b[1]) * ky;
+        ctx.strokeRect(x0 - 3, y0 - 3, w0 + 6, h0 + 6);
+      }
+      continue;
+    }
+    const cx = s.x + d.x * kx;
+    const cy = s.y + d.y * ky;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 34 * kx, 0, Math.PI * 2);
+    ctx.stroke();
   }
+  ctx.setLineDash([]);
   ctx.restore();
 }
 
@@ -5346,6 +5783,7 @@ function drawFireworks() {
 }
 
 function render(now) {
+  frameTime = now / 1000;      // A/B 同帧同值，干扰要素两幅完全一致
   ctx.clearRect(0, 0, W, H);
   const bg = ctx.createLinearGradient(0, 0, 0, H);
   bg.addColorStop(0, '#070d26');
@@ -5412,7 +5850,7 @@ function frame(now) {
       cheerTimer -= dt;
       if (cheerTimer <= 0) {
         cheerTimer = -1;
-        if (level >= TOTAL_LEVELS) {
+        if (level >= totalLevels()) {
           showResult();
         } else {
           level++;
@@ -5429,6 +5867,7 @@ requestAnimationFrame(frame);
 
 /* ---------------- 结算 ---------------- */
 function showResult() {
+  updateDiffBar();          // 结算界面重新露出难度按钮
   let title, medal;
   if (hintTotal === 0)      { title = '🥇 金牌小侦探！'; medal = '金牌'; }
   else if (hintTotal <= 8)  { title = '🥈 银牌小侦探！'; medal = '银牌'; }
@@ -5436,7 +5875,8 @@ function showResult() {
   else                      { title = '🎉 观察小能手！'; medal = '参与奖'; }
   $('resultTitle').textContent = title;
   $('resultDesc').innerHTML =
-    `闯过 <b style="color:#ffd35c">${TOTAL_LEVELS}</b> 个场景（${medal}）<br>` +
+    `闯过 <b style="color:#ffd35c">${totalLevels()}</b> 个${diffCfg().photo ? '实景照片' : '场景'}` +
+    `（${diffCfg().name}难度 · ${medal}）<br>` +
     `使用提示 <b style="color:#ffd35c">${hintTotal}</b> 次 · 点错 <b style="color:#ffcf6b">${wrongTotal}</b> 次<br>` +
     `你的眼睛真尖，下次试试不用提示哦！`;
   $('result').classList.add('show');
@@ -5446,9 +5886,10 @@ function showResult() {
 
 /* ---------------- 开始 / 重开 ---------------- */
 function resetGame() {
+  updateDiffBar();
   shuffleLevels();                 // 每局重新洗牌：出题顺序不再固定
   level = 1; foundCount = 0;
-  foundFlags = [0,0,0,0,0];
+  foundFlags = new Array(spotsOf()).fill(0);
   hintTotal = 0; wrongTotal = 0;
   marks = []; fireworks = [];
   hintFlash = -1; hintUntil = 0;
@@ -5457,6 +5898,12 @@ function resetGame() {
   updateHUD();
 }
 $('btnStart').addEventListener('click', () => {
+  /* 真图还没就位就先等一下，免得开局看到两张"照片加载中"的空图 */
+  if (!photosReady()) {
+    say('照片正在加载，马上就好…');
+    ensurePhotos(function () { $('btnStart').click(); });
+    return;
+  }
   initAudio();
   $('start').style.display = 'none';
   resetGame();
@@ -5467,6 +5914,83 @@ $('btnRestart').addEventListener('click', () => {
   resetGame();
   startLevel();
 });
+
+/* ---------------- 难度选择 ---------------- */
+function refreshStartText() {
+  const cfg = diffCfg();
+  const sp = $('startSpots'); if (sp) sp.textContent = String(cfg.spots);
+  const sd = $('startDiff');
+  if (sd) sd.innerHTML = '🎨 当前难度：<b>' + cfg.name + '</b> · ' + cfg.blurb;
+  const tl = $('hudTotalLevel'); if (tl) tl.textContent = String(totalLevels());
+}
+
+function updateDiffBar() {
+  const bar = $('diffBar');
+  if (!bar) return;
+  const btns = bar.querySelectorAll('.diff-btn');
+  for (let i = 0; i < btns.length; i++) {
+    btns[i].classList.toggle('on', btns[i].getAttribute('data-diff') === difficulty);
+  }
+  /* 只在开始界面显示：玩的时候屏幕上不该有难度按钮，
+   * 免得孩子玩着玩着把难度点掉了 */
+  const showBar = (state === STATE.START || state === STATE.FINISH);
+  bar.classList.toggle('hidden', !showBar);
+  bar.classList.toggle('locked', !showBar);
+  refreshStartText();
+}
+
+/* 当前难度的真图是否都准备好了（简单难度没有照片，恒为 true） */
+function photosReady() {
+  if (!diffCfg().photo) return true;
+  const pool = scenePool();
+  for (let i = 0; i < pool.length; i++) {
+    const k = pool[i].key;
+    if (k && !PHOTO_IMAGES[k] && !PHOTO_FAILED[k]) return false;
+  }
+  return true;
+}
+
+/* 把关卡池里的真图全部加载好（用于开始前等待） */
+function ensurePhotos(cb) {
+  if (photosReady()) { cb(); return; }
+  const pool = scenePool();
+  preloadPhotos(pool, function () { cb(); });
+}
+
+function setDifficulty(d) {
+  if (!DIFFICULTY[d] || d === difficulty) return false;
+  if (state === STATE.RUNNING || state === STATE.LEVEL_UP) {
+    toast('先回主页再换难度吧', false);
+    say('想换难度的话，先点左上角的房子回主页哦');
+    return false;
+  }
+  difficulty = d;
+  try { localStorage.setItem('spotdiff.difficulty', d); } catch (e) {}
+  $('result').classList.remove('show');
+  $('start').style.display = '';
+  state = STATE.START;
+  resetGame();                       // 换池子 + 重新洗牌
+  preloadPhotos(scenePool());        // 真图先加载好，免得开局看到"加载中"
+  updateDiffBar();
+  say('已切换到' + diffCfg().name + '难度：' + diffCfg().blurb);
+  return true;
+}
+
+(function initDifficulty() {
+  const bar = $('diffBar');
+  if (bar) {
+    const btns = bar.querySelectorAll('.diff-btn');
+    for (let i = 0; i < btns.length; i++) {
+      btns[i].addEventListener('click', function (e) {
+        e.stopPropagation();
+        setDifficulty(this.getAttribute('data-diff'));
+      });
+    }
+  }
+  shuffleLevels();                   // 先按（可能是上次记住的）难度建好关卡池
+  preloadPhotos(scenePool());
+  updateDiffBar();
+})();
 
 /* ---------------- 测试钩子 ---------------- */
 window.__testDiffs = () => curScene().diffs.map((d, i) => ({
@@ -5480,6 +6004,38 @@ window.__testProgress = () => ({
 });
 window.__testOrder = () => LEVELS.map(s => s.name);   // 本局出题顺序（验证随机用）
 window.__testShuffle = () => shuffleLevels();
+window.__testDifficulty = () => difficulty;
+window.__testSetDifficulty = (d) => setDifficulty(d);
+window.__testSpots = () => spotsOf();
+window.__testPreload = () => { preloadPhotos(scenePool()); return Object.keys(PHOTO_IMAGES).length; };
+window.__testPhotos = () => Object.keys(PHOTO_IMAGES);
+window.__testStages = () => ({ top: stageTop, bot: stageBot, img: { w: IMG_W, h: IMG_H } });
+window.__testClutter = () => diffCfg().clutter;
+window.__testMarks = () => marks.slice();
+window.__testHint = () => hintFlash;
+/* 回到开始界面（测试用：难度只能在非游戏状态下切换） */
+window.__testToStart = () => {
+  state = STATE.START;
+  $('start').style.display = '';
+  $('result').classList.remove('show');
+  updateDiffBar();
+  return true;
+};
+/* 离屏渲染当前关卡的 A/B 两版，用来验证"干扰要素在两版里完全一致" */
+window.__testAB = () => {
+  const sc = curScene();
+  const keep = frameTime;
+  frameTime = 1.234;                 // 固定时间，A/B 必须逐像素只差声明的那几处
+  const out = {};
+  ['A', 'B'].forEach(function (v) {
+    const cv = document.createElement('canvas');
+    cv.width = IMG_W; cv.height = IMG_H;
+    sc.draw(cv.getContext('2d'), v);
+    out[v] = cv;
+  });
+  frameTime = keep;
+  return out;
+};
 </script>
 
 <script>
