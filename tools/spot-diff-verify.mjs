@@ -35,7 +35,7 @@ import vm from 'node:vm';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const HTML = join(__dirname, '..', 'spot-difference', 'index.html');
 
-let createCanvas = null, canvasPath = '';
+let createCanvas = null, loadImage = null, canvasPath = '';
 const candidates = [
   process.argv[2],
   process.env.SPOT_CANVAS,
@@ -47,7 +47,8 @@ const candidates = [
 
 for (const p of candidates) {
   try {
-    ({ createCanvas } = await import(pathToFileURL(p).href));
+    const mod = await import(pathToFileURL(p).href);
+    createCanvas = mod.createCanvas; loadImage = mod.loadImage || null;
     if (createCanvas) { canvasPath = p; break; }
   } catch (e) { /* 试下一个 */ }
 }
@@ -70,29 +71,89 @@ const js = m[0].replace(/^<script>/, '').replace(/<\/script>$/, '');
 /* ---- 用 DOM stub 在 vm 沙箱里跑游戏脚本（只为了拿到 SCENES 和绘制函数） ---- */
 const elStub = () => ({
   textContent: '', innerHTML: '', style: {},
-  classList: { add() {}, remove() {} },
+  classList: { add() {}, remove() {}, toggle() {} },
   addEventListener() {},
+  querySelectorAll: () => [],
   getContext: () => createCanvas(400, 300).getContext('2d'),
   getBoundingClientRect: () => ({ left: 0, top: 0 }),
   width: 400, height: 300,
 });
+/* Image 桩：src 赋值时同步返回已加载的照片（画布可直接当 drawImage 的源），
+ * 这样真图关卡也能在 Node 里一次性渲染出来校验。 */
+function makeImageStub() {
+  const cv = createCanvas(400, 300);
+  let srcVal = '';
+  Object.defineProperty(cv, 'src', {
+    configurable: true,
+    get() { return srcVal; },
+    set(v) {
+      srcVal = v;
+      const real = sandbox.__IMAGES__ && sandbox.__IMAGES__[v];
+      if (real) {
+        cv.width = real.width; cv.height = real.height;
+        cv.getContext('2d').drawImage(real, 0, 0);
+        if (this.onload) this.onload();
+      } else if (this.onerror) { this.onerror(); }
+    },
+  });
+  cv.onload = null; cv.onerror = null;
+  return cv;
+}
 const sandbox = {
-  document: { getElementById: () => elStub() },
+  __IMAGES__: {},
+  document: {
+    getElementById: () => elStub(),
+    createElement: () => createCanvas(400, 300),
+    addEventListener() {},
+  },
   window: { innerWidth: 1280, innerHeight: 800, addEventListener() {}, performance: { now: () => 0 }, speechSynthesis: null },
   requestAnimationFrame() {},
   performance: { now: () => 0 },
+  setTimeout: () => 0, clearTimeout: () => {},
 };
+sandbox.Image = makeImageStub;
 sandbox.globalThis = sandbox;
 const ctxObj = vm.createContext(sandbox);
-let SCENES, IMG_W, IMG_H;
+let GROUPS, IMG_W, IMG_H;
 try {
-  vm.runInContext(js + '\n;globalThis.__out = { SCENES, IMG_W, IMG_H };', ctxObj);
-  ({ SCENES, IMG_W, IMG_H } = vm.runInContext('__out', ctxObj));
+  vm.runInContext(js + '\n;globalThis.__out = { G: [SCENES, PHOTO_SCENES.hard, PHOTO_SCENES.hell], IMG_W, IMG_H };', ctxObj);
+  const out = vm.runInContext('__out', ctxObj);
+  IMG_W = out.IMG_W; IMG_H = out.IMG_H;
+  GROUPS = [
+    { label: '简单 · 手绘场景', scenes: out.G[0] },
+    { label: '困难 · 工地实景', scenes: out.G[1] },
+    { label: '地狱 · 风景实景', scenes: out.G[2] },
+  ];
 } catch (e) {
   console.error('✗ 游戏脚本执行失败:', e.message);
   process.exit(1);
 }
-console.log(`像素级校验：共 ${SCENES.length} 关，逐关渲染 A/B 两版对比（判定：点位中心 ${CORE_R}px 内需有 >= ${CORE_MIN} 个差异像素）\n`);
+
+/* 真图关卡：先把照片读进来，再让游戏的预加载把 Image 桩跑一遍 */
+try {
+  const srcs = new Set();
+  for (const g of GROUPS) for (const sc of g.scenes) {
+    if (!sc) continue;
+    if (sc.imgA) srcs.add(sc.imgA);
+    if (sc.imgB) srcs.add(sc.imgB);
+  }
+  if (srcs.size) {
+    if (!loadImage) { console.error('✗ 当前 canvas 模块没有 loadImage，无法校验真图关卡'); process.exit(2); }
+    for (const src of srcs) {
+      const file = join(__dirname, '..', 'spot-difference', src);
+      if (!existsSync(file)) { console.error(`✗ 照片不存在：${file}`); process.exit(1); }
+      sandbox.__IMAGES__[src] = await loadImage(file);
+    }
+    vm.runInContext('preloadPhotos(PHOTO_SCENES.hard); preloadPhotos(PHOTO_SCENES.hell);', ctxObj);
+    console.log(`已加载 ${srcs.size} 张实景照片`);
+  }
+} catch (e) {
+  console.error('✗ 真图准备失败:', e.message);
+  process.exit(1);
+}
+const SCENES = GROUPS.reduce((a, g) => a.concat(g.scenes), []);
+console.log(`像素级校验：共 ${SCENES.length} 关，逐关渲染 A/B 两版对比（判定：点位中心 ${CORE_R}px 内需有 >= ${CORE_MIN} 个差异像素）`);
+console.log(GROUPS.map(g => `  ${g.label} ${g.scenes.length} 关`).join(' · ') + '\n');
 
 let badLevels = 0, badPoints = 0;
 for (let i = 0; i < SCENES.length; i++) {
@@ -110,8 +171,11 @@ for (let i = 0; i < SCENES.length; i++) {
   }
   const da = cA.getContext('2d').getImageData(0, 0, IMG_W, IMG_H).data;
   const db = cB.getContext('2d').getImageData(0, 0, IMG_W, IMG_H).data;
+  /* 真图关卡 A/B 是两幅模型画的画，有整体色调漂移，阈值要和 scene-check 一致用 120 */
+  const isPhoto = !!(sc.imgA || sc.imgB);
+  const TH = isPhoto ? 120 : 24;
   const isDiff = p =>
-    Math.abs(da[p] - db[p]) + Math.abs(da[p + 1] - db[p + 1]) + Math.abs(da[p + 2] - db[p + 2]) > 24;
+    Math.abs(da[p] - db[p]) + Math.abs(da[p + 1] - db[p + 1]) + Math.abs(da[p + 2] - db[p + 2]) > TH;
 
   let total = 0;
   for (let p = 0; p < da.length; p += 4) if (isDiff(p)) total++;
@@ -124,6 +188,20 @@ for (let i = 0; i < SCENES.length; i++) {
       for (let x = Math.max(0, Math.round(d.x - R)); x < Math.min(IMG_W, Math.round(d.x + R)); x++) {
         if (isDiff((y * IMG_W + x) * 4)) hit++;
       }
+    }
+    /* 真图关卡：游戏里按"区域判定"，只要该处声明的框里确实有差异就算合格 */
+    if (isPhoto && d.boxes) {
+      let inBox = 0;
+      for (const b of d.boxes) {
+        for (let y = Math.max(0, b[1]); y <= Math.min(IMG_H - 1, b[3]); y++)
+          for (let x = Math.max(0, b[0]); x <= Math.min(IMG_W - 1, b[2]); x++)
+            if (isDiff((y * IMG_W + x) * 4)) inBox++;
+      }
+      if (inBox < 100) {
+        problems.push(`D${k + 1} "${d.desc}" 声明的区域里只有 ${inBox} 个差异像素`);
+        badPoints++;
+      }
+      return;
     }
     if (hit < 20) {
       problems.push(`D${k + 1} (${d.x},${d.y}) "${d.desc}" 附近 A/B 几乎无差异（仅 ${hit} 像素）`);

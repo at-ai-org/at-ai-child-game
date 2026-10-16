@@ -33,6 +33,32 @@ const body = src.slice(arrStart, end)
   .replace(/([{,]\s*)draw(\s*:\s*)[A-Za-z_$][\w$]*/g, '$1draw$2null');
 const SCENES = eval('(' + body + ')');   // eslint-disable-line no-eval
 
+
+/* --- 真图关卡（困难·工地 / 地狱·人物）的差异点也一起审计 ---
+ * PHOTO_SCENES 是纯数据字面量（draw 是运行时挂上去的），直接求值即可。 */
+function extractPhotoScenes(src) {
+  const start = src.indexOf('const PHOTO_SCENES = {');
+  if (start < 0) return [];
+  const objStart = src.indexOf('{', start);
+  let depth = 0, end = -1;
+  for (let i = objStart; i < src.length; i++) {
+    const c = src[i];
+    if (c === '{' || c === '[') depth++;
+    else if (c === '}' || c === ']') { depth--; if (depth === 0) { end = i + 1; break; } }
+  }
+  if (end < 0) return [];
+  const body = src.slice(objStart, end).replace(/\/\/[^\n]*/g, '');
+  try {
+    const ps = eval('(' + body + ')');            // eslint-disable-line no-eval
+    return [].concat(ps.hard || [], ps.hell || []);
+  } catch (e) {
+    console.error('✗ PHOTO_SCENES 解析失败：' + e.message);
+    return [];
+  }
+}
+
+const ALL = SCENES.concat(extractPhotoScenes(src));
+
 /* 与游戏内 hitRadiusFor() 保持一致（改动游戏逻辑时这里要同步） */
 function hitRadiusFor(d) {
   const edgeX = Math.min(d.x, IMG_W - d.x);
@@ -41,12 +67,13 @@ function hitRadiusFor(d) {
 }
 
 let fail = 0, totalR = 0;
-console.log('命中判定可达性校验（模拟孩子手指偏移 ±18px 仍应命中）\n');
+console.log('命中判定可达性校验（模拟孩子手指偏移 ±18px 仍应命中）');
+console.log(`简单 ${SCENES.length} 关` + (ALL.length > SCENES.length ? `（另有 ${ALL.length - SCENES.length} 关真图，差异运行时计算）` : '') + `\n`);
 
-for (let i = 0; i < SCENES.length; i++) {
-  const sc = SCENES[i];
+for (let i = 0; i < ALL.length; i++) {
+  const sc = ALL[i];
   const probs = [];
-  sc.diffs.forEach((d, k) => {
+  (sc.diffs || []).forEach((d, k) => {
     const r = hitRadiusFor(d);
     totalR += r;
     if (r < HIT_R_MIN - 1e-6) probs.push(`D${k + 1} 半径 ${r.toFixed(1)} < 最小 ${HIT_R_MIN}`);
@@ -66,5 +93,6 @@ for (let i = 0; i < SCENES.length; i++) {
   });
   if (probs.length) { fail += probs.length; console.log(`第${i + 1}关 ${sc.name}`); probs.forEach(p => console.log('  ' + p)); }
 }
-console.log(`\n合计 ${SCENES.length} 关 / ${SCENES.length * 5} 处差异，平均判定半径 ${(totalR / (SCENES.length * 5)).toFixed(1)}px，问题 ${fail} 处。`);
+const totalPts = ALL.reduce((n, sc) => n + (sc.diffs ? sc.diffs.length : 0), 0);
+console.log(`\n合计 ${ALL.length} 关 / ${totalPts} 处差异，平均判定半径 ${(totalR / totalPts).toFixed(1)}px，问题 ${fail} 处。`);
 process.exit(fail > 0 ? 1 : 0);

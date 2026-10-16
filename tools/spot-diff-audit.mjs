@@ -47,15 +47,46 @@ try {
   process.exit(2);
 }
 
+
+/* --- 真图关卡（困难·工地 / 地狱·人物）的差异点也一起审计 ---
+ * PHOTO_SCENES 是纯数据字面量（draw 是运行时挂上去的），直接求值即可。 */
+function extractPhotoScenes(src) {
+  const start = src.indexOf('const PHOTO_SCENES = {');
+  if (start < 0) return [];
+  const objStart = src.indexOf('{', start);
+  let depth = 0, end = -1;
+  for (let i = objStart; i < src.length; i++) {
+    const c = src[i];
+    if (c === '{' || c === '[') depth++;
+    else if (c === '}' || c === ']') { depth--; if (depth === 0) { end = i + 1; break; } }
+  }
+  if (end < 0) return [];
+  const body = src.slice(objStart, end).replace(/\/\/[^\n]*/g, '');
+  try {
+    const ps = eval('(' + body + ')');            // eslint-disable-line no-eval
+    return [].concat(ps.hard || [], ps.hell || []);
+  } catch (e) {
+    console.error('✗ PHOTO_SCENES 解析失败：' + e.message);
+    return [];
+  }
+}
+
+const ALL = SCENES.concat(extractPhotoScenes(src));
+
 /* --- 逐关审计 --- */
 let bad = 0, warn = 0;
-console.log(`差异点审计：安全边距 ${margin}px（画布 ${IMG_W}×${IMG_H}）\n`);
+console.log(`差异点审计：安全边距 ${margin}px（画布 ${IMG_W}×${IMG_H}）\n` +
+            `含简单 ${SCENES.length} 关；真图关卡的差异运行时计算，不在此审计` + `\n`);
 
-for (let i = 0; i < SCENES.length; i++) {
-  const sc = SCENES[i];
+for (let i = 0; i < ALL.length; i++) {
+  const sc = ALL[i];
   const lv = String(i + 1).padStart(2, ' ');
-  if (!sc.diffs || sc.diffs.length !== 5) {
-    console.log(`第${lv}关 ${sc.name}：⚠ 差异点数量为 ${sc.diffs ? sc.diffs.length : 0}，应为 5`);
+  /* 手绘关卡固定 5 处；真图关卡由模型实际改了几处决定（4~9 处） */
+  const n = sc.diffs ? sc.diffs.length : 0;
+  const isPhoto = !!(sc.imgA || sc.imgB);
+  const badCount = isPhoto ? (n < 3 || n > 10) : (n !== 5);
+  if (badCount) {
+    console.log(`第${lv}关 ${sc.name}：⚠ 差异点数量为 ${n}` + (isPhoto ? '（真图关卡应为 3~10 处）' : '，应为 5'));
     bad++;
     continue;
   }
@@ -89,5 +120,6 @@ for (let i = 0; i < SCENES.length; i++) {
   }
 }
 
-console.log(`\n合计：${SCENES.length} 关 / ${SCENES.length * 5} 处差异，问题 ${bad} 处${warn ? `，另有 ${warn} 条提醒` : ''}。`);
+const totalPts = ALL.reduce((n, sc) => n + (sc.diffs ? sc.diffs.length : 0), 0);
+console.log(`\n合计：${ALL.length} 关 / ${totalPts} 处差异，问题 ${bad} 处${warn ? `，另有 ${warn} 条提醒` : ''}。`);
 process.exit(bad > 0 ? 1 : 0);

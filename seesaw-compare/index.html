@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>数字跷跷板 · Number Seesaw</title>
+<title>跷跷板 · Seesaw</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2064%2064%22%3E%0A%20%20%3Crect%20width=%2264%22%20height=%2264%22%20rx=%2214%22%20fill=%22%237aa8ff%22/%3E%0A%20%20%3Ctext%20x=%2232%22%20y=%2233%22%20font-size=%2240%22%20text-anchor=%22middle%22%20dominant-baseline=%22central%22%20font-family=%22Apple%20Color%20Emoji,%20Segoe%20UI%20Emoji,%20Noto%20Color%20Emoji,%20sans-serif%22%3E%E2%9A%96%EF%B8%8F%3C/text%3E%0A%3C/svg%3E">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -63,6 +63,11 @@
     white-space: nowrap;
   }
   #captionBar.show { opacity: 1; }
+  /* 窄屏：得分/关卡 与 大字题目 都在上方，字幕挪到底部当旁白，长句也允许换行
+     （720px 以下时「得分/关卡」两个胶囊会顶到居中字幕条的左边缘） */
+  @media (max-width: 720px) {
+    #captionBar { top: auto; bottom: 18px; white-space: normal; line-height: 1.5; font-size: 17px; padding: 9px 16px; }
+  }
 
   #toast {
     position: absolute; left: 50%; top: 26%;
@@ -135,8 +140,18 @@
   }
   #start button:active { transform: scale(.97); }
 
-  #btnHome { position: absolute; top: 12px; left: 12px; z-index: 60; font-size: 20px; line-height: 1; padding: 9px 13px; border-radius: 12px; cursor: pointer; background: rgba(18, 14, 40, .72); border: 1px solid rgba(190, 160, 255, .35); color: #f0eaff; font-family: inherit; }
+  #topLeft { position: absolute; top: 12px; left: 12px; z-index: 60; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; max-width: calc(100vw - 70px); }
+  #btnHome { font-size: 20px; line-height: 1; padding: 9px 13px; border-radius: 12px; cursor: pointer; background: rgba(18, 14, 40, .72); border: 1px solid rgba(190, 160, 255, .35); color: #f0eaff; font-family: inherit; backdrop-filter: blur(6px); }
   #btnHome:active { transform: scale(.94); }
+  #modeSwitch { display: flex; gap: 3px; padding: 3px; border-radius: 13px; background: rgba(18, 14, 40, .72); border: 1px solid rgba(190, 160, 255, .35); backdrop-filter: blur(6px); }
+  .mode-btn {
+    font-family: inherit; font-size: 14px; font-weight: 700; letter-spacing: 1px;
+    color: #cbbcf0; background: transparent; border: none; border-radius: 10px;
+    padding: 8px 11px; min-height: 38px; white-space: nowrap;
+    cursor: pointer; transition: color .18s, background .18s;
+  }
+  .mode-btn.active { color: #fff; background: linear-gradient(90deg, #b06bff, #59d1ff); box-shadow: 0 3px 12px rgba(176,107,255,.45); }
+  .mode-btn:active { transform: scale(.96); }
   #homeConfirm { position: absolute; inset: 0; z-index: 90; background: rgba(8, 4, 20, .62); display: none; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
   #homeConfirm.show { display: flex; }
   #homeConfirm .hc-card { text-align: center; background: linear-gradient(160deg, #2c2050, #1a1230); border: 2px solid #b06bff; border-radius: 22px; padding: 26px 34px; box-shadow: 0 18px 50px rgba(0,0,0,.5); max-width: 84vw; }
@@ -150,7 +165,13 @@
 </style>
 </head>
 <body>
-<button id="btnHome" title="返回主页">🏠</button>
+<div id="topLeft">
+  <button id="btnHome" title="返回主页">🏠</button>
+  <div id="modeSwitch" role="group" aria-label="选择玩法">
+    <button class="mode-btn active" data-mode="number">数字跷跷板</button>
+    <button class="mode-btn" data-mode="animal">动物跷跷板</button>
+  </div>
+</div>
 <div id="homeConfirm">
   <div class="hc-card">
     <h2>🏠 返回游戏主页？</h2>
@@ -182,14 +203,8 @@
 </div>
 
 <div id="start">
-  <h1>⚖️ 数字跷跷板</h1>
-  <p class="rules">
-    跷跷板两边坐着数字小伙伴～<br>
-    听一听：<b>哪边的数字大？</b>（或者：哪边的小动物多？）<br>
-    ✅ 点对了 → 重的那边咣当沉下去！　❌ 点错了 → 跷跷板晃一晃再想一想<br>
-    会从 <b>看小动物数数</b> 慢慢变成 <b>直接比数字</b> 哦<br>
-    答 10 题通关！
-  </p>
+  <h1>⚖️ 跷跷板</h1>
+  <p class="rules" id="startRules"></p>
   <button id="btnStart">开始游戏</button>
 </div>
 
@@ -198,12 +213,17 @@
 window.addEventListener('contextmenu', e => e.preventDefault());
 
 /* =========================================================
- * 数字跷跷板 —— 比较多少 / 比较大小
+ * 跷跷板 —— 比较多少 / 比较大小 / 比较动物个头
  * 设计文档 G15 · 3-5 岁 · 点击
- * 三阶段递进：
- *   1-3 关：两边动物群（点数比较，一一对应排布）
- *   4-6 关：五格阵点阵（结构化群数）
- *   7-10 关：纯数字比较（含两位数）
+ * 两种玩法（左上角切换，默认「数字跷跷板」）：
+ *   【数字跷跷板】三阶段递进
+ *     1-3 关：两边动物群（点数比较，一一对应排布）
+ *     4-6 关：五格阵点阵（结构化群数）
+ *     7-10 关：纯数字比较（含两位数）
+ *   【动物跷跷板】
+ *     1-4 关：比个头差很多的两只（大象 vs 蚂蚁）
+ *     5-7 关：比个头差一些的两只
+ *     8-10 关：比个头差不多的两只
  * 点重的一边 → 跷跷板下沉动画 + 庆祝。
  * ========================================================= */
 
@@ -218,9 +238,10 @@ const STATE = { START: 0, RUNNING: 1, FINISH: 2 };
 const QUIZ_TOTAL = 10;
 
 let state = STATE.START;
+let gameMode = 'number';            // number 数字跷跷板 | animal 动物跷跷板
 let quizIndex = 0, score = 0, streak = 0, bestStreak = 0, wrongTotal = 0;
-let leftVal = 0, rightVal = 0;       // 两边数值
-let quizMode = 'animals';           // animals | dots | numbers
+let leftVal = 0, rightVal = 0;       // 两边数值（动物玩法里 = 个头排名）
+let quizMode = 'animals';           // animals | dots | numbers | sizes
 let settled = 0;                    // 跷跷板角度动画（0 平，-1 左沉，+1 右沉）
 let settleTarget = 0;
 let shake = 0;
@@ -229,6 +250,25 @@ let resultT = 0;                    // 结果展示后延时出下一题
 let animalsL = [], animalsR = [];   // 动物队列
 const ANIMAL_KINDS = ['🐻', '🐰', '🐸', '🐼', '🐯', '🦊', '🐨', '🐷'];
 let dotSide = 0;                    // 五格阵用
+
+/* 动物跷跷板：按真实个头从小到大排，画出来也按排名放大缩小
+   ⚠️ 必须用「全身」emoji（🐁🐇🐈🐕），不能用「脸」（🐭🐰🐱🐶）——
+      脸只有一个大头，跟🐘🐄🐑的全身摆在一起没法比个头，孩子看着也懵 */
+const SIZE_ANIMALS = [
+  { r: 1, e: '🐜', n: '蚂蚁' },
+  { r: 2, e: '🐁', n: '小老鼠' },
+  { r: 3, e: '🐇', n: '小兔子' },
+  { r: 4, e: '🐈', n: '小猫' },
+  { r: 5, e: '🐕', n: '小狗' },
+  { r: 6, e: '🐑', n: '绵羊' },
+  { r: 7, e: '🐖', n: '小猪' },
+  { r: 8, e: '🐄', n: '奶牛' },
+  { r: 9, e: '🐘', n: '大象' },
+];
+/* 三档难度：排名差越大越好分辨 */
+const SIZE_STAGES = [{ lo: 6, hi: 8 }, { lo: 3, hi: 5 }, { lo: 1, hi: 2 }];
+let leftAnimal = null, rightAnimal = null, lastPairKey = '';
+const animalByRank = r => SIZE_ANIMALS.find(a => a.r === r) || SIZE_ANIMALS[0];
 
 const $ = id => document.getElementById(id);
 const captionEl = $('captionBar');
@@ -291,43 +331,76 @@ $('btnMute').addEventListener('click', () => {
 });
 
 /* ---------------- 出题 ---------------- */
+function questionText() {
+  return quizMode === 'animals' ? '哪边的小动物多？'
+    : quizMode === 'dots' ? '哪边的点点多？'
+    : quizMode === 'sizes' ? '哪只动物更大？'
+    : '哪个数字大？';
+}
+
+/* 动物跷跷板：挑一对「排名差在 [gapLo, gapHi] 之间」的动物，且不连着重复 */
+function pickSizePair(gapLo, gapHi) {
+  const maxR = SIZE_ANIMALS.length;
+  for (let i = 0; i < 160; i++) {
+    const r1 = 1 + Math.floor(Math.random() * maxR);
+    const r2 = 1 + Math.floor(Math.random() * maxR);
+    const gap = Math.abs(r1 - r2);
+    if (gap < gapLo || gap > gapHi) continue;
+    const key = Math.min(r1, r2) + '-' + Math.max(r1, r2);
+    if (key === lastPairKey) continue;
+    lastPairKey = key;
+    return [r1, r2];
+  }
+  return [1, maxR];   /* 兜底：蚂蚁 vs 大象，一定比得出来 */
+}
+
 function makeQuiz() {
   answered = false;
   settled = 0; settleTarget = 0; resultT = 0;
-  /* 关卡模式 */
-  quizMode = quizIndex < 3 ? 'animals' : quizIndex < 6 ? 'dots' : 'numbers';
-
-  /* 数值范围：动物 1-5，点阵 2-9，数字 3-19 */
-  let lo, hi;
-  if (quizMode === 'animals') { lo = 1; hi = 5; }
-  else if (quizMode === 'dots') { lo = 2; hi = 9; }
-  else { lo = 3; hi = 19; }
-
-  /* 生成两个不同的数（相等没法比） */
-  do {
-    leftVal = lo + Math.floor(Math.random() * (hi - lo + 1));
-    rightVal = lo + Math.floor(Math.random() * (hi - lo + 1));
-  } while (leftVal === rightVal);
-
-  /* 动物队列 */
   animalsL = [];
   animalsR = [];
-  if (quizMode === 'animals') {
-    const kindL = ANIMAL_KINDS[Math.floor(Math.random() * ANIMAL_KINDS.length)];
-    const kindR = ANIMAL_KINDS[Math.floor(Math.random() * ANIMAL_KINDS.length)];
-    for (let i = 0; i < leftVal; i++) animalsL.push(kindL);
-    for (let i = 0; i < rightVal; i++) animalsR.push(kindR);
-  } else if (quizMode === 'dots') {
-    /* 点阵也画成小熊脸（好可爱版五格阵） */
-    for (let i = 0; i < leftVal; i++) animalsL.push('dot');
-    for (let i = 0; i < rightVal; i++) animalsR.push('dot');
+  leftAnimal = null;
+  rightAnimal = null;
+
+  if (gameMode === 'animal') {
+    /* 动物跷跷板：1-4 关差别很大 → 5-7 关差别居中 → 8-10 关差别很小 */
+    quizMode = 'sizes';
+    const stage = quizIndex < 4 ? 0 : quizIndex < 7 ? 1 : 2;
+    let [r1, r2] = pickSizePair(SIZE_STAGES[stage].lo, SIZE_STAGES[stage].hi);
+    if (Math.random() < 0.5) { const t = r1; r1 = r2; r2 = t; }   /* 左右随机换位 */
+    leftVal = r1; rightVal = r2;
+    leftAnimal = animalByRank(r1);
+    rightAnimal = animalByRank(r2);
+  } else {
+    /* 关卡模式 */
+    quizMode = quizIndex < 3 ? 'animals' : quizIndex < 6 ? 'dots' : 'numbers';
+
+    /* 数值范围：动物 1-5，点阵 2-9，数字 3-19 */
+    let lo, hi;
+    if (quizMode === 'animals') { lo = 1; hi = 5; }
+    else if (quizMode === 'dots') { lo = 2; hi = 9; }
+    else { lo = 3; hi = 19; }
+
+    /* 生成两个不同的数（相等没法比） */
+    do {
+      leftVal = lo + Math.floor(Math.random() * (hi - lo + 1));
+      rightVal = lo + Math.floor(Math.random() * (hi - lo + 1));
+    } while (leftVal === rightVal);
+
+    /* 动物队列 */
+    if (quizMode === 'animals') {
+      const kindL = ANIMAL_KINDS[Math.floor(Math.random() * ANIMAL_KINDS.length)];
+      const kindR = ANIMAL_KINDS[Math.floor(Math.random() * ANIMAL_KINDS.length)];
+      for (let i = 0; i < leftVal; i++) animalsL.push(kindL);
+      for (let i = 0; i < rightVal; i++) animalsR.push(kindR);
+    } else if (quizMode === 'dots') {
+      /* 点阵也画成小熊脸（好可爱版五格阵） */
+      for (let i = 0; i < leftVal; i++) animalsL.push('dot');
+      for (let i = 0; i < rightVal; i++) animalsR.push('dot');
+    }
   }
 
-  const q = quizMode === 'animals'
-    ? '哪边的小动物多？'
-    : quizMode === 'dots'
-      ? '哪边的点点多？'
-      : '哪个数字大？';
+  const q = questionText();
   speak(q);
   caption('🔈 ' + q);
   updateHUD();
@@ -336,7 +409,7 @@ function makeQuiz() {
 /* ---------------- 几何 ---------------- */
 function pivotX() { return W / 2; }
 function pivotY() { return H * 0.62; }
-function plankHalf() { return Math.min(W * 0.38, 340); }
+function plankHalf() { return Math.min(W * (quizMode === 'sizes' ? 0.32 : 0.38), quizMode === 'sizes' ? 300 : 340); }
 /* 跷跷板角度（弧度）：settled -1→左沉(左低) +1→右沉 */
 function plankAngle() { return settled * 0.22; }
 /* 板端点位置 */
@@ -370,10 +443,20 @@ function answer(side) {
     const winner = side === -1 ? leftVal : rightVal;
     const loser = side === -1 ? rightVal : leftVal;
     toast('答对啦！');
-    const explain = quizMode === 'numbers'
-      ? winner + ' 比 ' + loser + ' 大！'
-      : winner + ' 个比 ' + loser + ' 个多！';
-    speak('答对啦！' + explain + winner + '，' + winner + '！');
+    let explain;
+    if (quizMode === 'sizes') {
+      explain = (side === -1 ? leftAnimal : rightAnimal).n + '比'
+              + (side === -1 ? rightAnimal : leftAnimal).n + '大！';
+    } else if (quizMode === 'numbers') {
+      explain = winner + ' 比 ' + loser + ' 大！';
+    } else {
+      explain = winner + ' 个比 ' + loser + ' 个多！';
+    }
+    if (quizMode === 'sizes') {
+      speak('答对啦！' + explain);
+    } else {
+      speak('答对啦！' + explain + winner + '，' + winner + '！');
+    }
     caption('✅ ' + explain);
     sfxRight();
   } else {
@@ -383,9 +466,16 @@ function answer(side) {
     sfxWrong();
     const winnerVal = leftVal > rightVal ? leftVal : rightVal;
     const loserVal = leftVal > rightVal ? rightVal : leftVal;
-    const explain = quizMode === 'numbers'
-      ? winnerVal + ' 比 ' + loserVal + ' 大，再想一想'
-      : '数一数：左边 ' + leftVal + ' 个，右边 ' + rightVal + ' 个，' + winnerVal + ' 个更多哦';
+    const bigAnimal = leftVal > rightVal ? leftAnimal : rightAnimal;
+    const smallAnimal = leftVal > rightVal ? rightAnimal : leftAnimal;
+    let explain;
+    if (quizMode === 'sizes') {
+      explain = '看一看：' + bigAnimal.n + '比' + smallAnimal.n + '大，再想一想';
+    } else if (quizMode === 'numbers') {
+      explain = winnerVal + ' 比 ' + loserVal + ' 大，再想一想';
+    } else {
+      explain = '数一数：左边 ' + leftVal + ' 个，右边 ' + rightVal + ' 个，' + winnerVal + ' 个更多哦';
+    }
     speak(explain);
     caption('🔊 ' + explain);
     /* 答错允许重试（answered 复位） */
@@ -478,7 +568,7 @@ function drawSeesaw(t) {
 }
 
 function drawAnimals(t) {
-  if (quizMode === 'numbers') return;
+  if (quizMode !== 'animals' && quizMode !== 'dots') return;
   const drawList = (list, side) => {
     const seat = seatPos(side);
     /* 一一对应排布：纵向堆叠或横排 */
@@ -535,14 +625,73 @@ function drawNumbers(t) {
   drawOne(rightVal, 1);
 }
 
+/* emoji 画出来实际占多宽 / 多高（相对字号），用来决定最大能画多大 */
+const EMOJI_FONT = 'system-ui, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+let emojiMetrics = null;
+function getEmojiMetrics() {
+  if (emojiMetrics) return emojiMetrics;
+  const probe = 100;
+  ctx.save();
+  ctx.font = probe + 'px ' + EMOJI_FONT;
+  let w = 0, h = 0;
+  for (const a of SIZE_ANIMALS) {
+    const m = ctx.measureText(a.e);
+    w = Math.max(w, ((m.actualBoundingBoxLeft || 0) + (m.actualBoundingBoxRight || 0)) / probe);
+    h = Math.max(h, ((m.actualBoundingBoxAscent || 0) + (m.actualBoundingBoxDescent || 0)) / probe);
+  }
+  ctx.restore();
+  emojiMetrics = { w: w > 0.2 ? w : 1.15, h: h > 0.2 ? h : 1.0 };
+  return emojiMetrics;
+}
+
+/* 动物跷跷板：个头排名 → 实际画多大（排名越大画得越大，最大是最小的 3.2 倍） */
+function sizeFont(rank) {
+  const maxR = SIZE_ANIMALS.length;
+  const met = getEmojiMetrics();
+  const room = (pivotX() - plankHalf()) - 6;                  /* 板端到屏幕边还剩多少 */
+  const byWidth = room > 0 ? (room * 2) / met.w : 200;
+  /* 题目文字在 max(H*0.16, 152)，动物别顶到它 */
+  const qy = Math.max(H * 0.16, 152);
+  const byHeight = (pivotY() - 42 - qy) / met.h;
+  const fsMax = Math.max(56, Math.min(H * 0.20, 150, byWidth, byHeight));
+  const fsMin = fsMax / 3.2;
+  return fsMin + (rank - 1) / (maxR - 1) * (fsMax - fsMin);
+}
+
+function drawSizeAnimals(t) {
+  if (quizMode !== 'sizes' || !leftAnimal || !rightAnimal) return;
+  const drawOne = (animal, side) => {
+    const seat = seatPos(side);
+    const fs = sizeFont(animal.r);
+    const bob = Math.sin(t * 2.4 + (side < 0 ? 0 : 1.9)) * 3;
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.font = fs + 'px ' + EMOJI_FONT;
+    /* 量出这只动物真正画出来多大：脚正好踩在板面上，宽了就往里挪一点别被裁掉 */
+    const m = ctx.measureText(animal.e);
+    const inkL = m.actualBoundingBoxLeft > 0 ? m.actualBoundingBoxLeft : fs * 0.5;
+    const inkR = m.actualBoundingBoxRight > 0 ? m.actualBoundingBoxRight : fs * 0.5;
+    const inkB = m.actualBoundingBoxDescent > 0 ? m.actualBoundingBoxDescent : fs * 0.08;
+    const cx = Math.max(inkL + 4, Math.min(W - inkR - 4, seat.x));
+    ctx.shadowColor = 'rgba(0,0,0,.45)';
+    ctx.shadowBlur = 14;
+    ctx.shadowOffsetY = 6;
+    /* seat.y 是板中线，板面上沿约 -10，所以 -8 就是「坐在板子上」 */
+    ctx.fillText(animal.e, cx, seat.y - 8 - inkB + bob);
+    ctx.restore();
+  };
+  drawOne(leftAnimal, -1);
+  drawOne(rightAnimal, 1);
+}
+
 function drawQuestionText() {
-  const q = quizMode === 'animals' ? '哪边的小动物多？'
-    : quizMode === 'dots' ? '哪边的点点多？'
-    : '哪个数字大？';
+  const q = questionText();
   ctx.fillStyle = '#ffe9ad';
   ctx.font = 'bold 34px system-ui, sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(q, W / 2, H * 0.16);
+  /* 152 是字幕条底边，别被压在下面 */
+  ctx.fillText(q, W / 2, Math.max(H * 0.16, 152));
 }
 
 function roundRect(x, y, w, h, r) {
@@ -573,13 +722,17 @@ function showResult() {
   else if (wrongTotal <= 3)  { title = '🥈 比较小能手！'; medal = '银牌'; }
   else                        { title = '🥉 比较小达人！'; medal = '铜牌'; }
   $('resultTitle').textContent = title;
+  const tip = gameMode === 'animal'
+    ? '你已经会比动物的大和小啦！'
+    : '你已经会比较大小和多少啦！';
   $('resultDesc').innerHTML =
     `得分 <b style="color:#ffd35c">${score}</b> 分<br>` +
     `最佳连对 <b style="color:#8affa1">${bestStreak}</b> 题<br>` +
-    `你已经会比较大小和多少啦！（${medal}）`;
+    `${tip}（${medal}）`;
   $('result').classList.add('show');
   state = STATE.FINISH;
-  speak('太棒了！你会比较大和小、多和少啦！');
+  updateModeSwitch();
+  speak(gameMode === 'animal' ? '太棒了！你会比动物的大和小啦！' : '太棒了！你会比较大和小、多和少啦！');
 }
 
 /* ---------------- 主循环 ---------------- */
@@ -604,6 +757,7 @@ function render(t) {
   drawSeesaw(t);
   drawAnimals(t);
   drawNumbers(t);
+  drawSizeAnimals(t);
   drawQuestionText();
   ctx.restore();
 }
@@ -614,12 +768,14 @@ $('btnStart').addEventListener('click', () => {
   $('start').style.display = 'none';
   resetGame();
   state = STATE.RUNNING;
+  updateModeSwitch();      /* 玩起来就收起玩法切换器 */
   makeQuiz();
 });
 $('btnRestart').addEventListener('click', () => {
   $('result').classList.remove('show');
   resetGame();
   state = STATE.RUNNING;
+  updateModeSwitch();
   makeQuiz();
 });
 function resetGame() {
@@ -628,12 +784,74 @@ function resetGame() {
   updateHUD();
 }
 
+/* ---------------- 玩法切换（数字跷跷板 / 动物跷跷板） ---------------- */
+const START_RULES = {
+  number:
+    '跷跷板两边坐着数字小伙伴～<br>' +
+    '听一听：<b>哪边的数字大？</b>（或者：哪边的小动物多？）<br>' +
+    '✅ 点对了 → 重的那边咣当沉下去！　❌ 点错了 → 跷跷板晃一晃再想一想<br>' +
+    '会从 <b>看小动物数数</b> 慢慢变成 <b>直接比数字</b> 哦<br>' +
+    '10 个关卡，一关一题！',
+  animal:
+    '跷跷板两边坐着一大一小两只动物～<br>' +
+    '听一听：<b>哪只动物更大？</b><br>' +
+    '✅ 点对了 → 个头更大更重的那只咣当沉下去！　❌ 点错了 → 跷跷板晃一晃再想一想<br>' +
+    '先比 <b>大象和蚂蚁</b>，再慢慢比 <b>个头差不多</b> 的小动物哦<br>' +
+    '10 个关卡，一关一题！',
+};
+function applyStartRules() {
+  const el = $('startRules');
+  if (el) el.innerHTML = START_RULES[gameMode] || START_RULES.number;
+}
+
+function setGameMode(mode) {
+  if (mode !== 'number' && mode !== 'animal') return;
+  /* 开始游戏之后就不给换玩法了，只有开始界面能选 */
+  if (state !== STATE.START) return;
+  gameMode = mode;
+  const btns = document.querySelectorAll('.mode-btn');
+  for (let i = 0; i < btns.length; i++) {
+    const on = btns[i].dataset && btns[i].dataset.mode === mode;
+    if (on) btns[i].classList.add('active'); else btns[i].classList.remove('active');
+  }
+  applyStartRules();
+}
+
+/* 玩法切换器只在开始界面出现 */
+function updateModeSwitch() {
+  const sw = $('modeSwitch');
+  if (sw) sw.style.display = state === STATE.START ? '' : 'none';
+}
+
+(function () {
+  const btns = document.querySelectorAll('.mode-btn');
+  for (let i = 0; i < btns.length; i++) {
+    btns[i].addEventListener('click', e => {
+      e.stopPropagation();
+      setGameMode(btns[i].dataset.mode);
+    });
+  }
+  applyStartRules();
+  updateModeSwitch();
+})();
+
 /* 测试钩子 */
 window.__test = {
-  start: () => { initAudio(); $('start').style.display = 'none'; resetGame(); state = STATE.RUNNING; makeQuiz(); },
-  state: () => ({ state, quizIndex, mode: quizMode, leftVal, rightVal, score, streak, wrongTotal, answered, settled, settleTarget }),
+  start: () => { initAudio(); $('start').style.display = 'none'; resetGame(); state = STATE.RUNNING; updateModeSwitch(); makeQuiz(); },
+  state: () => {
+    const sw = $('modeSwitch');
+    return {
+      state, gameMode, quizIndex, mode: quizMode, leftVal, rightVal, score, streak, wrongTotal, answered, settled, settleTarget,
+      leftAnimal: leftAnimal && leftAnimal.n, rightAnimal: rightAnimal && rightAnimal.n,
+      leftFont: quizMode === 'sizes' && leftAnimal ? sizeFont(leftAnimal.r) : 0,
+      rightFont: quizMode === 'sizes' && rightAnimal ? sizeFont(rightAnimal.r) : 0,
+      modeSwitchShown: !!sw && sw.style.display !== 'none',
+    };
+  },
+  setMode: m => setGameMode(m),
   answer: side => { if (!answered) answer(side); },
   tick: ms => { let total = ms; const step = 16.7; while (total > 0) { update(step / 1000); total -= step; } },
+  render: t => { render(t || 0); },
 };
 
 /* 返回主页确认弹窗 */

@@ -28,3 +28,17 @@ windows-kiosk/obj/
 .gitee-token
 .env
 *.local
+# 图像生成接口配置（含密钥），只放在本机
+image-config.json
+
+# 找不同关卡底图的原始大图（2048x2048，仅供重新裁切，不入库；游戏只用 400x300 的 jpg）
+spot-difference/images/_raw/
+
+# 找不同的关卡图与检测元数据都是构建产物：跑 tools/gen-svg-park-levels.py 就能重新生成，
+# 客户端只用内嵌后的 spot-difference/photos-data.js（那个必须入库，见 tools/embed-photo-levels.py）
+spot-difference/images/*.jpg
+spot-difference/images/*.json
+
+# Python 缓存
+tools/__pycache__/
+__pycache__/
