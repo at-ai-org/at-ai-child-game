@@ -509,11 +509,11 @@ def scene_gate(v, pal, hell):
     o.append(cloud(200, 100) + cloud(620, 90) + birds((300, 180), (360, 205), (420, 182)))
     o.append(gate(400, '#e5533f' if v == 'A' else '#3f7ff0'))                  # 门牌颜色
     if v == 'A':
-        o.append(balloon(150, 140, '#ffd93b'))                                 # 气球数量
+        o.append(_shrink(balloon(150, 140, '#ffd93b'), 150, 140, 0.75))  # 气球数量
     o.append(balloon(660, 380, '#ef5350'))
     if v == 'A':
-        o.append(cloud(400, 140))                                              # 云朵数量
-    o.append(sun(650, 140, 34, rays=(46, 66, 14) if v == 'A' else None))       # 太阳光芒
+        o.append(_shrink(cloud(400, 140), 400, 140, 0.75))  # 云朵数量
+    o.append(_shrink(sun(650, 140, 34, rays=(46, 66, 14) if v == 'A' else None), 650, 140, 0.75))  # 太阳光芒
     o.append(booth(650, 559, window=(v == 'A')))                              # 售票亭窗户
     fc = '#ff6fa5' if v == 'A' else '#b06ff0'                                  # 花丛颜色
     o.append(flower(120, 470, fc, 1.8) + flower(160, 495, fc, 1.8) + flower(190, 465, fc, 1.8))
@@ -594,9 +594,9 @@ def scene_pond(v, pal, hell):
         o.append(duckling(300, 430))                        # ← 数一数：A 是 3 只
     # 天上：小云一朵（B 少一朵） + 蜻蜓一只（B 少一只）
     if v == 'A':
-        o.append(cloud(640, 240, 0.7))
+        o.append(_shrink(cloud(640, 240, 0.7), 640, 240, 0.75))
     if v == 'A':
-        o.append(dragonfly(150, 300))
+        o.append(_shrink(dragonfly(150, 300), 150, 300, 0.75))
     if hell and v == 'A':
         o.append(balloon(400, 110, '#ffd93b'))
     return o
@@ -615,15 +615,15 @@ def scene_play(v, pal, hell):
     for tx in (200, 280, 360, 440, 520, 600):
         o.append(tuft(tx, 585))
     o.append(cloud(200, 100) + cloud(600, 80) + birds((300, 180), (370, 205)))
-    o.append(slide(300, 470, '#f2a13c' if v == 'A' else '#5aa9e6'))            # 滑梯颜色
+    o.append(_shrink(slide(300, 470, '#f2a13c' if v == 'A' else '#5aa9e6'), 300, 470, 0.75))  # 滑梯颜色
     o.append(swing(600, 470, seat=(v == 'A')))                                 # 秋千座板
-    o.append(seesaw(150, 480, '#8b6b4a' if v == 'A' else '#4aa8e0'))            # 跷跷板支架
+    o.append(_shrink(seesaw(150, 480, '#8b6b4a' if v == 'A' else '#4aa8e0'), 150, 480, 0.75))  # 跷跷板支架
     if v == 'A':
-        o.append(ball(650, 500, 34, '#ef5350'))                                # 皮球
+        o.append(_shrink(ball(650, 500, 34, '#ef5350'), 650, 500, 0.75))  # 皮球
     if v == 'A':
-        o.append(cloud(150, 120))                                              # 云朵数量
+        o.append(_shrink(cloud(150, 120), 150, 120, 0.75))  # 云朵数量
     if v == 'A':
-        o.append(kite(650, 140, '#8b5cf6', tail=False))                        # 风筝
+        o.append(_shrink(kite(650, 140, '#8b5cf6', tail=False), 650, 140, 0.75))  # 风筝
     if hell and v == 'A':
         o.append(balloon(400, 140, '#ffd93b'))
     return o
@@ -642,16 +642,16 @@ def scene_garden(v, pal, hell):
         o.append(flower(fx, fy, '#ff6fa5' if fx % 2 else '#ffb703', 0.9))
     o.append(butterfly(220, 200, '#ffd93b', 0.8) + butterfly(560, 230, '#4aa8e0', 0.8))
     o.append(cloud(150, 90) + cloud(640, 110))
-    o.append(arch(650, 380, '#8fd15a' if v == 'A' else '#e5533f'))             # 花架颜色
-    o.append(butterfly(400, 140, '#ff6fa5' if v == 'A' else '#7f6ff0', 1.0))   # 蝴蝶颜色
+    o.append(_shrink(arch(650, 380, '#8fd15a' if v == 'A' else '#e5533f'), 650, 380, 0.75))  # 花架颜色
+    o.append(_shrink(butterfly(400, 140, '#ff6fa5' if v == 'A' else '#7f6ff0', 1.0), 400, 140, 0.75))  # 蝴蝶颜色
     if v == 'A':
-        o.append(cloud(150, 120))                                              # 云朵数量
+        o.append(_shrink(cloud(150, 120), 150, 120, 0.75))  # 云朵数量
     fc = '#ff6fa5' if v == 'A' else '#ffb703'                                  # 花坛颜色
     o.append(flower(120, 470, fc, 1.8) + flower(160, 495, fc, 1.8) + flower(190, 465, fc, 1.8))
     if v == 'A':
-        o.append(watering(400, 500, '#4aa8e0'))                                # 喷壶
+        o.append(_shrink(watering(400, 500, '#4aa8e0'), 400, 500, 0.75))  # 喷壶
     if v == 'A':
-        o.append(bee(150, 320, 1.0))                                           # 蜜蜂
+        o.append(_shrink(bee(150, 320, 1.0), 150, 320, 0.75))  # 蜜蜂
     if hell and v == 'A':
         o.append(balloon(400, 300, '#ffd93b'))
     return o
@@ -675,14 +675,14 @@ def scene_picnic(v, pal, hell):
     o.append(tree(150, 430, 84, apples=((100, 330),) + apple))
     o.append(blanket(150, 500, 110, 60, '#ff8fb1' if v == 'A' else '#6fa8f0'))  # 野餐毯颜色
     if v == 'A':
-        o.append(basket(400, 480))                                             # 野餐篮
+        o.append(_shrink(basket(400, 480), 400, 480, 0.75))  # 野餐篮
     if v == 'A':
-        o.append(mushroom(650, 510, '#e5533f'))                                # 蘑菇数量
+        o.append(_shrink(mushroom(650, 510, '#e5533f'), 650, 510, 0.75))  # 蘑菇数量
     o.append(mushroom(710, 540, '#e5533f'))
     if v == 'A':
-        o.append(cloud(150, 120))                                              # 云朵数量
+        o.append(_shrink(cloud(150, 120), 150, 120, 0.75))  # 云朵数量
     if v == 'A':
-        o.append(kite(650, 140, '#8b5cf6', tail=False))                        # 风筝
+        o.append(_shrink(kite(650, 140, '#8b5cf6', tail=False), 650, 140, 0.75))  # 风筝
     if hell and v == 'A':
         o.append(balloon(400, 140, '#ffd93b'))
     return o
@@ -883,17 +883,17 @@ def site_scene(v, pal, hell, machine, mcolor, pcolor, extra_prop=None):
     o.append(cloud(300, 90) + cloud(560, 210) + cloud(240, 250))
     o.append(tree(760, 470, 44, apples=()))
     o.append(cloud(760, 250) + birds((360, 210), (422, 244)))
-    o.append(machine(500, 500))                                                # 挖斗/铲/筒 颜色是差异
+    o.append(_shrink(machine(500, 500), 500, 500, 0.9))  # 挖斗/铲/筒 颜色是差异
     if hell and v == 'A':
-        o.append(balloon(400, 140, '#ffd93b'))                                 # 地狱第 7 处
+        o.append(_shrink(balloon(400, 140, '#ffd93b'), 400, 140, 0.75))  # 地狱第 7 处
     if v == 'A':
-        o.append(cloud(150, 130))                                              # 云朵数量
-    o.append(sun(650, 130, 34, rays=(46, 66, 14) if v == 'A' else None))       # 太阳光芒
+        o.append(_shrink(cloud(150, 130), 150, 130, 0.75))  # 云朵数量
+    o.append(_shrink(sun(650, 130, 34, rays=(46, 66, 14) if v == 'A' else None), 650, 130, 0.8))  # 太阳光芒
     if v == 'A':
-        o.append(pipes(120, 512, 3))                                           # 水泥管
+        o.append(_shrink(pipes(120, 512, 3), 120, 512, 0.75))  # 水泥管
     if v == 'A':
-        o.append(cone(300, 520))                                               # 锥筒
-    o.append(windsock(250, 545, '#ff7a1a' if v == 'A' else '#4a86d8'))          # 风向袋颜色
+        o.append(_shrink(cone(300, 520), 300, 520, 0.75))  # 锥筒
+    o.append(_shrink(windsock(250, 545, '#ff7a1a' if v == 'A' else '#4a86d8'), 250, 545, 0.85))  # 风向袋颜色
     return o
 
 
