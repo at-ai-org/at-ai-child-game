@@ -943,11 +943,19 @@ def sign_board(cx, cy, d, s=0.9, style='wood'):
     w = h * 0.72
     total = len(str(d)) * w + (len(str(d)) - 1) * h * 0.16
     pw, ph = max(120 * s, total + 56 * s), h + 44 * s
+    board = (f'<rect x="{cx - pw / 2:.1f}" y="{cy - ph / 2:.1f}" width="{pw:.1f}" height="{ph:.1f}" '
+             f'rx="{16 * s:.0f}" fill="{face}" stroke="{edge}" stroke-width="{max(3, round(6 * s))}"/>'
+             + digit(cx - total / 2, cy - h / 2, d, h, '#3b3a36'))
+    if style == 'sea':                      # 水下：木牌柱子一直插到沙底才自然
+        return (f'<rect x="{cx - 7 * s:.0f}" y="{cy + ph / 2 - 6 * s:.0f}" width="{14 * s:.0f}" '
+                f'height="{560 - cy - ph / 2:.0f}" fill="{post}"/>' + board)
+    if cy < 420:                            # 高处：像横幅一样用两根绳子吊下来
+        top = cy - ph / 2
+        return (f'<path d="M{cx - pw / 3:.0f},{top:.0f} L{cx - pw / 3:.0f},{top - 70 * s:.0f} '
+                f'M{cx + pw / 3:.0f},{top:.0f} L{cx + pw / 3:.0f},{top - 70 * s:.0f}" '
+                f'stroke="{post}" stroke-width="{8 * s:.0f}"/>' + board)
     return (f'<rect x="{cx - 9 * s:.0f}" y="{cy + ph / 2 - 6 * s:.0f}" width="{18 * s:.0f}" '
-            f'height="{70 * s:.0f}" fill="{post}"/>'
-            f'<rect x="{cx - pw / 2:.1f}" y="{cy - ph / 2:.1f}" width="{pw:.1f}" height="{ph:.1f}" '
-            f'rx="{16 * s:.0f}" fill="{face}" stroke="{edge}" stroke-width="{max(3, round(6 * s))}"/>'
-            + digit(cx - total / 2, cy - h / 2, d, h, '#3b3a36'))
+            f'height="{70 * s:.0f}" fill="{post}"/>' + board)
 
 
 def build_spec(v, pal, hell, spec):
