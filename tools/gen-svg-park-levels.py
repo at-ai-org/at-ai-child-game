@@ -497,6 +497,16 @@ def scene_gate(v, pal, hell):
     o.append(path_center())
     o.append(tree(60, 470, 50, apples=((40, 430),)))
     o.append(fence(40, 570, 4) + tuft(430, 580) + stone(760, 560, 26, 16))
+    for tx, ty in ((90, 470), (250, 430), (700, 460), (770, 500)):
+        o.append(tree(tx, ty, 40, apples=()))
+    o.append(bush(200, 505, 0.6) + bush(620, 500, 0.55))
+    for fx, fy in ((60, 520), (130, 550), (500, 520), (570, 550), (640, 520), (740, 552)):
+        o.append(flower(fx, fy, '#ffd93b' if fx % 2 else '#ff6fa5', 0.85))
+    for sx, sy, sr in ((180, 560, 15), (320, 575, 13), (460, 560, 16), (600, 575, 13)):
+        o.append(stone(sx, sy, sr, round(sr * 0.6)))
+    for tx in (150, 230, 310, 390, 470, 550, 630, 710):
+        o.append(tuft(tx, 590))
+    o.append(cloud(200, 100) + cloud(620, 90) + birds((300, 180), (360, 205), (420, 182)))
     o.append(gate(400, '#e5533f' if v == 'A' else '#3f7ff0'))                  # 门牌颜色
     if v == 'A':
         o.append(balloon(150, 140, '#ffd93b'))                                 # 气球数量
@@ -598,6 +608,13 @@ def scene_play(v, pal, hell):
     o.append('<ellipse cx="380" cy="520" rx="260" ry="74" fill="%s"/>' % pal['sand'])
     o.append(cloud(430, 100) + cloud(760, 230) + birds((330, 190), (392, 224)))
     o.append(bush(700, 470, 0.8) + tuft(760, 570) + stone(300, 580, 22, 13))
+    o.append(slide(120, 470, '#5aa9e6'))
+    o.append(seesaw(680, 480, '#4aa8e0'))
+    for fx, fy in ((80, 500), (160, 540), (240, 505), (620, 520), (700, 545), (760, 505)):
+        o.append(flower(fx, fy, '#ffd93b' if fx % 2 else '#ff6fa5', 0.8))
+    for tx in (200, 280, 360, 440, 520, 600):
+        o.append(tuft(tx, 585))
+    o.append(cloud(200, 100) + cloud(600, 80) + birds((300, 180), (370, 205)))
     o.append(slide(300, 470, '#f2a13c' if v == 'A' else '#5aa9e6'))            # 滑梯颜色
     o.append(swing(600, 470, seat=(v == 'A')))                                 # 秋千座板
     o.append(seesaw(150, 480, '#8b6b4a' if v == 'A' else '#4aa8e0'))            # 跷跷板支架
@@ -618,6 +635,13 @@ def scene_garden(v, pal, hell):
     o.append(cloud(520, 100) + cloud(760, 240) + birds((360, 180), (422, 214)))
     o.append(path_center(skew=0.3))
     o.append(bush(60, 520, 0.9) + tuft(520, 580) + stone(240, 570, 24, 14))
+    o.append(arch(180, 380, '#8fd15a'))
+    o.append(arch(430, 380, '#f2a13c'))
+    for fx, fy in ((90, 500), (170, 470), (250, 505), (330, 470), (420, 505), (500, 470),
+                   (590, 505), (680, 470), (760, 505)):
+        o.append(flower(fx, fy, '#ff6fa5' if fx % 2 else '#ffb703', 0.9))
+    o.append(butterfly(220, 200, '#ffd93b', 0.8) + butterfly(560, 230, '#4aa8e0', 0.8))
+    o.append(cloud(150, 90) + cloud(640, 110))
     o.append(arch(650, 380, '#8fd15a' if v == 'A' else '#e5533f'))             # 花架颜色
     o.append(butterfly(400, 140, '#ff6fa5' if v == 'A' else '#7f6ff0', 1.0))   # 蝴蝶颜色
     if v == 'A':
@@ -639,6 +663,14 @@ def scene_picnic(v, pal, hell):
     o.append(cloud(400, 220) + birds((430, 200), (492, 234)))
     o.append(tree(760, 470, 50, apples=((730, 410),)))
     o.append(tuft(560, 580) + stone(320, 580, 26, 15) + bush(700, 560, 0.7))
+    o.append(tree(120, 470, 44, apples=()))
+    o.append(tree(680, 460, 40, apples=()))
+    o.append(bush(300, 430, 0.6) + bush(520, 425, 0.55))
+    for tx in (240, 320, 400, 480, 560, 640, 720):
+        o.append(tuft(tx, 588))
+    for fx, fy in ((200, 505), (280, 540), (360, 505), (440, 540), (520, 505), (600, 540)):
+        o.append(flower(fx, fy, '#ffd93b' if fx % 2 else '#ff6fa5', 0.8))
+    o.append(cloud(220, 90) + cloud(600, 120) + birds((330, 180), (400, 205)))
     apple = ((150, 300),) if v == 'A' else ()                                  # 苹果数量
     o.append(tree(150, 430, 84, apples=((100, 330),) + apple))
     o.append(blanket(150, 500, 110, 60, '#ff8fb1' if v == 'A' else '#6fa8f0'))  # 野餐毯颜色
@@ -664,6 +696,13 @@ def scene_lake(v, pal, hell):
     o.append(birds((430, 200), (492, 234)))
     o.append(tree(80, 470, 44, apples=()))
     o.append(swan(430, 520, s=0.9) + tuft(240, 570) + stone(180, 585, 24, 14))
+    o.append(reeds(80, 500, 5, step=26))
+    o.append(reeds(720, 500, 5, step=26))
+    o.append(boat(180, 470, '#ffd93b', s=0.7))
+    o.append(bench(620, 480))
+    for tx in (60, 140, 260, 340, 460, 540, 660, 740):
+        o.append(tuft(tx, 585))
+    o.append(cloud(200, 100) + cloud(620, 90))
     o.append(sun(150, 140, 30 if v == 'A' else 42, rays=None,
                  color=pal['sun'], edge=pal['sun_edge']))                       # 落日大小
     o.append(cloud(650, 140) if v == 'A' else '')                               # 云朵数量
@@ -832,6 +871,17 @@ def site_scene(v, pal, hell, machine, mcolor, pcolor, extra_prop=None):
     o.append(building(150, 400))
     o.append(barrier(560, 400, 4))
     o.append(dirt(500, 520, 360, 96))
+    # 同类诱饵：整排锥筒/成对水泥管/草丛/树/花（两版完全一致，只会更难找，不会产生差异像素）
+    for cx in (60, 130, 200, 380, 450, 620, 690, 760):
+        o.append(cone(cx, 585))
+    for px in (90, 200, 690):
+        o.append(pipes(px, 560, 2))
+    for tx in (250, 330, 410, 500, 580, 660, 740):
+        o.append(tuft(tx, 596))
+    for fx, fy in ((80, 500), (150, 530), (230, 505), (320, 535), (420, 505)):
+        o.append(flower(fx, fy, '#ff6fa5' if fx % 2 else '#ffd93b', 0.8))
+    o.append(cloud(300, 90) + cloud(560, 210) + cloud(240, 250))
+    o.append(tree(760, 470, 44, apples=()))
     o.append(cloud(760, 250) + birds((360, 210), (422, 244)))
     o.append(machine(500, 500))                                                # 挖斗/铲/筒 颜色是差异
     if hell and v == 'A':
@@ -1646,8 +1696,19 @@ def fun_levels():
 # 工地（第二批：塔吊/脚手架/建材/泵车/叉车/装载机）
 # ==========================================================================
 def site_bg(pal, v, hell):
-    return [sky(), hills((180, 420, 260, 90, pal['hill1']), (620, 430, 300, 100, pal['hill2'])),
-            grass(400), dirt(500, 520, 360, 96)]
+    # 工地背景：整排锥筒/成对水泥管/草丛/石子（两版一致，差异藏在同类里）
+    o = [sky(), hills((180, 420, 260, 90, pal['hill1']), (620, 430, 300, 100, pal['hill2'])),
+         grass(400), dirt(500, 520, 360, 96)]
+    for cx in (60, 130, 200, 270, 620, 690, 760):
+        o.append(cone(cx, 588))
+    for px in (90, 190, 700):
+        o.append(pipes(px, 556, 2))
+    for tx in (230, 310, 390, 470, 550, 640, 730):
+        o.append(tuft(tx, 596))
+    for sx, sy, sr in ((150, 545, 14), (330, 560, 12), (500, 542, 15), (660, 558, 12)):
+        o.append(stone(sx, sy, sr, round(sr * 0.6)))
+    o.append(cloud(280, 95) + cloud(600, 80))
+    return o
 
 
 def cement_bags(x, base, color='#e8e4da', n=3):
