@@ -1885,7 +1885,7 @@ def site2_levels():
 # ==========================================================================
 # 动物园数字关：每只动物身上挂一个号码牌，找不同的关键是比对号码
 # ==========================================================================
-def num_tag(x, y, d, h=34, face='#f8efdd', edge='#b99a6b', ink='#4a3a28', cord=True):
+def num_tag(x, y, d, h=34, face='#f8efdd', edge='#b99a6b', ink='#4a3a28', cord=False):
     """动物脖子上的小号码牌：h = 数字高度（按这只动物的体型给）；边框很淡，避免抢戏"""
     w = h * 0.72
     total = len(str(d)) * w + (len(str(d)) - 1) * h * 0.16
@@ -1948,7 +1948,7 @@ def zoo_num_scene(v, pal, hell, plan):
         hgt = ZOO_ANIMAL_H[kind] * ZOO_ANIMAL_SCALE[kind] * 1.15            # 这只动物实际身高
         d = changed[(i,)]
         num = d[0] if v == 'A' else d[1]
-        o.append(num_tag(ax, ay - hgt * 0.44, num, h=min(36.0, max(30.0, hgt * 0.21))))
+        o.append(num_tag(ax, ay - hgt * 0.28, num, h=min(28.0, max(26.0, hgt * 0.155))))
     k = DIFF_SCALE.get('zoo', 1.0)
     for item in plan['diffs']:
         if item[0] == 'show':
@@ -1976,17 +1976,17 @@ def zoo_num_levels():
     flower = ('swap', 'flower', (70, 545, '#ff6fa5', 1.1), (70, 545, '#ff8f3c', 1.1))
     bushc = ('swap', 'bush', (762, 528, 0.7, '#4fb84f'), (762, 528, 0.7, '#c9d94a'))
     plans = [
-        dict(key='hard-37', name='动物园·号码牌 1', order=0, numbered=[0, 6], nums=[(0, '1', '8'), (6, '5', '0')],
+        dict(key='hard-37', name='动物园·号码牌 1', order=0, numbered=[0, 6], nums=[(0, '1', '8'), (6, '7', '8')],
              diffs=[d_cloud, ray_on, balloon, stone]),
-        dict(key='hard-38', name='动物园·号码牌 2', order=1, numbered=[0, 6], nums=[(0, '1', '8'), (6, '7', '0')],
+        dict(key='hard-38', name='动物园·号码牌 2', order=1, numbered=[0, 6], nums=[(0, '1', '8'), (6, '7', '8')],
              diffs=[d_cloud, ray_big, kite, flower]),
-        dict(key='hard-39', name='动物园·号码牌 3', order=2, numbered=[1, 6], nums=[(1, '5', '0'), (6, '7', '0')],
+        dict(key='hard-39', name='动物园·号码牌 3', order=2, numbered=[1, 6], nums=[(1, '1', '8'), (6, '7', '8')],
              diffs=[d_cloud, ray_on, balloon, bushc]),
-        dict(key='hard-40', name='动物园·号码牌 4', order=3, numbered=[0, 6], nums=[(0, '1', '8'), (6, '7', '0')],
+        dict(key='hard-40', name='动物园·号码牌 4', order=3, numbered=[0, 6], nums=[(0, '1', '8'), (6, '7', '8')],
              diffs=[d_cloud, ray_big, kite, stone]),
-        dict(key='hard-41', name='动物园·号码牌 5', order=4, numbered=[1, 6], nums=[(1, '3', '0'), (6, '0', '5')],
+        dict(key='hard-41', name='动物园·号码牌 5', order=4, numbered=[1, 6], nums=[(1, '1', '8'), (6, '7', '8')],
              diffs=[d_cloud, ray_on, balloon, flower]),
-        dict(key='hard-42', name='动物园·号码牌 6', order=0, numbered=[0, 6], nums=[(0, '1', '8'), (6, '3', '0')],
+        dict(key='hard-42', name='动物园·号码牌 6', order=0, numbered=[0, 6], nums=[(0, '7', '8'), (6, '1', '8')],
              diffs=[d_cloud, ray_big, kite, bushc]),
     ]
     return plans
