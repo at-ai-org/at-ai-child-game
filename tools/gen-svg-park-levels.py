@@ -1025,6 +1025,12 @@ def build_spec(v, pal, hell, spec):
     o.extend(THEME_BG[spec['theme']](pal, v, hell))
     for name, args in spec.get('deco', []):
         o.append(KIT[name](*args))
+    if spec.get('puzzle_deco'):                     # 数一数：先把同类物摆好
+        for name, args in spec['puzzle_deco']:
+            o.append(KIT[name](*args))
+    if spec.get('puzzle_sign'):                     # 牌子写着"应该有几个"
+        px, py, pd, ps = spec['puzzle_sign']
+        o.append(sign_board(px, py, pd, ps, spec.get('theme', 'wood')))
     k = DIFF_SCALE.get(spec['theme'], 1.0)
     for item in spec['diffs']:
         if item[0] == 'show':                       # 只在 A 出现（有无差异）
@@ -1206,12 +1212,14 @@ def zoo_levels():
         extra=('bee', (400, 300, 1.0))))
     # hard-16 猴山
     spec.append(dict(key='hard-16', name='猴山', theme='zoo',
+        puzzle_sign=(150, 505, '3', 0.9),
+        puzzle_deco=[('rabbit', (620, 500, 1.35)), ('rabbit', (700, 545, 1.2))],
         deco=[('hillrock', (600, 500)), ('monkey', (600, 470, 1.1)), ('tree', (110, 470, 54, ())),
               ('bush', (300, 500, 0.9)), ('tuft', (180, 580)), ('stone', (740, 560, 24, 14))],
         diffs=[('show', 'cloud', (150, 130)),
                ('swap', 'sun', (650, 130, 34, (46, 66, 14)), (650, 130, 34, None)),
                ('show', 'balloon', (400, 110, '#ffd93b')),
-               ('digit', 150, 505, '5', '0', 0.85),
+               ('show', 'rabbit', (110, 500, 1.35)),
                ('show', 'banana', (370, 500)),
                ('swap', 'ball', (600, 470, 34, '#ffd93b'), (600, 470, 34, '#4aa8e0'))],
         extra=('bee', (400, 300, 1.0))))
@@ -1469,7 +1477,7 @@ def sea_levels():
                ('digit', 400, 140, '3', '8', 0.9),
                ('show', 'jellyfish', (650, 130, '#b06ff0', 1.0)),
                ('swap', 'starfish', (110, 505, '#ff8f3c', 0.8), (110, 505, '#ff6fa5', 0.8)),
-               ('show', 'turtle', (400, 505, '#ff8f3c', 0.85)),
+               ('show', 'turtle', (400, 505, '#ff8f3c', 0.62)),
                ('swap', 'coral', (620, 560, '#ff6fa5'), (620, 560, '#ffd93b'))],
         extra=('fish', (400, 300, '#ff6fa5', 0.7))))
     # hard-20 沉船宝藏
@@ -1502,7 +1510,7 @@ def sea_levels():
                ('show', 'clownfish', (400, 130, 1.0)),
                ('swap', 'jellyfish', (650, 130, '#ff6fa5'), (650, 130, '#7fce8a')),
                ('digit', 128, 505, '9', '6', 0.9),
-               ('swap', 'turtle', (400, 505, '#7fce8a', 0.85), (400, 505, '#8b5cf6', 0.85)),
+               ('swap', 'turtle', (400, 505, '#7fce8a', 0.62), (400, 505, '#8b5cf6', 0.62)),
                ('show', 'starfish', (620, 520, '#8b5cf6', 1.0))],
         extra=('fish', (400, 300, '#ff6fa5', 0.7))))
     # hard-23 深海奇观
