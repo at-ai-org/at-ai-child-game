@@ -927,6 +927,29 @@ def plaque(cx, cy, d, s=0.9, face='#fff6e5', edge='#c9a06a', ink='#2f3b4a'):
 # ==========================================================================
 # 通用场景装配：关卡用数据描述（deco 两版一致，diffs 才是差异）
 # ==========================================================================
+SIGN_STYLE = {
+    'wood': ('#f0dcae', '#c9a06a', '#8b6b4a'),
+    'zoo': ('#ffe9c6', '#d8a45c', '#a8762a'),
+    'sea': ('#e6f6ff', '#7fc6e8', '#4a7f99'),
+    'fun': ('#fff2cf', '#ffb347', '#e5533f'),
+    'site': ('#ffe9a8', '#e8b53c', '#8b6b4a'),
+}
+
+
+def sign_board(cx, cy, d, s=0.9, style='wood'):
+    # 把数字做成场景里的牌子：立柱 + 牌面（按主题配色），不再是天上飘的卡片
+    face, edge, post = SIGN_STYLE.get(style, SIGN_STYLE['wood'])
+    h = 130 * s
+    w = h * 0.72
+    total = len(str(d)) * w + (len(str(d)) - 1) * h * 0.16
+    pw, ph = max(120 * s, total + 56 * s), h + 44 * s
+    return (f'<rect x="{cx - 9 * s:.0f}" y="{cy + ph / 2 - 6 * s:.0f}" width="{18 * s:.0f}" '
+            f'height="{70 * s:.0f}" fill="{post}"/>'
+            f'<rect x="{cx - pw / 2:.1f}" y="{cy - ph / 2:.1f}" width="{pw:.1f}" height="{ph:.1f}" '
+            f'rx="{16 * s:.0f}" fill="{face}" stroke="{edge}" stroke-width="{max(3, round(6 * s))}"/>'
+            + digit(cx - total / 2, cy - h / 2, d, h, '#3b3a36'))
+
+
 def build_spec(v, pal, hell, spec):
     o = [defs(pal)]
     o.extend(THEME_BG[spec['theme']](pal, v, hell))
@@ -938,9 +961,9 @@ def build_spec(v, pal, hell, spec):
                 o.append(KIT[item[1]](*item[2]))
         elif item[0] == 'swap':                     # 两版都画，换参数（颜色/大小/光芒）
             o.append(KIT[item[1]](*(item[2] if v == 'A' else item[3])))
-        elif item[0] == 'digit':                    # 数字牌：数字本身是差异
+        elif item[0] == 'digit':                    # 数字：牌子上的数字变了
             _, cx, cy, da, db, s = item
-            o.append(plaque(cx, cy, da if v == 'A' else db, s))
+            o.append(sign_board(cx, cy, da if v == 'A' else db, s, spec.get('theme', 'wood')))
     if hell and v == 'A':                           # 地狱第 7 处
         o.append(KIT[spec['extra'][0]](*spec['extra'][1]))
     return o
@@ -954,7 +977,18 @@ def spec_builder(spec):
 # 动物园
 # ==========================================================================
 def zoo_bg(pal, v, hell):
-    return [sky(), hills((180, 420, 260, 90, pal['hill1']), (620, 430, 300, 100, pal['hill2'])), grass(400)]
+    # 动物园背景：铺一圈同类小物（花/石/草丛/灌木），差异就藏在这些相似物里
+    o = [sky(), hills((180, 420, 260, 90, pal['hill1']), (620, 430, 300, 100, pal['hill2'])), grass(400)]
+    for fx, fy in ((60, 470), (110, 500), (160, 468), (215, 496), (270, 470), (325, 500),
+                   (430, 476), (490, 505), (545, 472), (600, 500), (655, 474), (710, 502), (760, 476)):
+        o.append(flower(fx, fy, '#ff6fa5' if fx % 2 else '#ffd93b', 0.75))
+    for sx, sy, sr in ((90, 545, 15), (200, 560, 13), (300, 542, 16), (400, 562, 12),
+                       (500, 545, 15), (600, 560, 13), (700, 543, 16)):
+        o.append(stone(sx, sy, sr, round(sr * 0.6)))
+    for tx in (140, 240, 340, 440, 540, 640, 740):
+        o.append(tuft(tx, 585))
+    o.append(bush(400, 430, 0.55) + bush(700, 424, 0.5))
+    return o
 
 
 def pen(x, base, w=320, color='#d8b382', rail='#c9a06a'):
@@ -1158,6 +1192,13 @@ def sea_bg(pal, v, hell):
            '<stop offset="1" stop-color="%s"/></linearGradient></defs>'
            '<rect x="0" y="0" width="800" height="600" fill="url(#sea)"/>'
            % (top, mid, deep))
+    # 同类诱饵：散落的海草/贝壳/气泡（差异藏在其中）
+    for wx in (60, 150, 240, 330, 420, 510, 600, 690):
+        out += seaweed(wx, 596, '#3f9e46', 0.55)
+    for sx, sy in ((100, 556), (210, 574), (320, 552), (430, 578), (540, 556), (650, 576), (750, 554)):
+        out += shell(sx, sy, '#e8cbb0' if sx % 3 else '#d9b48f', 0.5)
+    for bx, by in ((170, 300), (480, 240), (700, 380), (300, 460)):
+        out += bubbles(bx, by, 3, 0.6)
     # 水面透下来的光柱
     for i, x in enumerate((120, 380, 640)):
         out += ('<path d="M%s,0 L%s,0 L%s,420 L%s,420 Z" fill="#ffffff" opacity="0.10"/>'
@@ -1420,6 +1461,12 @@ def sea_levels():
 def fun_bg(pal, v, hell):
     o = [sky(), hills((180, 420, 260, 90, pal['hill1']), (620, 430, 300, 100, pal['hill2'])), grass(400)]
     o.append('<path d="M0,430 q200,-24 400,-4 q200,20 400,-8 L800,470 L0,470 Z" fill="#f3e3bb"/>')
+    for i, fx in enumerate(range(40, 780, 74)):
+        o.append(flag(fx, 250 + (i % 2) * 26, '#ff6fa5' if i % 3 == 0 else ('#ffd93b' if i % 3 == 1 else '#4aa8e0'), 0.5))
+    for tx in (80, 160, 250, 350, 450, 540, 630, 720, 780):
+        o.append(tuft(tx, 588))
+    for bx, by in ((120, 520), (330, 545), (520, 520), (700, 548)):
+        o.append(ball(bx, by, 20, '#4aa8e0' if bx % 2 else '#ff6fa5'))
     return o
 
 
