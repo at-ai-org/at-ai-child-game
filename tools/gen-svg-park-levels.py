@@ -1008,22 +1008,35 @@ def sign_board(cx, cy, d, s=0.9, style='wood'):
             f'height="{70 * s:.0f}" fill="{post}"/>' + board)
 
 
+DIFF_SCALE = {'zoo': 0.8, 'sea': 0.7, 'fun': 0.7, 'site': 0.85}
+
+
+def _shrink(body, ax, ay, k):
+    if k >= 0.999:
+        return body
+    return (f'<g transform="translate({ax},{ay}) scale({k}) translate({-ax},{-ay})">{body}</g>')
+
+
 def build_spec(v, pal, hell, spec):
     o = [defs(pal)]
     o.extend(THEME_BG[spec['theme']](pal, v, hell))
     for name, args in spec.get('deco', []):
         o.append(KIT[name](*args))
+    k = DIFF_SCALE.get(spec['theme'], 1.0)
     for item in spec['diffs']:
         if item[0] == 'show':                       # 只在 A 出现（有无差异）
             if v == 'A':
-                o.append(KIT[item[1]](*item[2]))
+                a = item[2]
+                o.append(_shrink(KIT[item[1]](*a), a[0], a[1], k))
         elif item[0] == 'swap':                     # 两版都画，换参数（颜色/大小/光芒）
-            o.append(KIT[item[1]](*(item[2] if v == 'A' else item[3])))
+            a = item[2] if v == 'A' else item[3]
+            o.append(_shrink(KIT[item[1]](*a), a[0], a[1], k))
         elif item[0] == 'digit':                    # 数字：牌子上的数字变了
             _, cx, cy, da, db, s = item
             o.append(sign_board(cx, cy, da if v == 'A' else db, s, spec.get('theme', 'wood')))
     if hell and v == 'A':                           # 地狱第 7 处
-        o.append(KIT[spec['extra'][0]](*spec['extra'][1]))
+        a = spec['extra'][1]
+        o.append(_shrink(KIT[spec['extra'][0]](*a), a[0], a[1], k))
     return o
 
 
