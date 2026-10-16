@@ -1885,14 +1885,16 @@ def site2_levels():
 # ==========================================================================
 # 动物园数字关：每只动物身上挂一个号码牌，找不同的关键是比对号码
 # ==========================================================================
-def num_tag(x, y, d, s=1.0, face='#fff6e0', edge='#b08a55', ink='#4a3a28'):
-    """动物身上的号码牌（挂脖子/身上），数字是差异所在；牌子本身两版一致"""
-    h = 86 * s
+def num_tag(x, y, d, h=48, face='#f7e7c6', edge='#a8804c', ink='#4a3a28', cord=True):
+    """动物脖子上挂的小皮牌：h = 数字高度（按这只动物的体型给），牌子本身两版一致"""
     w = h * 0.72
     total = len(str(d)) * w + (len(str(d)) - 1) * h * 0.16
-    pw, ph = max(52 * s, total + 24 * s), h + 22 * s
-    return (f'<rect x="{x - pw / 2:.1f}" y="{y - ph / 2:.1f}" width="{pw:.1f}" height="{ph:.1f}" '
-            f'rx="{8 * s:.0f}" fill="{face}" stroke="{edge}" stroke-width="{max(2, round(3 * s))}"/>'
+    pw, ph = max(h * 0.9, total + h * 0.5), h + h * 0.44
+    rope = (f'<path d="M{x - pw * 0.28:.1f},{y - ph / 2:.1f} L{x - pw * 0.18:.1f},{y - ph * 1.5:.1f} '
+            f'M{x + pw * 0.28:.1f},{y - ph / 2:.1f} L{x + pw * 0.18:.1f},{y - ph * 1.5:.1f}" '
+            f'stroke="{edge}" stroke-width="{max(2, h * 0.06):.1f}" fill="none"/>') if cord else ''
+    return (rope + f'<rect x="{x - pw / 2:.1f}" y="{y - ph / 2:.1f}" width="{pw:.1f}" height="{ph:.1f}" '
+            f'rx="{h * 0.22:.0f}" fill="{face}" stroke="{edge}" stroke-width="{max(2, round(h * 0.07))}"/>'
             + digit(x - total / 2, y - h / 2, d, h, ink))
 
 
@@ -1903,7 +1905,9 @@ ZOO_GRID = ((95, 430, 350), (255, 430, 350), (415, 430, 350), (575, 430, 350), (
 ZOO_KINDS = ('rabbit', 'monkey', 'panda', 'penguin', 'duckling')
 
 
-ZOO_ANIMAL_SCALE = {'rabbit': 1.45, 'monkey': 1.45, 'panda': 1.23, 'penguin': 1.2, 'duckling': 1.6}
+ZOO_ANIMAL_SCALE = {'rabbit': 1.4, 'monkey': 1.35, 'panda': 1.15, 'penguin': 1.1, 'duckling': 0.95}
+# 各种动物的自然身高（s=1 时），用来算号码牌该多大：小鸭小牌、熊猫大牌
+ZOO_ANIMAL_H = {'rabbit': 110, 'monkey': 112, 'panda': 130, 'penguin': 132, 'duckling': 100}
 
 
 def _zoo_animal(kind, x, y):
@@ -1927,16 +1931,22 @@ def zoo_num_scene(v, pal, hell, plan):
     o.append(fence(30, 430, 9, step=88, bw=22, bh=72))                                # 后围栏
     for tx in (60, 180, 300, 420, 540, 660, 780):
         o.append(tuft(tx, 592))
-    changed = {i: (a, b) for i, a, b in plan['nums']}
+    changed = {(i,): (a, b) for i, a, b in plan['nums']}
     order = plan['order']
+    num_slots = plan['numbered'] if isinstance(plan['numbered'], (list, tuple)) else [plan['numbered']]
     for i, (ax, ay, _t) in enumerate(ZOO_GRID):
         kind = ZOO_KINDS[(i + order) % len(ZOO_KINDS)]
         nm, args = _zoo_animal(kind, ax, ay)
+        if i in num_slots:                                     # 挂牌的动物画大一点
+            args = tuple(list(args[:-1]) + [args[-1] * 1.15])
         o.append(KIT[nm](*args))
-    for i, (ax, ay, _t) in enumerate(ZOO_GRID):      # 号码牌统一画在最后，保证不被前排动物挡住
-        d = changed.get(i)
-        num = (d[0] if v == 'A' else d[1]) if d else (i + 1)
-        o.append(num_tag(ax, ay - 80, num, 0.58))    # 数字高约 50px，约为动物身高的 1/3，贴在腹部
+    for i in num_slots:
+        ax, ay, _t = ZOO_GRID[i]
+        kind = ZOO_KINDS[(i + order) % len(ZOO_KINDS)]
+        hgt = ZOO_ANIMAL_H[kind] * ZOO_ANIMAL_SCALE[kind] * 1.15            # 这只动物实际身高
+        d = changed[(i,)]
+        num = d[0] if v == 'A' else d[1]
+        o.append(num_tag(ax, ay - hgt * 0.44, num, h=min(56.0, max(44.0, hgt * 0.30))))
     k = DIFF_SCALE.get('zoo', 1.0)
     for item in plan['diffs']:
         if item[0] == 'show':
@@ -1964,17 +1974,17 @@ def zoo_num_levels():
     flower = ('swap', 'flower', (70, 545, '#ff6fa5', 1.1), (70, 545, '#ff8f3c', 1.1))
     bushc = ('swap', 'bush', (762, 528, 0.7, '#4fb84f'), (762, 528, 0.7, '#c9d94a'))
     plans = [
-        dict(key='hard-37', name='动物园·号码牌 1', order=0, nums=[(0, '1', '4'), (6, '5', '0')],
+        dict(key='hard-37', name='动物园·号码牌 1', order=0, numbered=[0, 6], nums=[(0, '1', '4'), (6, '5', '0')],
              diffs=[d_cloud, ray_on, balloon, stone]),
-        dict(key='hard-38', name='动物园·号码牌 2', order=1, nums=[(2, '3', '8'), (6, '1', '4')],
+        dict(key='hard-38', name='动物园·号码牌 2', order=1, numbered=[0, 6], nums=[(0, '1', '8'), (6, '7', '0')],
              diffs=[d_cloud, ray_big, kite, flower]),
-        dict(key='hard-39', name='动物园·号码牌 3', order=2, nums=[(4, '5', '0'), (6, '9', '0')],
+        dict(key='hard-39', name='动物园·号码牌 3', order=2, numbered=[1, 6], nums=[(1, '5', '0'), (6, '9', '0')],
              diffs=[d_cloud, ray_on, balloon, bushc]),
-        dict(key='hard-40', name='动物园·号码牌 4', order=3, nums=[(1, '2', '7'), (7, '8', '3')],
+        dict(key='hard-40', name='动物园·号码牌 4', order=3, numbered=[0, 6], nums=[(0, '1', '8'), (6, '7', '0')],
              diffs=[d_cloud, ray_big, kite, stone]),
-        dict(key='hard-41', name='动物园·号码牌 5', order=4, nums=[(3, '4', '1'), (6, '0', '6')],
+        dict(key='hard-41', name='动物园·号码牌 5', order=4, numbered=[1, 6], nums=[(1, '4', '1'), (6, '0', '6')],
              diffs=[d_cloud, ray_on, balloon, flower]),
-        dict(key='hard-42', name='动物园·号码牌 6', order=0, nums=[(0, '8', '3'), (8, '3', '8')],
+        dict(key='hard-42', name='动物园·号码牌 6', order=0, numbered=[0, 6], nums=[(0, '1', '8'), (6, '3', '0')],
              diffs=[d_cloud, ray_big, kite, bushc]),
     ]
     return plans
