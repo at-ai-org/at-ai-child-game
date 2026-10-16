@@ -49,7 +49,8 @@ CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 
 # 设计基准：SVG 画在 800×600，游戏里缩到 400×300（和现有真图关卡同规格）
 W, H = 800, 600
-GAME = (400, 300)
+GAME = (400, 300)          # 游戏逻辑尺寸（检测/显示都会缩到这个尺寸）
+SHOT = (GAME[0] * 2, GAME[1] * 2)   # 关卡图渲染分辨率：2 倍，缩到 GAME 显示时更锐利
 
 # ---- 游戏检测参数（与 index.html 一致） ----
 PHOTO_DIFF_TH = 110
@@ -2016,12 +2017,12 @@ def render_jpg(svg_path, jpg_path, tag):
     with open(html, 'w', encoding='utf-8') as f:
         f.write('<html><body style="margin:0;background:#fff">'
                 '<img src="%s" width="%d" height="%d" style="display:block"></body></html>'
-                % (os.path.basename(svg_path), GAME[0], GAME[1]))
+                % (os.path.basename(svg_path), SHOT[0], SHOT[1]))
     png = svg_path[:-4] + '.png'
     try:
-        chrome_shot(html, png, GAME, tag)
+        chrome_shot(html, png, SHOT, tag)
         Image.open(png).convert('RGB').save(
-            jpg_path, 'JPEG', quality=88, subsampling=0, optimize=True, progressive=True)
+            jpg_path, 'JPEG', quality=90, subsampling=0, optimize=True, progressive=True)
     finally:
         for p in (html, png):
             if os.path.exists(p):
@@ -2031,8 +2032,8 @@ def render_jpg(svg_path, jpg_path, tag):
 
 # ---- 差异检测：复刻 index.html 的 computePhotoDiffs() ----
 def detect(a_path, b_path):
-    ia = Image.open(a_path).convert('RGB')
-    ib = Image.open(b_path).convert('RGB')
+    ia = Image.open(a_path).convert('RGB').resize(GAME, Image.BILINEAR)
+    ib = Image.open(b_path).convert('RGB').resize(GAME, Image.BILINEAR)
     w, h = ia.size
     da = np.asarray(ia, dtype=np.int16)
     db = np.asarray(ib, dtype=np.int16)
